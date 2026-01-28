@@ -86,6 +86,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       icon: ClipboardCheck,
     },
     { href: "/dashboard/pending-kyc", label: "KYC Review", icon: Users },
+    { href: "/dashboard/oracle", label: "Oracle Data", icon: TrendingUp },
     { href: "/dashboard/users", label: "Users", icon: Users },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];

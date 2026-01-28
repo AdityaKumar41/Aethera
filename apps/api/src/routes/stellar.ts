@@ -4,6 +4,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
+import { Keypair } from "@stellar/stellar-sdk";
 import { prisma } from "@aethera/database";
 import {
   walletService,
@@ -174,10 +175,10 @@ router.post(
     try {
       const user = await prisma.user.findUnique({
         where: { id: req.auth?.userId },
-        select: { stellarPubKey: true, stellarSecretKey: true },
+        select: { stellarPubKey: true, stellarSecretEncrypted: true },
       });
 
-      if (!user?.stellarPubKey || !user?.stellarSecretKey) {
+      if (!user?.stellarPubKey || !user?.stellarSecretEncrypted) {
         throw createApiError("No wallet found", 400);
       }
 
@@ -195,10 +196,8 @@ router.post(
       }
 
       // Decrypt secret and create trustline
-      const secret = walletService.decryptSecret(user.stellarSecretKey);
-      const keypair = require("@stellar/stellar-sdk").Keypair.fromSecret(
-        secret,
-      );
+      const secret = walletService.decryptSecret(user.stellarSecretEncrypted);
+      const keypair = Keypair.fromSecret(secret);
 
       const txHash = await trustlineService.createTrustline(keypair);
 

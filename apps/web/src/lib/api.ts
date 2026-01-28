@@ -25,6 +25,31 @@ export async function fetchApi(
 }
 
 export const api = {
+  // Generic HTTP methods
+  get: (
+    endpoint: string,
+    options?: { params?: Record<string, any>; token?: string },
+  ) => {
+    const token = options?.token || "";
+    const queryParams = options?.params
+      ? "?" + new URLSearchParams(options.params).toString()
+      : "";
+    return fetchApi(`${endpoint}${queryParams}`, token);
+  },
+  post: (endpoint: string, data?: any, token?: string) =>
+    fetchApi(endpoint, token || "", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  put: (endpoint: string, data?: any, token?: string) =>
+    fetchApi(endpoint, token || "", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (endpoint: string, token?: string) =>
+    fetchApi(endpoint, token || "", { method: "DELETE" }),
+
+  // Legacy specific methods
   getMarketplace: (token?: string) =>
     fetchApi("/projects/marketplace", token || ""),
   getProject: (id: string, token: string) => fetchApi(`/projects/${id}`, token),

@@ -29,6 +29,9 @@ export {
   USDC_ASSET_MAINNET,
 } from "./trustline";
 
+// Soroban Contract Service
+export { SorobanContractService, getSorobanService } from "./soroban";
+
 // Re-export useful Stellar SDK items
 export {
   Keypair,
