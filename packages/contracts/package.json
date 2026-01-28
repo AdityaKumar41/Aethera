@@ -1,0 +1,15 @@
+{
+  "name": "@aethera/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Soroban smart contracts for Aethera platform",
+  "scripts": {
+    "build": "stellar contract build",
+    "test": "cargo test",
+    "deploy:testnet": "stellar contract deploy --network testnet --source admin",
+    "optimize": "stellar contract optimize --wasm target/wasm32-unknown-unknown/release/*.wasm"
+  },
+  "devDependencies": {
+    "stellar-cli": "^21.0.0"
+  }
+}

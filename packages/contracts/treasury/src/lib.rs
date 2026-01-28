@@ -1,0 +1,290 @@
+#![no_std]
+
+//! # Aethera Treasury Contract
+//! 
+//! Escrow contract that holds USDC investments and manages capital release.
+//! 
+//! Flow:
+//! 1. Investors deposit USDC (via investment)
+//! 2. Funds held in escrow until project funded
+//! 3. Admin releases capital to installer
+//! 4. Revenue flows back for yield distribution
+
+use soroban_sdk::{
+    contract, contractimpl, contracttype, token, Address, Env, String,
+};
+
+#[contracttype]
+#[derive(Clone)]
+pub struct ProjectEscrow {
+    pub project_id: String,
+    pub asset_token: Address,       // Address of the asset token contract
+    pub installer: Address,         // Installer receiving funds
+    pub funding_target: i128,       // Target amount in USDC (7 decimals)
+    pub current_funding: i128,      // Current amount funded
+    pub status: ProjectStatus,
+    pub platform_fee_bps: u32,      // Platform fee in basis points (250 = 2.5%)
+}
+
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub enum ProjectStatus {
+    Funding,        // Accepting investments
+    Funded,         // Target reached
+    Active,         // Capital released, project producing
+    Completed,      // Project ended
+}
+
+#[contracttype]
+pub enum DataKey {
+    Admin,
+    UsdcToken,
+    Project(String),
+    PlatformBalance,
+}
+
+#[contract]
+pub struct TreasuryContract;
+
+#[contractimpl]
+impl TreasuryContract {
+    /// Initialize the treasury
+    pub fn initialize(env: Env, admin: Address, usdc_token: Address) {
+        if env.storage().instance().has(&DataKey::Admin) {
+            panic!("Already initialized");
+        }
+
+        env.storage().instance().set(&DataKey::Admin, &admin);
+        env.storage().instance().set(&DataKey::UsdcToken, &usdc_token);
+        env.storage().instance().set(&DataKey::PlatformBalance, &0i128);
+    }
+
+    /// Create escrow for a new project
+    pub fn create_project_escrow(
+        env: Env,
+        project_id: String,
+        asset_token: Address,
+        installer: Address,
+        funding_target: i128,
+        platform_fee_bps: u32,
+    ) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        if platform_fee_bps > 1000 {
+            // Max 10% fee
+            panic!("Fee too high");
+        }
+
+        let escrow = ProjectEscrow {
+            project_id: project_id.clone(),
+            asset_token,
+            installer,
+            funding_target,
+            current_funding: 0,
+            status: ProjectStatus::Funding,
+            platform_fee_bps,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Project(project_id), &escrow);
+    }
+
+    /// Process an investment (called by platform)
+    /// Returns true if project is now fully funded
+    pub fn process_investment(
+        env: Env,
+        project_id: String,
+        investor: Address,
+        amount: i128,
+    ) -> bool {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        let mut escrow: ProjectEscrow = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Project(project_id.clone()))
+            .expect("Project not found");
+
+        if escrow.status != ProjectStatus::Funding {
+            panic!("Project not accepting investments");
+        }
+
+        // Transfer USDC from investor to this contract
+        let usdc: Address = env.storage().instance().get(&DataKey::UsdcToken).unwrap();
+        let token_client = token::Client::new(&env, &usdc);
+        token_client.transfer(&investor, &env.current_contract_address(), &amount);
+
+        // Update escrow
+        escrow.current_funding += amount;
+
+        // Check if fully funded
+        let fully_funded = escrow.current_funding >= escrow.funding_target;
+        if fully_funded {
+            escrow.status = ProjectStatus::Funded;
+        }
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Project(project_id), &escrow);
+
+        fully_funded
+    }
+
+    /// Release capital to installer (after project funded)
+    pub fn release_capital(env: Env, project_id: String) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        let mut escrow: ProjectEscrow = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Project(project_id.clone()))
+            .expect("Project not found");
+
+        if escrow.status != ProjectStatus::Funded {
+            panic!("Project not ready for capital release");
+        }
+
+        // Calculate platform fee
+        let platform_fee = (escrow.current_funding * escrow.platform_fee_bps as i128) / 10000;
+        let installer_amount = escrow.current_funding - platform_fee;
+
+        // Transfer to installer
+        let usdc: Address = env.storage().instance().get(&DataKey::UsdcToken).unwrap();
+        let token_client = token::Client::new(&env, &usdc);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &escrow.installer,
+            &installer_amount,
+        );
+
+        // Update platform balance
+        let mut platform_balance: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::PlatformBalance)
+            .unwrap_or(0);
+        platform_balance += platform_fee;
+        env.storage()
+            .instance()
+            .set(&DataKey::PlatformBalance, &platform_balance);
+
+        // Update escrow status
+        escrow.status = ProjectStatus::Active;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Project(project_id), &escrow);
+    }
+
+    /// Receive yield payment from project operator
+    pub fn receive_yield(env: Env, project_id: String, amount: i128) {
+        let escrow: ProjectEscrow = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Project(project_id.clone()))
+            .expect("Project not found");
+
+        if escrow.status != ProjectStatus::Active {
+            panic!("Project not active");
+        }
+
+        // Installer must send payment
+        escrow.installer.require_auth();
+
+        // Transfer USDC to treasury
+        let usdc: Address = env.storage().instance().get(&DataKey::UsdcToken).unwrap();
+        let token_client = token::Client::new(&env, &usdc);
+        token_client.transfer(
+            &escrow.installer,
+            &env.current_contract_address(),
+            &amount,
+        );
+
+        // Yield will be distributed in separate call
+        // This just holds the funds for now
+    }
+
+    /// Withdraw platform fees (admin only)
+    pub fn withdraw_fees(env: Env, recipient: Address, amount: i128) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        let mut platform_balance: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::PlatformBalance)
+            .unwrap_or(0);
+
+        if amount > platform_balance {
+            panic!("Insufficient platform balance");
+        }
+
+        platform_balance -= amount;
+        env.storage()
+            .instance()
+            .set(&DataKey::PlatformBalance, &platform_balance);
+
+        let usdc: Address = env.storage().instance().get(&DataKey::UsdcToken).unwrap();
+        let token_client = token::Client::new(&env, &usdc);
+        token_client.transfer(&env.current_contract_address(), &recipient, &amount);
+    }
+
+    // ============================================
+    // View Functions
+    // ============================================
+
+    pub fn get_project(env: Env, project_id: String) -> ProjectEscrow {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Project(project_id))
+            .expect("Project not found")
+    }
+
+    pub fn get_platform_balance(env: Env) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::PlatformBalance)
+            .unwrap_or(0)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, token};
+
+    #[test]
+    fn test_escrow_flow() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, TreasuryContract);
+        let client = TreasuryContractClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let installer = Address::generate(&env);
+        let investor = Address::generate(&env);
+        let usdc_token = Address::generate(&env);
+        let asset_token = Address::generate(&env);
+
+        env.mock_all_auths();
+
+        // Initialize
+        client.initialize(&admin, &usdc_token);
+
+        // Create project escrow
+        client.create_project_escrow(
+            &String::from_str(&env, "proj_1"),
+            &asset_token,
+            &installer,
+            &10_000_0000000, // 10,000 USDC
+            &250,            // 2.5% fee
+        );
+
+        // Verify project created
+        let escrow = client.get_project(&String::from_str(&env, "proj_1"));
+        assert_eq!(escrow.status, ProjectStatus::Funding);
+        assert_eq!(escrow.current_funding, 0);
+    }
+}

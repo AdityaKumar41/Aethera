@@ -3,16 +3,31 @@
 // ============================================
 
 // Configuration
-export { getNetworkConfig, NETWORKS, type NetworkType } from './config';
+export { getNetworkConfig, NETWORKS, type NetworkType } from "./config";
 
 // Client
-export { StellarClient, stellarClient } from './client';
+export { StellarClient, stellarClient } from "./client";
 
 // Wallet Service
-export { WalletService, walletService } from './wallet';
+export { WalletService, walletService } from "./wallet";
 
 // Contract Service
-export { ContractService, contractService } from './contracts';
+export { ContractService, contractService } from "./contracts";
+
+// Contract Deployment Service
+export {
+  ContractDeploymentService,
+  contractDeploymentService,
+} from "./deployment";
+
+// Trustline Service
+export {
+  TrustlineService,
+  trustlineService,
+  getUSDCAsset,
+  USDC_ASSET_TESTNET,
+  USDC_ASSET_MAINNET,
+} from "./trustline";
 
 // Re-export useful Stellar SDK items
 export {
@@ -26,6 +41,6 @@ export {
   nativeToScVal,
   scValToNative,
   Contract,
-} from '@stellar/stellar-sdk';
+} from "@stellar/stellar-sdk";
 
-export type { Horizon, SorobanRpc } from '@stellar/stellar-sdk';
+export type { Horizon, SorobanRpc } from "@stellar/stellar-sdk";

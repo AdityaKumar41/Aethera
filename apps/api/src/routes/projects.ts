@@ -2,12 +2,28 @@
 // Project Routes
 // ============================================
 
-import { Router } from 'express';
-import { z } from 'zod';
-import { prisma, ProjectStatus, Prisma } from '@aethera/database';
-import { API_CONFIG, MIN_FUNDING_TARGET, MAX_FUNDING_TARGET, MIN_PROJECT_YIELD, MAX_PROJECT_YIELD } from '@aethera/config';
-import { authenticate, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
-import { createApiError } from '../middleware/error.js';
+import { Router } from "express";
+import { z } from "zod";
+import {
+  prisma,
+  ProjectStatus,
+  Prisma,
+  ProjectStateMachine,
+  AuditLogger,
+} from "@aethera/database";
+import {
+  API_CONFIG,
+  MIN_FUNDING_TARGET,
+  MAX_FUNDING_TARGET,
+  MIN_PROJECT_YIELD,
+  MAX_PROJECT_YIELD,
+} from "@aethera/config";
+import {
+  authenticate,
+  requireRole,
+  type AuthenticatedRequest,
+} from "../middleware/auth.js";
+import { createApiError } from "../middleware/error.js";
 
 const router = Router();
 
@@ -15,18 +31,18 @@ const router = Router();
 // Get Marketplace (Public Projects)
 // ============================================
 
-router.get('/marketplace', async (req, res, next) => {
+router.get("/marketplace", async (req, res, next) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(
       parseInt(req.query.limit as string) || API_CONFIG.pagination.defaultLimit,
-      API_CONFIG.pagination.maxLimit
+      API_CONFIG.pagination.maxLimit,
     );
     const skip = (page - 1) * limit;
 
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
-        where: { status: 'FUNDING' },
+        where: { status: "FUNDING" },
         include: {
           installer: {
             select: { id: true, name: true, company: true },
@@ -37,16 +53,17 @@ router.get('/marketplace', async (req, res, next) => {
         },
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
-      prisma.project.count({ where: { status: 'FUNDING' } }),
+      prisma.project.count({ where: { status: "FUNDING" } }),
     ]);
 
     const projectsWithStats = projects.map((p: any) => ({
       ...p,
       investorCount: p._count.investments,
-      fundingPercentage: Number(p.fundingRaised) / Number(p.fundingTarget) * 100,
-      remainingTokens: (p.tokensRemaining ?? 0),
+      fundingPercentage:
+        (Number(p.fundingRaised) / Number(p.fundingTarget)) * 100,
+      remainingTokens: p.tokensRemaining ?? 0,
     }));
 
     res.json({
@@ -68,7 +85,7 @@ router.get('/marketplace', async (req, res, next) => {
 // Get Single Project
 // ============================================
 
-router.get('/:id', async (req, res, next) => {
+router.get("/:id", async (req, res, next) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
@@ -83,7 +100,7 @@ router.get('/:id', async (req, res, next) => {
     });
 
     if (!project) {
-      throw createApiError('Project not found', 404);
+      throw createApiError("Project not found", 404);
     }
 
     res.json({
@@ -91,7 +108,8 @@ router.get('/:id', async (req, res, next) => {
       data: {
         ...project,
         investorCount: project._count.investments,
-        fundingPercentage: Number(project.fundingRaised) / Number(project.fundingTarget) * 100,
+        fundingPercentage:
+          (Number(project.fundingRaised) / Number(project.fundingTarget)) * 100,
       },
     });
   } catch (error) {
@@ -119,9 +137,9 @@ const createProjectSchema = z.object({
 });
 
 router.post(
-  '/',
+  "/",
   authenticate,
-  requireRole('INSTALLER'),
+  requireRole("INSTALLER"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const data = createProjectSchema.parse(req.body);
@@ -131,6 +149,21 @@ router.post(
 
       // Generate token symbol
       const tokenSymbol = `SOL${data.name.substring(0, 3).toUpperCase()}${Date.now().toString().slice(-4)}`;
+
+      // Validate can transition to PENDING_APPROVAL
+      const projectData = {
+        name: data.name,
+        description: data.description,
+        fundingTarget: data.fundingTarget,
+        expectedYield: data.expectedYield,
+        status: "DRAFT" as ProjectStatus,
+      };
+
+      try {
+        ProjectStateMachine.validate("DRAFT", "PENDING_APPROVAL", projectData);
+      } catch (error: any) {
+        throw createApiError(error.message, 400, "VALIDATION_FAILED");
+      }
 
       const project = await prisma.project.create({
         data: {
@@ -149,20 +182,31 @@ router.post(
           totalTokens,
           tokensRemaining: totalTokens,
           tokenSymbol,
-          status: 'PENDING_APPROVAL',
-          estimatedCompletionDate: data.estimatedCompletionDate ? new Date(data.estimatedCompletionDate) : null,
+          status: "PENDING_APPROVAL",
+          estimatedCompletionDate: data.estimatedCompletionDate
+            ? new Date(data.estimatedCompletionDate)
+            : null,
         },
       });
 
+      // Log the state transition
+      await AuditLogger.logProjectTransition(
+        project.id,
+        "DRAFT",
+        "PENDING_APPROVAL",
+        req.auth?.userId!,
+        { action: "submit_for_approval", projectName: project.name },
+      );
+
       res.status(201).json({
         success: true,
-        message: 'Project submitted for approval',
+        message: "Project submitted for approval",
         data: project,
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
@@ -170,9 +214,9 @@ router.post(
 // ============================================
 
 router.get(
-  '/my/projects',
+  "/my/projects",
   authenticate,
-  requireRole('INSTALLER'),
+  requireRole("INSTALLER"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const projects = await prisma.project.findMany({
@@ -182,7 +226,7 @@ router.get(
             select: { investments: true },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       res.json({
@@ -190,13 +234,14 @@ router.get(
         data: projects.map((p: any) => ({
           ...p,
           investorCount: p._count.investments,
-          fundingPercentage: Number(p.fundingRaised) / Number(p.fundingTarget) * 100,
+          fundingPercentage:
+            (Number(p.fundingRaised) / Number(p.fundingTarget)) * 100,
         })),
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
@@ -206,21 +251,21 @@ router.get(
 const updateProjectSchema = createProjectSchema.partial();
 
 router.patch(
-  '/:id',
+  "/:id",
   authenticate,
-  requireRole('INSTALLER'),
+  requireRole("INSTALLER"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const project = await prisma.project.findFirst({
         where: {
           id: req.params.id,
           installerId: req.auth?.userId,
-          status: 'DRAFT',
+          status: "DRAFT",
         },
       });
 
       if (!project) {
-        throw createApiError('Project not found or cannot be edited', 404);
+        throw createApiError("Project not found or cannot be edited", 404);
       }
 
       const data = updateProjectSchema.parse(req.body);
@@ -229,8 +274,8 @@ router.patch(
         where: { id: req.params.id },
         data: {
           ...data,
-          estimatedCompletionDate: data.estimatedCompletionDate 
-            ? new Date(data.estimatedCompletionDate) 
+          estimatedCompletionDate: data.estimatedCompletionDate
+            ? new Date(data.estimatedCompletionDate)
             : undefined,
         },
       });
@@ -239,45 +284,62 @@ router.patch(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
+// ============================================
 // ============================================
 // Submit Project for Approval
 // ============================================
 
 router.post(
-  '/:id/submit',
+  "/:id/submit",
   authenticate,
-  requireRole('INSTALLER'),
+  requireRole("INSTALLER"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const project = await prisma.project.findFirst({
         where: {
           id: req.params.id,
           installerId: req.auth?.userId,
-          status: 'DRAFT',
+          status: "DRAFT",
         },
       });
 
       if (!project) {
-        throw createApiError('Project not found or cannot be submitted', 404);
+        throw createApiError("Project not found or cannot be submitted", 404);
+      }
+
+      // Validate state transition
+      try {
+        ProjectStateMachine.validate("DRAFT", "PENDING_APPROVAL", project);
+      } catch (error: any) {
+        throw createApiError(error.message, 400, "INVALID_TRANSITION");
       }
 
       const updated = await prisma.project.update({
         where: { id: req.params.id },
-        data: { status: 'PENDING_APPROVAL' },
+        data: { status: "PENDING_APPROVAL" },
       });
+
+      // Log the state transition
+      await AuditLogger.logProjectTransition(
+        req.params.id,
+        "DRAFT",
+        "PENDING_APPROVAL",
+        req.auth?.userId!,
+        { action: "submit_existing_project" },
+      );
 
       res.json({
         success: true,
-        message: 'Project submitted for approval',
+        message: "Project submitted for approval",
         data: updated,
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 export default router;

@@ -1,5 +1,8 @@
-import { Keypair } from '@stellar/stellar-sdk';
-import crypto from 'crypto';
+import { Keypair } from "@stellar/stellar-sdk";
+import crypto from "crypto";
+
+// Note: trustlineService import would create circular dependency
+// Trustline creation happens separately after wallet creation
 
 export interface CustodialWallet {
   publicKey: string;
@@ -9,11 +12,14 @@ export interface CustodialWallet {
 export class WalletService {
   private encryptionKey: string;
 
-  constructor(encryptionKey: string = process.env.ENCRYPTION_KEY || 'default-aethera-dev-key') {
+  constructor(
+    encryptionKey: string = process.env.ENCRYPTION_KEY ||
+      "default-aethera-dev-key",
+  ) {
     this.encryptionKey = crypto
-      .createHash('sha256')
+      .createHash("sha256")
       .update(encryptionKey)
-      .digest('base64')
+      .digest("base64")
       .slice(0, 32);
   }
 
@@ -23,7 +29,7 @@ export class WalletService {
   async createWallet(): Promise<CustodialWallet> {
     const keypair = Keypair.random();
     const secret = keypair.secret();
-    
+
     return {
       publicKey: keypair.publicKey(),
       encryptedSecret: this.encrypt(secret),
@@ -34,14 +40,18 @@ export class WalletService {
    * Decrypts a secret key for use in signing
    */
   decryptSecret(encryptedSecret: string): string {
-    const [ivHex, encryptedHex] = encryptedSecret.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const encryptedText = Buffer.from(encryptedHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.encryptionKey), iv);
-    
+    const [ivHex, encryptedHex] = encryptedSecret.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const encryptedText = Buffer.from(encryptedHex, "hex");
+    const decipher = crypto.createDecipheriv(
+      "aes-256-cbc",
+      Buffer.from(this.encryptionKey),
+      iv,
+    );
+
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
-    
+
     return decrypted.toString();
   }
 
@@ -50,8 +60,8 @@ export class WalletService {
    */
   async getBalances(publicKey: string): Promise<any[]> {
     return [
-      { asset_type: 'native', balance: '10.0000000' },
-      { asset_code: 'USDC', asset_issuer: 'GBBD67V1..', balance: '100.00' }
+      { asset_type: "native", balance: "10.0000000" },
+      { asset_code: "USDC", asset_issuer: "GBBD67V1..", balance: "100.00" },
     ];
   }
 
@@ -64,12 +74,16 @@ export class WalletService {
 
   private encrypt(text: string): string {
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.encryptionKey), iv);
-    
+    const cipher = crypto.createCipheriv(
+      "aes-256-cbc",
+      Buffer.from(this.encryptionKey),
+      iv,
+    );
+
     let encrypted = cipher.update(text);
     encrypted = Buffer.concat([encrypted, cipher.final()]);
-    
-    return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
+
+    return `${iv.toString("hex")}:${encrypted.toString("hex")}`;
   }
 }
 

@@ -2,12 +2,21 @@
 // Stellar Routes - Blockchain Operations
 // ============================================
 
-import { Router } from 'express';
-import { z } from 'zod';
-import { prisma } from '@aethera/database';
-import { walletService, stellarClient, contractService } from '@aethera/stellar';
-import { authenticate, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
-import { createApiError } from '../middleware/error.js';
+import { Router } from "express";
+import { z } from "zod";
+import { prisma } from "@aethera/database";
+import {
+  walletService,
+  stellarClient,
+  contractService,
+  trustlineService,
+} from "@aethera/stellar";
+import {
+  authenticate,
+  requireRole,
+  type AuthenticatedRequest,
+} from "../middleware/auth.js";
+import { createApiError } from "../middleware/error.js";
 
 const router = Router();
 
@@ -15,7 +24,7 @@ const router = Router();
 // Network Info (Public)
 // ============================================
 
-router.get('/network', async (req, res, next) => {
+router.get("/network", async (req, res, next) => {
   try {
     const network = stellarClient.getNetwork();
     const passphrase = stellarClient.getNetworkPassphrase();
@@ -25,9 +34,10 @@ router.get('/network', async (req, res, next) => {
       data: {
         network,
         passphrase,
-        horizonUrl: network === 'testnet' 
-          ? 'https://horizon-testnet.stellar.org' 
-          : 'https://horizon.stellar.org',
+        horizonUrl:
+          network === "testnet"
+            ? "https://horizon-testnet.stellar.org"
+            : "https://horizon.stellar.org",
       },
     });
   } catch (error) {
@@ -39,144 +49,249 @@ router.get('/network', async (req, res, next) => {
 // User Wallet Info
 // ============================================
 
-router.get('/wallet', authenticate, async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.auth?.userId },
-      select: { stellarPubKey: true },
-    });
+router.get(
+  "/wallet",
+  authenticate,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { stellarPubKey: true },
+      });
 
-    if (!user?.stellarPubKey) {
+      if (!user?.stellarPubKey) {
+        res.json({
+          success: true,
+          data: { funded: false, balances: [] },
+        });
+        return;
+      }
+
+      const [funded, balances] = await Promise.all([
+        walletService.isAccountFunded(user.stellarPubKey),
+        walletService.getBalances(user.stellarPubKey),
+      ]);
+
       res.json({
         success: true,
-        data: { funded: false, balances: [] },
+        data: {
+          publicKey: user.stellarPubKey,
+          funded,
+          balances,
+        },
       });
-      return;
+    } catch (error) {
+      next(error);
     }
-
-    const [funded, balances] = await Promise.all([
-      walletService.isAccountFunded(user.stellarPubKey),
-      walletService.getBalances(user.stellarPubKey),
-    ]);
-
-    res.json({
-      success: true,
-      data: {
-        publicKey: user.stellarPubKey,
-        funded,
-        balances,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 // ============================================
 // Fund Testnet Account
 // ============================================
 
-router.post('/wallet/fund-testnet', authenticate, async (req: AuthenticatedRequest, res, next) => {
-  try {
-    if (stellarClient.getNetwork() !== 'testnet') {
-      throw createApiError('Friendbot only available on testnet', 400);
+router.post(
+  "/wallet/fund-testnet",
+  authenticate,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      if (stellarClient.getNetwork() !== "testnet") {
+        throw createApiError("Friendbot only available on testnet", 400);
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { stellarPubKey: true },
+      });
+
+      if (!user?.stellarPubKey) {
+        throw createApiError("No Stellar wallet found", 400);
+      }
+
+      const funded = await stellarClient.fundTestnetAccount(user.stellarPubKey);
+
+      if (!funded) {
+        throw createApiError("Failed to fund account via Friendbot", 500);
+      }
+
+      res.json({
+        success: true,
+        message: "Account funded with testnet XLM",
+      });
+    } catch (error) {
+      next(error);
     }
+  },
+);
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.auth?.userId },
-      select: { stellarPubKey: true },
-    });
+// ============================================
+// Check USDC Trustline
+// ============================================
 
-    if (!user?.stellarPubKey) {
-      throw createApiError('No Stellar wallet found', 400);
+router.get(
+  "/trustline/check",
+  authenticate,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { stellarPubKey: true },
+      });
+
+      if (!user?.stellarPubKey) {
+        throw createApiError("No wallet found", 400);
+      }
+
+      const accountInfo = await trustlineService.getAccountInfo(
+        user.stellarPubKey,
+      );
+
+      res.json({
+        success: true,
+        data: {
+          publicKey: user.stellarPubKey,
+          exists: accountInfo.exists,
+          hasTrustline: accountInfo.hasTrustline,
+          xlmBalance: accountInfo.xlmBalance,
+          usdcBalance: accountInfo.usdcBalance,
+          allTrustlines: accountInfo.trustlines,
+        },
+      });
+    } catch (error) {
+      next(error);
     }
+  },
+);
 
-    const funded = await stellarClient.fundTestnetAccount(user.stellarPubKey);
+// ============================================
+// Create USDC Trustline
+// ============================================
 
-    if (!funded) {
-      throw createApiError('Failed to fund account via Friendbot', 500);
+router.post(
+  "/trustline/create",
+  authenticate,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { stellarPubKey: true, stellarSecretKey: true },
+      });
+
+      if (!user?.stellarPubKey || !user?.stellarSecretKey) {
+        throw createApiError("No wallet found", 400);
+      }
+
+      // Check if already has trustline
+      const hasTrustline = await trustlineService.hasTrustline(
+        user.stellarPubKey,
+      );
+      if (hasTrustline) {
+        res.json({
+          success: true,
+          message: "USDC trustline already exists",
+          data: { txHash: "already_exists" },
+        });
+        return;
+      }
+
+      // Decrypt secret and create trustline
+      const secret = walletService.decryptSecret(user.stellarSecretKey);
+      const keypair = require("@stellar/stellar-sdk").Keypair.fromSecret(
+        secret,
+      );
+
+      const txHash = await trustlineService.createTrustline(keypair);
+
+      res.json({
+        success: true,
+        message: "USDC trustline created successfully",
+        data: { txHash },
+      });
+    } catch (error) {
+      next(error);
     }
-
-    res.json({
-      success: true,
-      message: 'Account funded with testnet XLM',
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 // ============================================
 // Get Token Balance for Project
 // ============================================
 
-router.get('/tokens/:projectId/balance', authenticate, async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const project = await prisma.project.findUnique({
-      where: { id: req.params.projectId },
-      select: { tokenContractId: true, tokenSymbol: true },
-    });
+router.get(
+  "/tokens/:projectId/balance",
+  authenticate,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const project = await prisma.project.findUnique({
+        where: { id: req.params.projectId },
+        select: { tokenContractId: true, tokenSymbol: true },
+      });
 
-    if (!project?.tokenContractId) {
+      if (!project?.tokenContractId) {
+        res.json({
+          success: true,
+          data: { balance: 0, tokenSymbol: project?.tokenSymbol },
+        });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { stellarPubKey: true },
+      });
+
+      if (!user?.stellarPubKey) {
+        throw createApiError("No wallet found", 400);
+      }
+
+      const result = await contractService.getTokenBalance(
+        project.tokenContractId,
+        user.stellarPubKey,
+      );
+
       res.json({
         success: true,
-        data: { balance: 0, tokenSymbol: project?.tokenSymbol },
+        data: {
+          balance: result?.balance.toString() || "0",
+          tokenSymbol: project.tokenSymbol,
+        },
       });
-      return;
+    } catch (error) {
+      next(error);
     }
-
-    const user = await prisma.user.findUnique({
-      where: { id: req.auth?.userId },
-      select: { stellarPubKey: true },
-    });
-
-    if (!user?.stellarPubKey) {
-      throw createApiError('No wallet found', 400);
-    }
-
-    const result = await contractService.getTokenBalance(
-      project.tokenContractId,
-      user.stellarPubKey
-    );
-
-    res.json({
-      success: true,
-      data: {
-        balance: result?.balance.toString() || '0',
-        tokenSymbol: project.tokenSymbol,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 // ============================================
 // Get Transaction History
 // ============================================
 
-router.get('/transactions', authenticate, async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const transactions = await prisma.transactionLog.findMany({
-      where: { userId: req.auth?.userId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
+router.get(
+  "/transactions",
+  authenticate,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const transactions = await prisma.transactionLog.findMany({
+        where: { userId: req.auth?.userId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
 
-    res.json({ success: true, data: transactions });
-  } catch (error) {
-    next(error);
-  }
-});
+      res.json({ success: true, data: transactions });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // ============================================
 // Admin: Deploy Token Contract
 // ============================================
 
 router.post(
-  '/admin/deploy-token/:projectId',
+  "/admin/deploy-token/:projectId",
   authenticate,
-  requireRole('ADMIN'),
+  requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const project = await prisma.project.findUnique({
@@ -184,16 +299,16 @@ router.post(
       });
 
       if (!project) {
-        throw createApiError('Project not found', 404);
+        throw createApiError("Project not found", 404);
       }
 
       if (project.tokenContractId) {
-        throw createApiError('Token contract already deployed', 400);
+        throw createApiError("Token contract already deployed", 400);
       }
 
       // TODO: Implement actual Soroban contract deployment
       // For prototype, mock the contract ID
-      const mockContractId = `C${Date.now().toString(16).toUpperCase().padEnd(54, '0')}`;
+      const mockContractId = `C${Date.now().toString(16).toUpperCase().padEnd(54, "0")}`;
 
       const updated = await prisma.project.update({
         where: { id: req.params.projectId },
@@ -202,7 +317,7 @@ router.post(
 
       res.json({
         success: true,
-        message: 'Token contract deployed',
+        message: "Token contract deployed",
         data: {
           contractId: mockContractId,
           tokenSymbol: project.tokenSymbol,
@@ -211,7 +326,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 export default router;
