@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useUser, useClerk, UserButton } from '@clerk/nextjs';
-import { 
-  Sun, 
-  LayoutDashboard, 
-  Briefcase, 
-  TrendingUp, 
-  Wallet, 
-  Settings, 
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useUser, useClerk, UserButton } from "@clerk/nextjs";
+import {
+  Sun,
+  LayoutDashboard,
+  Briefcase,
+  TrendingUp,
+  Wallet,
+  Settings,
   Building,
   PlusCircle,
   Users,
-  ClipboardCheck
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+  ClipboardCheck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -27,18 +27,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoaded } = useUser();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isLoaded && user) {
       // Check if onboarding is complete
       const onboardingComplete = user.unsafeMetadata?.onboardingComplete;
-      if (!onboardingComplete && pathname !== '/onboarding') {
-        router.push('/onboarding');
+      if (!onboardingComplete && pathname !== "/onboarding") {
+        router.push("/onboarding");
       }
     }
   }, [isLoaded, user, pathname, router]);
 
-  if (!isLoaded) {
+  if (!mounted || !isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-solar-500" />
@@ -50,38 +55,47 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return null;
   }
 
-  const userRole = (user.unsafeMetadata?.role as string) || 'INVESTOR';
+  const userRole = (user.unsafeMetadata?.role as string) || "INVESTOR";
 
   // Role-based navigation
   const investorNav = [
-    { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-    { href: '/dashboard/marketplace', label: 'Marketplace', icon: Briefcase },
-    { href: '/dashboard/portfolio', label: 'Portfolio', icon: TrendingUp },
-    { href: '/dashboard/yields', label: 'Yields', icon: Wallet },
-    { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/dashboard/marketplace", label: "Marketplace", icon: Briefcase },
+    { href: "/dashboard/portfolio", label: "Portfolio", icon: TrendingUp },
+    { href: "/dashboard/yields", label: "Yields", icon: Wallet },
+    { href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];
 
   const installerNav = [
-    { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-    { href: '/dashboard/projects', label: 'My Projects', icon: Building },
-    { href: '/dashboard/submit-project', label: 'New Project', icon: PlusCircle },
-    { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
-    { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/dashboard/projects", label: "My Projects", icon: Building },
+    {
+      href: "/dashboard/submit-project",
+      label: "New Project",
+      icon: PlusCircle,
+    },
+    { href: "/dashboard/wallet", label: "Wallet", icon: Wallet },
+    { href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];
 
   const adminNav = [
-    { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-    { href: '/dashboard/pending-projects', label: 'Pending Projects', icon: ClipboardCheck },
-    { href: '/dashboard/pending-kyc', label: 'KYC Review', icon: Users },
-    { href: '/dashboard/users', label: 'Users', icon: Users },
-    { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    {
+      href: "/dashboard/pending-projects",
+      label: "Pending Projects",
+      icon: ClipboardCheck,
+    },
+    { href: "/dashboard/pending-kyc", label: "KYC Review", icon: Users },
+    { href: "/dashboard/users", label: "Users", icon: Users },
+    { href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];
 
-  const navItems = userRole === 'ADMIN' 
-    ? adminNav 
-    : userRole === 'INSTALLER' 
-    ? installerNav 
-    : investorNav;
+  const navItems =
+    userRole === "ADMIN"
+      ? adminNav
+      : userRole === "INSTALLER"
+        ? installerNav
+        : investorNav;
 
   return (
     <div className="min-h-screen flex">
@@ -105,8 +119,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Button
                   variant="ghost"
                   className={cn(
-                    'w-full justify-start gap-3',
-                    isActive && 'bg-solar-500/10 text-solar-500'
+                    "w-full justify-start gap-3",
+                    isActive && "bg-solar-500/10 text-solar-500",
                   )}
                 >
                   <Icon className="h-5 w-5" />
@@ -119,17 +133,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <div className="p-4 border-t">
           <div className="flex items-center gap-3 px-3">
-            <UserButton 
+            <UserButton
               afterSignOutUrl="/"
               appearance={{
                 elements: {
-                  avatarBox: 'h-10 w-10',
+                  avatarBox: "h-10 w-10",
                 },
               }}
             />
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{user.fullName || user.firstName}</p>
-              <p className="text-xs text-muted-foreground capitalize">{userRole.toLowerCase()}</p>
+              <p className="font-medium truncate">
+                {user.fullName || user.firstName}
+              </p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {userRole.toLowerCase()}
+              </p>
             </div>
           </div>
         </div>
