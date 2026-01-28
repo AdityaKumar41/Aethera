@@ -136,7 +136,7 @@ export default function YieldsPage() {
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
       <div className="flex flex-col gap-2">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
           Yield Portfolio
         </h1>
         <p className="text-muted-foreground text-lg max-w-2xl">
@@ -151,7 +151,7 @@ export default function YieldsPage() {
             <Sun className="h-20 w-20 text-white -mr-6 -mt-6" />
           </div>
           <div className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">Total Yield</div>
-          <div className="text-3xl font-bold text-white tracking-tight">
+          <div className="text-3xl font-bold text-foreground tracking-tight">
             {formatCurrency(summary.totalYield)}
           </div>
         </Card>
@@ -161,7 +161,7 @@ export default function YieldsPage() {
             <TrendingUp className="h-20 w-20 text-emerald-500 -mr-6 -mt-6" />
           </div>
           <div className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">Claimed</div>
-          <div className="text-3xl font-bold text-emerald-400 tracking-tight">
+          <div className="text-3xl font-bold text-emerald-600 tracking-tight">
             {formatCurrency(summary.totalClaimed)}
           </div>
           <div className="text-xs text-muted-foreground mt-2 font-medium">
@@ -186,7 +186,7 @@ export default function YieldsPage() {
           <Button
             onClick={handleClaimAll}
             disabled={!summary.pendingCount || batchClaiming}
-            className="w-full h-12 bg-solar-500 hover:bg-solar-600 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all active:scale-95"
+            className="w-full h-12 bg-solar-500 hover:bg-solar-600 text-foreground font-bold rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all active:scale-95"
           >
             {batchClaiming
               ? "Claiming..."
@@ -200,16 +200,16 @@ export default function YieldsPage() {
         <Card className="glass-card p-8 border-none space-y-6">
           <div className="flex items-center gap-3">
             <div className="h-8 w-1 bg-solar-500 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-            <h2 className="text-xl font-bold text-white tracking-tight">Pending Distributions</h2>
+            <h2 className="text-xl font-bold text-foreground tracking-tight">Pending Distributions</h2>
           </div>
           <div className="grid gap-4">
             {summary.pendingClaims.map((claim) => (
               <div
                 key={claim.id}
-                className="flex items-center justify-between p-5 bg-white/5 border border-white/5 rounded-2xl group hover:bg-white/[0.08] transition-all"
+                className="flex items-center justify-between p-5 bg-zinc-50 border border-zinc-100 rounded-2xl group hover:bg-zinc-100 transition-all"
               >
                 <div className="space-y-1">
-                  <div className="font-bold text-white group-hover:text-solar-400 transition-colors">
+                  <div className="font-bold text-foreground group-hover:text-solar-600 transition-colors">
                     {claim.distribution.project.name}
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -227,7 +227,7 @@ export default function YieldsPage() {
                     onClick={() => handleClaimSingle(claim.id)}
                     disabled={claiming === claim.id}
                     size="sm"
-                    className="bg-white/10 hover:bg-white/20 text-white border-none rounded-lg h-9 px-4"
+                    className="bg-zinc-100 hover:bg-zinc-200 text-foreground border-none rounded-lg h-9 px-4"
                   >
                     {claiming === claim.id ? "Processing..." : "Claim Now"}
                   </Button>
@@ -243,16 +243,16 @@ export default function YieldsPage() {
         <Card className="glass-card p-8 border-none space-y-6">
           <div className="flex items-center gap-3">
             <div className="h-8 w-1 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            <h2 className="text-xl font-bold text-white tracking-tight">History</h2>
+            <h2 className="text-xl font-bold text-foreground tracking-tight">History</h2>
           </div>
           <div className="grid gap-4">
             {summary.recentClaims.map((claim) => (
               <div
                 key={claim.id}
-                className="flex items-center justify-between p-5 bg-white/5 border border-white/5 rounded-2xl"
+                className="flex items-center justify-between p-5 bg-zinc-50 border border-zinc-100 rounded-2xl"
               >
                 <div className="space-y-1">
-                  <div className="font-bold text-white">
+                  <div className="font-bold text-foreground">
                     {claim.distribution.project.name}
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -292,7 +292,7 @@ export default function YieldsPage() {
             <div className="max-w-md mx-auto space-y-4">
               <Sun className="h-16 w-16 text-muted-foreground/20 mx-auto" />
               <div className="space-y-2">
-                <div className="text-xl font-bold text-white">Generating Activity...</div>
+                <div className="text-xl font-bold text-foreground">Generating Activity...</div>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   Your yields will manifest here as your solar assets begin generating clean energy and revenue.
                 </p>

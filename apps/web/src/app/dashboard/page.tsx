@@ -63,7 +63,7 @@ export default function DashboardPage() {
     return (
       <div className="space-y-10 animate-in fade-in duration-700">
         <div className="flex flex-col gap-2">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
             Solar Portfolio
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl">
@@ -85,7 +85,7 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white tracking-tight">
+              <div className="text-3xl font-bold text-foreground tracking-tight">
                 {formatCurrency(data?.totalInvested || 0)}
               </div>
               <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
@@ -107,11 +107,11 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-emerald-400 tracking-tight">
+              <div className="text-3xl font-bold text-emerald-600 tracking-tight">
                 {formatCurrency(data?.totalYieldReceived || 0)}
               </div>
               <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                <span className="text-emerald-400 font-medium">+12.5%</span> APY Average
+                <span className="text-emerald-600 font-medium">+12.5%</span> APY Average
               </p>
             </CardContent>
           </Card>
@@ -129,7 +129,7 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white tracking-tight">
+              <div className="text-3xl font-bold text-foreground tracking-tight">
                 {data?.activeProjects || 4}
               </div>
               <p className="text-xs text-muted-foreground mt-2">
@@ -151,7 +151,7 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white tracking-tight text-balance">
+              <div className="text-3xl font-bold text-foreground tracking-tight text-balance">
                 12.4 <span className="text-sm font-normal text-muted-foreground">MWh</span>
               </div>
               <p className="text-xs text-muted-foreground mt-2">

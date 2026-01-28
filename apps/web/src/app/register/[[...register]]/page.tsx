@@ -6,7 +6,7 @@ import { Sun, ArrowLeft } from 'lucide-react';
 
 export default function RegisterPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 gradient-hero">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-solar-500/5 via-transparent to-stellar-500/5">
       <div className="w-full max-w-md">
         <Link href="/" className="flex items-center gap-2 mb-8 text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />

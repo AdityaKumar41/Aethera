@@ -20,8 +20,8 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en" className="dark">
-        <body className={inter.className}>
+      <html lang="en">
+        <body className={`${inter.className} font-sans antialiased`}>
           <AuthSync />
           <div className="min-h-screen bg-background">
             {children}

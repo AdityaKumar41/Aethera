@@ -43,7 +43,7 @@ export default function ProjectDetailsPage() {
   if (!project) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-white">Project not found</h2>
+        <h2 className="text-2xl font-bold text-foreground">Project not found</h2>
         <Button variant="link" onClick={() => router.back()}>Go back</Button>
       </div>
     );
@@ -52,21 +52,20 @@ export default function ProjectDetailsPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={() => router.back()} className="hover:bg-white/5">
+        <Button variant="ghost" onClick={() => router.back()} className="hover:bg-zinc-100">
           <ChevronLeft className="h-5 w-5 mr-1" /> Back
         </Button>
         <div>
-          <h1 className="text-4xl font-bold tracking-tight text-white mb-1">{project.name}</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground mb-1">{project.name}</h1>
           <div className="flex items-center gap-2 text-muted-foreground">
             <MapPin className="h-4 w-4" />
             <span>{project.location}, {project.country}</span>
           </div>
         </div>
         <div className="ml-auto">
-          <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase border ${
-            project.status === 'FUNDING' ? 'bg-green-500/10 text-green-400 border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : 
-            'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-          }`}>
+          <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase border ${project.status === 'FUNDING' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
             {project.status.replace('_', ' ')}
           </span>
         </div>
@@ -74,14 +73,14 @@ export default function ProjectDetailsPage() {
 
       <div className="grid gap-8 md:grid-cols-3">
         <div className="md:col-span-2 space-y-8">
-          <Card className="bg-card/30 backdrop-blur-xl border-white/5 shadow-2xl overflow-hidden">
+          <Card className="glass-card shadow-2xl overflow-hidden">
             <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border-b border-white/5 relative overflow-hidden group">
               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:scale-105 transition-transform duration-700" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent opacity-60" />
               <Sun className="h-20 w-20 text-white/50 relative z-10" />
             </div>
             <CardContent className="p-8">
-              <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Info className="h-5 w-5 text-primary" />
                 About this Project
               </h3>
@@ -92,7 +91,7 @@ export default function ProjectDetailsPage() {
           </Card>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <Card className="bg-card/30 backdrop-blur-xl border-white/5">
+            <Card className="glass-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-widest text-muted-foreground">
                   <Calculator className="h-4 w-4 text-primary" />
@@ -100,21 +99,21 @@ export default function ProjectDetailsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between border-b border-white/5 pb-2">
+                <div className="flex justify-between border-b border-zinc-100 pb-2">
                   <span className="text-muted-foreground text-sm">Capacity</span>
-                  <span className="text-white font-semibold">{project.capacity} kW</span>
+                  <span className="text-foreground font-semibold">{project.capacity} kW</span>
                 </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
+                <div className="flex justify-between border-b border-zinc-100 pb-2">
                   <span className="text-muted-foreground text-sm">Panel Type</span>
-                  <span className="text-white font-semibold">{project.panelType}</span>
+                  <span className="text-foreground font-semibold">{project.panelType}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground text-sm">Inverter</span>
-                  <span className="text-white font-semibold">{project.inverterType}</span>
+                  <span className="text-foreground font-semibold">{project.inverterType}</span>
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-card/30 backdrop-blur-xl border-white/5">
+            <Card className="glass-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-widest text-muted-foreground">
                   <Calendar className="h-4 w-4 text-primary" />
@@ -124,11 +123,11 @@ export default function ProjectDetailsPage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between border-b border-white/5 pb-2">
                   <span className="text-muted-foreground text-sm">Submitted</span>
-                  <span className="text-white font-semibold">{new Date(project.createdAt).toLocaleDateString()}</span>
+                  <span className="text-foreground font-semibold">{new Date(project.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground text-sm">Est. Completion</span>
-                  <span className="text-white font-semibold">{project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate).toLocaleDateString() : 'TBD'}</span>
+                  <span className="text-foreground font-semibold">{project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate).toLocaleDateString() : 'TBD'}</span>
                 </div>
               </CardContent>
             </Card>
@@ -136,14 +135,14 @@ export default function ProjectDetailsPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="bg-card backdrop-blur-2xl border-primary/20 shadow-[0_0_50px_rgba(var(--primary),0.1)] relative overflow-hidden">
+          <Card className="glass-card shadow-[0_0_50px_rgba(var(--primary),0.05)] relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4">
-               <BadgeDollarSign className="h-12 w-12 text-primary/10" />
+              <BadgeDollarSign className="h-12 w-12 text-primary/10" />
             </div>
             <CardHeader>
               <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary">Funding Status</CardTitle>
               <div className="pt-2">
-                <span className="text-4xl font-black text-white">${Number(project.fundingRaised).toLocaleString()}</span>
+                <span className="text-4xl font-black text-foreground">${Number(project.fundingRaised).toLocaleString()}</span>
                 <span className="text-muted-foreground ml-2">/ ${Number(project.fundingTarget).toLocaleString()}</span>
               </div>
             </CardHeader>
@@ -155,11 +154,11 @@ export default function ProjectDetailsPage() {
                 </div>
                 <Progress value={project.fundingPercentage} className="h-3 bg-white/5" indicatorClassName="bg-gradient-to-r from-primary/80 to-primary" />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                 <div>
                   <p className="text-[10px] uppercase font-bold text-muted-foreground">Tokens</p>
-                  <p className="text-xl font-bold text-white tracking-tight">{project.totalTokens.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-foreground tracking-tight">{project.totalTokens.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase font-bold text-muted-foreground">Yield</p>
@@ -180,14 +179,14 @@ export default function ProjectDetailsPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card/20 border-white/5">
+          <Card className="glass-card p-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Token Info</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center px-4 py-3 bg-white/5 rounded-xl border border-white/5">
-                 <span className="text-lg font-black tracking-tighter text-white">{project.tokenSymbol}</span>
-                 <span className="text-xs font-mono text-muted-foreground">Asset Token</span>
+              <div className="flex justify-between items-center px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-100">
+                <span className="text-lg font-black tracking-tighter text-foreground">{project.tokenSymbol}</span>
+                <span className="text-xs font-mono text-muted-foreground">Asset Token</span>
               </div>
             </CardContent>
           </Card>

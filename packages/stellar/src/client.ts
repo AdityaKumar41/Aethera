@@ -132,7 +132,7 @@ export class StellarClient {
     memo?: string
   ): Promise<StellarSdk.Transaction> {
     const sourceAccount = await this.getAccount(sourceKeypair.publicKey());
-    
+
     let builder = new StellarSdk.TransactionBuilder(sourceAccount, {
       fee: StellarSdk.BASE_FEE,
       networkPassphrase: this.networkPassphrase,
@@ -152,7 +152,7 @@ export class StellarClient {
 
     const transaction = builder.build();
     transaction.sign(sourceKeypair);
-    
+
     return transaction;
   }
 
@@ -187,9 +187,9 @@ export class StellarClient {
       return { success: true, txHash: result.hash };
     } catch (error) {
       console.error('Payment failed:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -208,7 +208,7 @@ export class StellarClient {
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
       const account = await this.getAccount(accountKeypair.publicKey());
-      
+
       const transaction = new StellarSdk.TransactionBuilder(account, {
         fee: StellarSdk.BASE_FEE,
         networkPassphrase: this.networkPassphrase,
@@ -227,9 +227,9 @@ export class StellarClient {
       return { success: true, txHash: result.hash };
     } catch (error) {
       console.error('Trustline creation failed:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }

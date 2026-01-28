@@ -44,7 +44,7 @@ export default function MarketplacePage() {
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
       <div className="flex flex-col gap-2">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
           Solar Marketplace
         </h1>
         <p className="text-muted-foreground text-lg max-w-2xl">
@@ -64,7 +64,7 @@ export default function MarketplacePage() {
               />
               <div className="absolute inset-0 bg-black/20 z-0" />
               <div className="absolute top-4 right-4 z-20">
-                <span className="px-3 py-1 rounded-full bg-solar-500 text-white text-xs font-bold shadow-lg">
+                <span className="px-3 py-1 rounded-full bg-solar-500 text-foreground text-xs font-bold shadow-lg">
                   {project.expectedYield}% APY
                 </span>
               </div>
@@ -72,7 +72,7 @@ export default function MarketplacePage() {
 
             <CardHeader className="flex-1">
               <div className="space-y-1">
-                <CardTitle className="text-xl text-white group-hover:text-solar-400 transition-colors">
+                <CardTitle className="text-xl text-foreground group-hover:text-solar-600 transition-colors">
                   {project.name}
                 </CardTitle>
                 <CardDescription className="flex items-center gap-1.5 text-muted-foreground">
@@ -86,9 +86,9 @@ export default function MarketplacePage() {
               <div className="space-y-3">
                 <div className="flex justify-between items-end text-sm">
                   <span className="text-muted-foreground font-medium">Funding Progress</span>
-                  <span className="text-white font-bold">{Math.round(project.fundingPercentage)}%</span>
+                  <span className="text-foreground font-bold">{Math.round(project.fundingPercentage)}%</span>
                 </div>
-                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-solar-600 via-solar-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(245,158,11,0.4)]"
                     style={{ width: `${project.fundingPercentage}%` }}
@@ -99,13 +99,13 @@ export default function MarketplacePage() {
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <div className="flex flex-col gap-1">
                   <span className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Goal</span>
-                  <span className="text-white font-semibold flex items-center gap-1">
+                  <span className="text-foreground font-semibold flex items-center gap-1">
                     {formatCurrency(project.fundingTarget)}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1 text-right">
                   <span className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Price</span>
-                  <span className="text-white font-semibold">
+                  <span className="text-foreground font-semibold">
                     {formatCurrency(project.pricePerToken)}<span className="text-muted-foreground font-normal text-[10px]/none ml-0.5">/unit</span>
                   </span>
                 </div>
@@ -114,7 +114,7 @@ export default function MarketplacePage() {
 
             <CardFooter className="pt-0 pb-6 px-6">
               <Link href={`/dashboard/marketplace/${project.id}`} className="w-full">
-                <Button className="w-full bg-white/5 hover:bg-solar-500 text-white hover:text-white border border-white/10 hover:border-solar-500 transition-all duration-300 h-11 rounded-xl group/btn">
+                <Button className="w-full bg-zinc-50 hover:bg-solar-500 text-foreground hover:text-white border border-zinc-200 hover:border-solar-500 transition-all duration-300 h-11 rounded-xl group/btn">
                   View Opportunity
                   <Sun className="ml-2 h-4 w-4 group-hover/btn:rotate-90 transition-transform duration-500" />
                 </Button>

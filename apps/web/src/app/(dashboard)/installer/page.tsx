@@ -33,7 +33,7 @@ export default function InstallerDashboard() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight text-white mb-2">Installer Dashboard</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2">Installer Dashboard</h1>
           <p className="text-muted-foreground text-lg">Manage your solar projects and track funding progress.</p>
         </div>
         <Link href="/installer/submit">
@@ -45,7 +45,7 @@ export default function InstallerDashboard() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/50 transition-colors shadow-xl">
+        <Card className="glass-card transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
             <Sun className="h-4 w-4 text-primary" />
@@ -55,7 +55,7 @@ export default function InstallerDashboard() {
             <p className="text-xs text-muted-foreground">Active submissions</p>
           </CardContent>
         </Card>
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/50 transition-colors shadow-xl">
+        <Card className="glass-card transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Funding Goal</CardTitle>
             <TrendingUp className="h-4 w-4 text-primary" />
@@ -67,7 +67,7 @@ export default function InstallerDashboard() {
             <p className="text-xs text-muted-foreground">Combined targets</p>
           </CardContent>
         </Card>
-        <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/50 transition-colors shadow-xl">
+        <Card className="glass-card transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Platform Balance</CardTitle>
             <Wallet className="h-4 w-4 text-primary" />
@@ -80,7 +80,7 @@ export default function InstallerDashboard() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold text-white">Your Projects</h2>
+        <h2 className="text-2xl font-semibold text-foreground">Your Projects</h2>
         {loading ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
@@ -90,14 +90,13 @@ export default function InstallerDashboard() {
         ) : projects.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => (
-              <Card key={project.id} className="bg-card/50 backdrop-blur-sm border-border/50 group hover:shadow-2xl hover:shadow-primary/5 transition-all">
+              <Card key={project.id} className="glass-card group hover:shadow-2xl hover:shadow-primary/5 transition-all">
                 <CardHeader>
                   <div className="flex justify-between items-start mb-2">
                     <CardTitle className="text-xl group-hover:text-primary transition-colors">{project.name}</CardTitle>
-                    <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider ${
-                      project.status === 'FUNDING' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 
-                      'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider ${project.status === 'FUNDING' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                      'bg-amber-100 text-amber-700 border border-amber-200'
+                      }`}>
                       {project.status.replace('_', ' ')}
                     </span>
                   </div>
@@ -107,12 +106,12 @@ export default function InstallerDashboard() {
                   <div className="space-y-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Funding progress</span>
-                      <span className="font-medium text-white">{Math.round(project.fundingPercentage)}%</span>
+                      <span className="font-medium text-foreground">{Math.round(project.fundingPercentage)}%</span>
                     </div>
                     <div className="h-2 w-full bg-secondary/50 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--primary),0.5)]" 
-                        style={{ width: `${project.fundingPercentage}%` }} 
+                      <div
+                        className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--primary),0.5)]"
+                        style={{ width: `${project.fundingPercentage}%` }}
                       />
                     </div>
                     <div className="flex justify-between items-end pt-2">

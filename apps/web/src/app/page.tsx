@@ -7,7 +7,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass border-b">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-xl border-b border-zinc-200">
         <div className="container flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
             <Sun className="h-8 w-8 text-solar-500" />
@@ -30,14 +30,14 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 gradient-hero">
+      <section className="pt-32 pb-20 bg-gradient-to-br from-solar-500/5 via-transparent to-stellar-500/5">
         <div className="container">
           <div className="max-w-3xl mx-auto text-center animate-in">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-solar-500/10 border border-solar-500/20 mb-6">
               <Zap className="h-4 w-4 text-solar-500" />
               <span className="text-sm font-medium text-solar-500">Powered by Stellar Blockchain</span>
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 text-foreground">
               Finance the{' '}
               <span className="bg-gradient-to-r from-solar-500 to-solar-400 bg-clip-text text-transparent">
                 Solar Revolution
@@ -83,13 +83,13 @@ export default function HomePage() {
       <section className="py-20 bg-muted/30">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">How It Works</h2>
+            <h2 className="text-3xl font-bold mb-4 text-foreground">How It Works</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
               A simple, transparent process connecting capital with real solar projects
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
-            <Card className="card-hover">
+            <Card className="glass-card card-hover">
               <CardHeader>
                 <div className="h-12 w-12 rounded-full bg-solar-500/10 flex items-center justify-center mb-4">
                   <Sun className="h-6 w-6 text-solar-500" />
@@ -100,7 +100,7 @@ export default function HomePage() {
                 </CardDescription>
               </CardHeader>
             </Card>
-            <Card className="card-hover">
+            <Card className="glass-card card-hover">
               <CardHeader>
                 <div className="h-12 w-12 rounded-full bg-stellar-500/10 flex items-center justify-center mb-4">
                   <TrendingUp className="h-6 w-6 text-stellar-500" />
@@ -111,7 +111,7 @@ export default function HomePage() {
                 </CardDescription>
               </CardHeader>
             </Card>
-            <Card className="card-hover">
+            <Card className="glass-card card-hover">
               <CardHeader>
                 <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
                   <BarChart3 className="h-6 w-6 text-green-500" />
@@ -131,14 +131,14 @@ export default function HomePage() {
         <div className="container">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-6">Why Solar?</h2>
+              <h2 className="text-3xl font-bold mb-6 text-foreground">Why Solar?</h2>
               <div className="space-y-6">
                 <div className="flex gap-4">
                   <div className="h-10 w-10 rounded-lg bg-solar-500/10 flex items-center justify-center flex-shrink-0">
                     <Shield className="h-5 w-5 text-solar-500" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Asset-Backed Security</h3>
+                    <h3 className="font-semibold mb-1 text-foreground">Asset-Backed Security</h3>
                     <p className="text-muted-foreground">Every token is backed by real solar infrastructure generating real revenue.</p>
                   </div>
                 </div>
@@ -147,7 +147,7 @@ export default function HomePage() {
                     <Globe className="h-5 w-5 text-stellar-500" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Global Accessibility</h3>
+                    <h3 className="font-semibold mb-1 text-foreground">Global Accessibility</h3>
                     <p className="text-muted-foreground">Invest in solar projects worldwide with just a wallet. No minimums, no borders.</p>
                   </div>
                 </div>
@@ -156,7 +156,7 @@ export default function HomePage() {
                     <Users className="h-5 w-5 text-green-500" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Installer-Friendly</h3>
+                    <h3 className="font-semibold mb-1 text-foreground">Installer-Friendly</h3>
                     <p className="text-muted-foreground">Fast financing for solar developers. Get funded, not replaced.</p>
                   </div>
                 </div>
@@ -164,9 +164,9 @@ export default function HomePage() {
             </div>
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-solar-500/20 to-stellar-500/20 rounded-3xl blur-3xl" />
-              <Card className="relative">
+              <Card className="glass-card relative">
                 <CardHeader>
-                  <CardTitle>Start Your Solar Journey</CardTitle>
+                  <CardTitle className="text-foreground">Start Your Solar Journey</CardTitle>
                   <CardDescription>Join the renewable energy revolution today</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

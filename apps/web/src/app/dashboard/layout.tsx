@@ -101,13 +101,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
-      <aside className="w-64 glass-sidebar flex flex-col z-20">
-        <div className="p-6 border-b border-white/5">
+      <aside className="w-64 bg-white/70 backdrop-blur-xl border-r border-zinc-200 flex flex-col z-20">
+        <div className="p-6 border-b border-zinc-200">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="p-1.5 rounded-lg bg-solar-500/10 group-hover:bg-solar-500/20 transition-colors">
               <Sun className="h-6 w-6 text-solar-500" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">
+            <span className="text-xl font-bold tracking-tight text-foreground">
               Solar
             </span>
           </Link>
@@ -124,8 +124,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   className={cn(
                     "w-full justify-start gap-4 h-11 px-4 transition-all duration-200",
                     isActive
-                      ? "bg-solar-500/10 text-solar-400 font-medium"
-                      : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                      ? "bg-solar-500/10 text-solar-600 font-medium"
+                      : "text-muted-foreground hover:bg-zinc-100 hover:text-foreground"
                   )}
                 >
                   <Icon className={cn("h-5 w-5", isActive ? "text-solar-500" : "text-current")} />
@@ -139,18 +139,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/5">
+        <div className="p-4 border-t border-zinc-200">
           <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
             <UserButton
               afterSignOutUrl="/"
               appearance={{
                 elements: {
-                  avatarBox: "h-9 w-9 ring-1 ring-white/10 group-hover:ring-solar-500/50 transition-all",
+                  avatarBox: "h-9 w-9 ring-1 ring-zinc-200 group-hover:ring-solar-500/50 transition-all",
                 },
               }}
             />
             <div className="flex-1 min-w-0 pr-2">
-              <p className="text-sm font-medium text-white truncate leading-tight">
+              <p className="text-sm font-medium text-foreground truncate leading-tight">
                 {user.fullName || user.firstName}
               </p>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mt-0.5">

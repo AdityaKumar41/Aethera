@@ -84,9 +84,9 @@ export default function SubmitProjectPage() {
   }
 
   const nextStep = () => {
-    const fields = step === 1 ? ['name', 'description', 'location', 'country'] : 
-                   step === 2 ? ['capacity', 'panelType', 'inverterType'] : [];
-    
+    const fields = step === 1 ? ['name', 'description', 'location', 'country'] :
+      step === 2 ? ['capacity', 'panelType', 'inverterType'] : [];
+
     form.trigger(fields as any).then((isValid) => {
       if (isValid) setStep((s) => s + 1);
     });
@@ -97,21 +97,20 @@ export default function SubmitProjectPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <div className="flex items-center gap-4 mb-8">
-        <Button variant="ghost" onClick={() => router.back()} className="hover:bg-white/5">
+        <Button variant="ghost" onClick={() => router.back()} className="hover:bg-zinc-100">
           <ChevronLeft className="h-5 w-5 mr-1" /> Back
         </Button>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Post New Project</h1>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Post New Project</h1>
       </div>
 
       <div className="flex justify-between items-center px-4 mb-4">
         {[1, 2, 3].map((s) => (
           <div key={s} className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-              step >= s ? 'bg-primary text-primary-foreground scale-110 shadow-[0_0_15px_rgba(var(--primary),0.5)]' : 'bg-secondary text-muted-foreground'
-            }`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${step >= s ? 'bg-primary text-primary-foreground scale-110 shadow-[0_0_15px_rgba(var(--primary),0.5)]' : 'bg-zinc-100 text-muted-foreground'
+              }`}>
               {step > s ? <CheckCircle2 className="h-5 w-5" /> : s}
             </div>
-            {s < 3 && <div className={`w-12 md:w-24 h-[2px] ${step > s ? 'bg-primary' : 'bg-secondary'}`} />}
+            {s < 3 && <div className={`w-12 md:w-24 h-[2px] ${step > s ? 'bg-primary' : 'bg-zinc-100'}`} />}
           </div>
         ))}
       </div>
@@ -119,7 +118,7 @@ export default function SubmitProjectPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {step === 1 && (
-            <Card className="bg-card/50 backdrop-blur-md border-border/50 shadow-2xl overflow-hidden animate-in slide-in-from-right-4 duration-300">
+            <Card className="glass-card animate-in slide-in-from-right-4 duration-300">
               <CardHeader className="bg-primary/5 border-b border-border/50">
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
@@ -135,7 +134,7 @@ export default function SubmitProjectPage() {
                     <FormItem>
                       <FormLabel>Project Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Sunnyvale Solar Farm" {...field} className="bg-white/5 border-white/10 focus:border-primary/50" />
+                        <Input placeholder="e.g. Sunnyvale Solar Farm" {...field} className="bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -148,10 +147,10 @@ export default function SubmitProjectPage() {
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          placeholder="Provide a detailed description of the project, its goals, and impact..." 
-                          className="min-h-[150px] bg-white/5 border-white/10 focus:border-primary/50" 
-                          {...field} 
+                        <Textarea
+                          placeholder="Provide a detailed description of the project, its goals, and impact..."
+                          className="min-h-[150px] bg-zinc-50 border-zinc-200 focus:border-primary/50"
+                          {...field}
                         />
                       </FormControl>
                       <FormDescription>At least 50 characters.</FormDescription>
@@ -167,7 +166,7 @@ export default function SubmitProjectPage() {
                       <FormItem>
                         <FormLabel>Location</FormLabel>
                         <FormControl>
-                          <Input placeholder="City, State" {...field} className="bg-white/5 border-white/10 focus:border-primary/50" />
+                          <Input placeholder="City, State" {...field} className="bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -180,7 +179,7 @@ export default function SubmitProjectPage() {
                       <FormItem>
                         <FormLabel>Country</FormLabel>
                         <FormControl>
-                          <Input placeholder="Country" {...field} className="bg-white/5 border-white/10 focus:border-primary/50" />
+                          <Input placeholder="Country" {...field} className="bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -192,7 +191,7 @@ export default function SubmitProjectPage() {
           )}
 
           {step === 2 && (
-            <Card className="bg-card/50 backdrop-blur-md border-border/50 shadow-2xl overflow-hidden animate-in slide-in-from-right-4 duration-300">
+            <Card className="glass-card animate-in slide-in-from-right-4 duration-300">
               <CardHeader className="bg-primary/5 border-b border-border/50">
                 <CardTitle className="flex items-center gap-2">
                   <Sun className="h-5 w-5 text-primary" />
@@ -208,7 +207,7 @@ export default function SubmitProjectPage() {
                     <FormItem>
                       <FormLabel>Total Capacity (kW)</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} className="bg-white/5 border-white/10 focus:border-primary/50" />
+                        <Input type="number" {...field} className="bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -222,7 +221,7 @@ export default function SubmitProjectPage() {
                       <FormItem>
                         <FormLabel>Panel Type</FormLabel>
                         <FormControl>
-                          <Input {...field} className="bg-white/5 border-white/10 focus:border-primary/50" />
+                          <Input {...field} className="bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -235,7 +234,7 @@ export default function SubmitProjectPage() {
                       <FormItem>
                         <FormLabel>Inverter Type</FormLabel>
                         <FormControl>
-                          <Input {...field} className="bg-white/5 border-white/10 focus:border-primary/50" />
+                          <Input {...field} className="bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -249,7 +248,7 @@ export default function SubmitProjectPage() {
                     <FormItem>
                       <FormLabel>Est. Annual Production (kWh)</FormLabel>
                       <FormControl>
-                        <Input type="number" {...field} className="bg-white/5 border-white/10 focus:border-primary/50" />
+                        <Input type="number" {...field} className="bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -260,7 +259,7 @@ export default function SubmitProjectPage() {
           )}
 
           {step === 3 && (
-            <Card className="bg-card/50 backdrop-blur-md border-border/50 shadow-2xl overflow-hidden animate-in slide-in-from-right-4 duration-300">
+            <Card className="glass-card animate-in slide-in-from-right-4 duration-300">
               <CardHeader className="bg-primary/5 border-b border-border/50">
                 <CardTitle className="flex items-center gap-2">
                   <BadgeDollarSign className="h-5 w-5 text-primary" />
@@ -278,7 +277,7 @@ export default function SubmitProjectPage() {
                       <FormControl>
                         <div className="relative">
                           <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
-                          <Input type="number" {...field} className="pl-7 bg-white/5 border-white/10 focus:border-primary/50" />
+                          <Input type="number" {...field} className="pl-7 bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -295,7 +294,7 @@ export default function SubmitProjectPage() {
                         <FormControl>
                           <div className="relative">
                             <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
-                            <Input type="number" {...field} className="pl-7 bg-white/5 border-white/10 focus:border-primary/50" />
+                            <Input type="number" {...field} className="pl-7 bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                           </div>
                         </FormControl>
                         <FormDescription>Min 1 USDC</FormDescription>
@@ -311,7 +310,7 @@ export default function SubmitProjectPage() {
                         <FormLabel>Expected Annual Yield (%)</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type="number" step="0.1" {...field} className="bg-white/5 border-white/10 focus:border-primary/50" />
+                            <Input type="number" step="0.1" {...field} className="bg-zinc-50 border-zinc-200 focus:border-primary/50" />
                             <span className="absolute right-3 top-2.5 text-muted-foreground">%</span>
                           </div>
                         </FormControl>
@@ -330,11 +329,11 @@ export default function SubmitProjectPage() {
               variant="outline"
               onClick={prevStep}
               disabled={step === 1 || isSubmitting}
-              className="border-white/10 hover:bg-white/5 text-white"
+              className="border-zinc-200 hover:bg-zinc-50 text-foreground"
             >
               <ChevronLeft className="mr-2 h-4 w-4" /> Previous
             </Button>
-            
+
             {step < 3 ? (
               <Button type="button" onClick={nextStep} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8">
                 Next <ChevronRight className="ml-2 h-4 w-4" />

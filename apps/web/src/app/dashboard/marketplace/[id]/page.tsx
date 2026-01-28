@@ -153,8 +153,8 @@ export default function ProjectDetailPage() {
     parseFloat(project.fundingTarget) - parseFloat(project.fundingRaised);
   const tokensToReceive = investmentAmount
     ? Math.floor(
-        parseFloat(investmentAmount) / parseFloat(project.pricePerToken),
-      )
+      parseFloat(investmentAmount) / parseFloat(project.pricePerToken),
+    )
     : 0;
 
   return (
@@ -175,7 +175,7 @@ export default function ProjectDetailPage() {
               <MapPin className="h-4 w-4" />
               {project.location}, {project.country}
             </div>
-            <h1 className="text-4xl font-bold text-white mb-4">
+            <h1 className="text-4xl font-bold text-foreground mb-4">
               {project.name}
             </h1>
             <p className="text-lg text-muted-foreground">
@@ -185,7 +185,7 @@ export default function ProjectDetailPage() {
 
           {/* Key Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="bg-card/30 backdrop-blur-xl border-white/5">
+            <Card className="glass-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                   <Zap className="h-4 w-4" />
@@ -193,13 +193,13 @@ export default function ProjectDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">
+                <div className="text-2xl font-bold text-foreground">
                   {project.capacity} kW
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-card/30 backdrop-blur-xl border-white/5">
+            <Card className="glass-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
@@ -207,13 +207,13 @@ export default function ProjectDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-400">
+                <div className="text-2xl font-bold text-emerald-600">
                   {project.expectedYield}% APY
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-card/30 backdrop-blur-xl border-white/5">
+            <Card className="glass-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                   <Sun className="h-4 w-4" />
@@ -228,7 +228,7 @@ export default function ProjectDetailPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-card/30 backdrop-blur-xl border-white/5">
+            <Card className="glass-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
@@ -236,7 +236,7 @@ export default function ProjectDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">
+                <div className="text-2xl font-bold text-foreground">
                   {formatCurrency(project.pricePerToken)}
                 </div>
               </CardContent>
@@ -254,13 +254,13 @@ export default function ProjectDetailPage() {
             <CardContent className="grid md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Panel Type</p>
-                <p className="text-white font-medium">
+                <p className="text-foreground font-medium">
                   {project.panelType || "Not specified"}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Inverter Type</p>
-                <p className="text-white font-medium">
+                <p className="text-foreground font-medium">
                   {project.inverterType || "Not specified"}
                 </p>
               </div>
@@ -268,17 +268,17 @@ export default function ProjectDetailPage() {
                 <p className="text-sm text-muted-foreground">
                   Estimated Completion
                 </p>
-                <p className="text-white font-medium">
+                <p className="text-foreground font-medium">
                   {project.estimatedCompletionDate
                     ? new Date(
-                        project.estimatedCompletionDate,
-                      ).toLocaleDateString()
+                      project.estimatedCompletionDate,
+                    ).toLocaleDateString()
                     : "To be determined"}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Token Symbol</p>
-                <p className="text-white font-medium">{project.tokenSymbol}</p>
+                <p className="text-foreground font-medium">{project.tokenSymbol}</p>
               </div>
             </CardContent>
           </Card>
@@ -286,7 +286,7 @@ export default function ProjectDetailPage() {
 
         {/* Investment Card */}
         <div className="lg:w-96 lg:sticky lg:top-8 self-start">
-          <Card className="bg-card/50 backdrop-blur-xl border-primary/20 shadow-2xl">
+          <Card className="bg-white/70 backdrop-blur-xl border-zinc-200 shadow-2xl">
             <CardHeader>
               <CardTitle className="text-2xl">Investment Details</CardTitle>
               <CardDescription>
@@ -300,7 +300,7 @@ export default function ProjectDetailPage() {
                   <span className="text-muted-foreground">
                     Funding Progress
                   </span>
-                  <span className="text-white font-semibold">
+                  <span className="text-foreground font-semibold">
                     {Math.round(fundingPercentage)}%
                   </span>
                 </div>

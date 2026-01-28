@@ -63,15 +63,15 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="flex min-h-screen bg-[#050505]">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex w-72 flex-col fixed inset-y-0 bg-card/20 backdrop-blur-xl border-r border-white/5 z-50">
+      <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 bg-white/70 backdrop-blur-xl border-r border-zinc-200 z-20">
         <div className="p-8">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
               <Sun className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="text-2xl font-bold tracking-tighter text-white">
+            <span className="text-xl font-bold tracking-tight text-foreground">
               Solar
             </span>
           </Link>
@@ -85,8 +85,8 @@ export default function DashboardLayout({
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                    : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                  : "text-muted-foreground hover:bg-zinc-100 hover:text-foreground"
                   }`}
               >
                 <item.icon
@@ -98,16 +98,16 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/5">
-          <div className="bg-white/5 rounded-2xl p-4 flex items-center justify-between">
+        <div className="p-4 border-t border-zinc-200">
+          <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <UserButton
                 appearance={{ elements: { avatarBox: "h-10 w-10" } }}
               />
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-white truncate max-w-[120px]">
-                  {user?.fullName || "User"}
-                </span>
+                <p className="text-sm font-medium text-foreground truncate leading-tight">
+                  {user?.fullName || user?.firstName || "User"}
+                </p>
                 <span className="text-[10px] text-primary font-bold uppercase tracking-wider italic">
                   {role}
                 </span>
@@ -120,10 +120,10 @@ export default function DashboardLayout({
       {/* Main Content */}
       <main className="flex-1 md:pl-72 min-h-screen transition-all duration-300">
         {/* Header - Mobile */}
-        <header className="md:hidden flex items-center justify-between p-4 bg-card/20 backdrop-blur-xl border-b border-white/5 sticky top-0 z-40">
+        <header className="md:hidden flex items-center justify-between p-4 bg-white/70 backdrop-blur-xl border-b border-zinc-200 sticky top-0 z-40">
           <Link href="/" className="flex items-center gap-2">
             <Sun className="w-6 h-6 text-primary" />
-            <span className="text-xl font-bold text-white tracking-tight text-glow">
+            <span className="text-xl font-bold text-foreground tracking-tight text-glow">
               Solar
             </span>
           </Link>

@@ -96,7 +96,7 @@ app.use((req, res) => {
 // ============================================
 
 app.listen(PORT, () => {
-  console.log(`🚀 Aethera API running on http://localhost:${PORT}`);
+  console.log(`🚀 Solar API running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(
     `⭐ Stellar Network: ${process.env.STELLAR_NETWORK || "testnet"}`,
