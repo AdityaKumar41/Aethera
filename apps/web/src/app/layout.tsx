@@ -8,8 +8,8 @@ import { AuthSync } from '@/components/auth/auth-sync';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Aethera - Renewable Energy Financing Platform',
-  description: 'DePIN-powered financing platform connecting solar installers with investors through tokenized renewable energy assets on the Stellar blockchain.',
+  title: 'Solar - Renewable Energy Financing Platform',
+  description: 'DePIN-powered financing platform connecting solar developers with investors through tokenized renewable energy assets on the Stellar blockchain.',
   keywords: ['renewable energy', 'solar', 'DePIN', 'blockchain', 'Stellar', 'tokenization', 'investment'],
 };
 

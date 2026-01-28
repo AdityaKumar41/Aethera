@@ -101,17 +101,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-card flex flex-col">
-        <div className="p-6 border-b">
-          <Link href="/" className="flex items-center gap-2">
-            <Sun className="h-8 w-8 text-solar-500" />
-            <span className="text-xl font-bold bg-gradient-to-r from-solar-500 to-stellar-500 bg-clip-text text-transparent">
-              Aethera
+      <aside className="w-64 glass-sidebar flex flex-col z-20">
+        <div className="p-6 border-b border-white/5">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="p-1.5 rounded-lg bg-solar-500/10 group-hover:bg-solar-500/20 transition-colors">
+              <Sun className="h-6 w-6 text-solar-500" />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-white">
+              Solar
             </span>
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -120,33 +122,38 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Button
                   variant="ghost"
                   className={cn(
-                    "w-full justify-start gap-3",
-                    isActive && "bg-solar-500/10 text-solar-500",
+                    "w-full justify-start gap-4 h-11 px-4 transition-all duration-200",
+                    isActive
+                      ? "bg-solar-500/10 text-solar-400 font-medium"
+                      : "text-muted-foreground hover:bg-white/5 hover:text-white"
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className={cn("h-5 w-5", isActive ? "text-solar-500" : "text-current")} />
                   {item.label}
+                  {isActive && (
+                    <div className="ml-auto w-1 h-4 rounded-full bg-solar-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                  )}
                 </Button>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t">
-          <div className="flex items-center gap-3 px-3">
+        <div className="p-4 border-t border-white/5">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
             <UserButton
               afterSignOutUrl="/"
               appearance={{
                 elements: {
-                  avatarBox: "h-10 w-10",
+                  avatarBox: "h-9 w-9 ring-1 ring-white/10 group-hover:ring-solar-500/50 transition-all",
                 },
               }}
             />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">
+            <div className="flex-1 min-w-0 pr-2">
+              <p className="text-sm font-medium text-white truncate leading-tight">
                 {user.fullName || user.firstName}
               </p>
-              <p className="text-xs text-muted-foreground capitalize">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-bold mt-0.5">
                 {userRole.toLowerCase()}
               </p>
             </div>

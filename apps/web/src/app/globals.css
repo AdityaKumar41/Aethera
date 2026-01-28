@@ -11,9 +11,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
     --primary: 38 92% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 201 96% 32%;
-    --secondary-foreground: 0 0% 100%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 201 96% 42%;
+    --secondary-foreground: 210 40% 98%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
@@ -23,7 +23,7 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 38 92% 50%;
-    --radius: 0.75rem;
+    --radius: 1rem;
   }
 
   .dark {
@@ -68,16 +68,24 @@
     @apply bg-gradient-to-r from-stellar-600 via-stellar-500 to-stellar-400;
   }
 
-  .gradient-hero {
-    @apply bg-gradient-to-br from-solar-500/20 via-transparent to-stellar-500/20;
+  .gradient-emerald {
+    @apply bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400;
   }
 
-  .glass {
-    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg;
+  .gradient-hero {
+    @apply bg-gradient-to-br from-solar-500/10 via-transparent to-stellar-500/10;
+  }
+
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0, 0, 0, 0.3)];
+  }
+
+  .glass-sidebar {
+    @apply bg-card/10 backdrop-blur-2xl border-r border-white/5;
   }
 
   .card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+    @apply transition-all duration-300 hover:shadow-2xl hover:shadow-solar-500/10 hover:-translate-y-1 hover:border-solar-500/20;
   }
 }
 
@@ -105,6 +113,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

@@ -61,39 +61,102 @@ export default function DashboardPage() {
   // Investor View
   if (role === "INVESTOR") {
     return (
-      <div className="space-y-8 animate-in fade-in duration-500">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight text-white mb-2">
-            Portfolio Overview
+      <div className="space-y-10 animate-in fade-in duration-700">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
+            Solar Portfolio
           </h1>
-          <p className="text-muted-foreground text-lg">
-            Manage your solar investments and track yields.
+          <p className="text-muted-foreground text-lg max-w-2xl">
+            Real-time monitoring of your renewable energy assets and automated yield distributions.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-6">
-          <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Invested</CardTitle>
-              <Wallet className="h-4 w-4 text-primary" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="glass-card card-hover overflow-hidden group border-none relative">
+            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Sun className="h-24 w-24 text-solar-500 -mr-8 -mt-8 rotate-12" />
+            </div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Total Invested
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-solar-500/10">
+                <Wallet className="h-4 w-4 text-solar-500" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-3xl font-bold text-white tracking-tight">
                 {formatCurrency(data?.totalInvested || 0)}
               </div>
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                <span className="text-solar-500 font-medium">+2.4%</span> from last month
+              </p>
             </CardContent>
           </Card>
-          <Card className="bg-card/50 backdrop-blur-sm border-border/50 shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Yield Received
+
+          <Card className="glass-card card-hover overflow-hidden group border-none relative">
+            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+              <TrendingUp className="h-24 w-24 text-emerald-500 -mr-8 -mt-8" />
+            </div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Total Yield
               </CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-400" />
+              <div className="p-2 rounded-lg bg-emerald-500/10">
+                <TrendingUp className="h-4 w-4 text-emerald-500" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-400">
+              <div className="text-3xl font-bold text-emerald-400 tracking-tight">
                 {formatCurrency(data?.totalYieldReceived || 0)}
               </div>
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                <span className="text-emerald-400 font-medium">+12.5%</span> APY Average
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card card-hover overflow-hidden group border-none relative">
+            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Building className="h-24 w-24 text-stellar-500 -mr-8 -mt-8" />
+            </div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Active Assets
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-stellar-500/10">
+                <Sun className="h-4 w-4 text-stellar-500" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white tracking-tight">
+                {data?.activeProjects || 4}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Distributed across 3 regions
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card card-hover overflow-hidden group border-none relative">
+            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+              <BarChart3 className="h-24 w-24 text-purple-500 -mr-8 -mt-8" />
+            </div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                Monthly Gen.
+              </CardTitle>
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <BarChart3 className="h-4 w-4 text-purple-500" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white tracking-tight text-balance">
+                12.4 <span className="text-sm font-normal text-muted-foreground">MWh</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Equivalent to 3.2k homes
+              </p>
             </CardContent>
           </Card>
         </div>

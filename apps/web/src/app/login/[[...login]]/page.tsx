@@ -16,8 +16,8 @@ export default function LoginPage() {
         <div className="flex justify-center mb-6">
           <div className="flex items-center gap-2">
             <Sun className="h-10 w-10 text-solar-500" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-solar-500 to-stellar-500 bg-clip-text text-transparent">
-              Aethera
+            <span className="text-2xl font-bold bg-gradient-to-r from-solar-500 to-solar-400 bg-clip-text text-transparent">
+              Solar
             </span>
           </div>
         </div>

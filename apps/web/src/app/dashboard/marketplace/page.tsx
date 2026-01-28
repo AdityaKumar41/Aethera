@@ -42,52 +42,81 @@ export default function MarketplacePage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-4xl font-bold tracking-tight text-white mb-2">Solar Marketplace</h1>
-        <p className="text-muted-foreground text-lg">Browse and invest in vetted renewable energy projects.</p>
+    <div className="space-y-10 animate-in fade-in duration-700">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
+          Solar Marketplace
+        </h1>
+        <p className="text-muted-foreground text-lg max-w-2xl">
+          Browse and invest in vetted renewable energy projects globally.
+        </p>
       </div>
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         {projects.map((project) => (
-          <Card key={project.id} className="bg-card/30 backdrop-blur-xl border-white/5 group hover:border-primary/50 transition-all overflow-hidden shadow-2xl">
-            <div className="aspect-video relative bg-muted overflow-hidden">
-               <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20" />
-               <Sun className="absolute inset-0 m-auto h-12 w-12 text-white/20" />
-            </div>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-xl text-white group-hover:text-primary transition-colors">{project.name}</CardTitle>
-                <span className="text-primary font-bold">{project.expectedYield}% APY</span>
+          <Card key={project.id} className="glass-card card-hover group border-none relative flex flex-col h-full">
+            <div className="aspect-video relative overflow-hidden rounded-t-2xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-solar-500/20 to-stellar-500/20 z-10" />
+              <img
+                src="/images/solar-field.png"
+                alt={project.name}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+              />
+              <div className="absolute inset-0 bg-black/20 z-0" />
+              <div className="absolute top-4 right-4 z-20">
+                <span className="px-3 py-1 rounded-full bg-solar-500 text-white text-xs font-bold shadow-lg">
+                  {project.expectedYield}% APY
+                </span>
               </div>
-              <CardDescription className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {project.location}
-              </CardDescription>
+            </div>
+
+            <CardHeader className="flex-1">
+              <div className="space-y-1">
+                <CardTitle className="text-xl text-white group-hover:text-solar-400 transition-colors">
+                  {project.name}
+                </CardTitle>
+                <CardDescription className="flex items-center gap-1.5 text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {project.location}
+                </CardDescription>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Funding progress</span>
-                  <span className="text-white font-medium">{Math.round(project.fundingPercentage)}%</span>
+
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex justify-between items-end text-sm">
+                  <span className="text-muted-foreground font-medium">Funding Progress</span>
+                  <span className="text-white font-bold">{Math.round(project.fundingPercentage)}%</span>
                 </div>
-                <Progress value={project.fundingPercentage} className="h-2" />
-                <div className="flex justify-between text-xs pt-2">
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground uppercase text-[10px] font-bold">Goal</span>
-                    <span className="text-white font-semibold">{formatCurrency(project.fundingTarget)}</span>
-                  </div>
-                  <div className="flex flex-col text-right">
-                    <span className="text-muted-foreground uppercase text-[10px] font-bold">Price</span>
-                    <span className="text-white font-semibold">{formatCurrency(project.pricePerToken)}/unit</span>
-                  </div>
+                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-solar-600 via-solar-500 to-amber-400 rounded-full shadow-[0_0_12px_rgba(245,158,11,0.4)]"
+                    style={{ width: `${project.fundingPercentage}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Goal</span>
+                  <span className="text-white font-semibold flex items-center gap-1">
+                    {formatCurrency(project.fundingTarget)}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1 text-right">
+                  <span className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Price</span>
+                  <span className="text-white font-semibold">
+                    {formatCurrency(project.pricePerToken)}<span className="text-muted-foreground font-normal text-[10px]/none ml-0.5">/unit</span>
+                  </span>
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
+
+            <CardFooter className="pt-0 pb-6 px-6">
               <Link href={`/dashboard/marketplace/${project.id}`} className="w-full">
-                <Button className="w-full bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border-primary/20 transition-all">
+                <Button className="w-full bg-white/5 hover:bg-solar-500 text-white hover:text-white border border-white/10 hover:border-solar-500 transition-all duration-300 h-11 rounded-xl group/btn">
                   View Opportunity
+                  <Sun className="ml-2 h-4 w-4 group-hover/btn:rotate-90 transition-transform duration-500" />
                 </Button>
               </Link>
             </CardFooter>

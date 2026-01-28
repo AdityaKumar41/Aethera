@@ -24,7 +24,7 @@ export default function OnboardingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
       const token = await getToken();
       if (!token) throw new Error('Not authenticated');
@@ -47,9 +47,9 @@ export default function OnboardingPage() {
           onboardingComplete: true,
         },
       });
-      
-      toast({ title: 'Welcome to Aethera!', description: `You're all set as an ${role.toLowerCase()}.` });
-      
+
+      toast({ title: 'Welcome to Solar!', description: `You're all set as an ${role.toLowerCase()}.` });
+
       // Redirect based on role
       if (role === 'INSTALLER') {
         router.push('/installer');
@@ -82,8 +82,8 @@ export default function OnboardingPage() {
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2">
             <Sun className="h-10 w-10 text-solar-500" />
-            <span className="text-2xl font-bold bg-gradient-to-r from-solar-500 to-stellar-500 bg-clip-text text-transparent">
-              Aethera
+            <span className="text-2xl font-bold bg-gradient-to-r from-solar-500 to-solar-400 bg-clip-text text-transparent">
+              Solar
             </span>
           </div>
         </div>

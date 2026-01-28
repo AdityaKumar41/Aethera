@@ -72,7 +72,7 @@ export default function DashboardLayout({
               <Sun className="w-6 h-6 text-primary-foreground" />
             </div>
             <span className="text-2xl font-bold tracking-tighter text-white">
-              Aethera
+              Solar
             </span>
           </Link>
         </div>
@@ -84,11 +84,10 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                  isActive
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                     : "text-muted-foreground hover:bg-white/5 hover:text-white"
-                }`}
+                  }`}
               >
                 <item.icon
                   className={`w-5 h-5 ${isActive ? "" : "group-hover:text-primary transition-colors"}`}
@@ -125,7 +124,7 @@ export default function DashboardLayout({
           <Link href="/" className="flex items-center gap-2">
             <Sun className="w-6 h-6 text-primary" />
             <span className="text-xl font-bold text-white tracking-tight text-glow">
-              Aethera
+              Solar
             </span>
           </Link>
         </header>

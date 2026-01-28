@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
+import { Sun, TrendingUp } from "lucide-react";
 
 interface YieldClaim {
   id: string;
@@ -133,85 +134,102 @@ export default function YieldsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">My Yields</h1>
-        <p className="text-gray-600 mt-2">
-          Track and claim your investment yields
+    <div className="space-y-10 animate-in fade-in duration-700">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
+          Yield Portfolio
+        </h1>
+        <p className="text-muted-foreground text-lg max-w-2xl">
+          Track and claim your automated energy production yields from the Stellar blockchain.
         </p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-6">
-          <div className="text-sm text-gray-600">Total Yield</div>
-          <div className="text-2xl font-bold mt-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="glass-card card-hover p-6 border-none relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Sun className="h-20 w-20 text-white -mr-6 -mt-6" />
+          </div>
+          <div className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">Total Yield</div>
+          <div className="text-3xl font-bold text-white tracking-tight">
             {formatCurrency(summary.totalYield)}
           </div>
         </Card>
-        <Card className="p-6">
-          <div className="text-sm text-gray-600">Claimed</div>
-          <div className="text-2xl font-bold text-green-600 mt-2">
+
+        <Card className="glass-card card-hover p-6 border-none relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <TrendingUp className="h-20 w-20 text-emerald-500 -mr-6 -mt-6" />
+          </div>
+          <div className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">Claimed</div>
+          <div className="text-3xl font-bold text-emerald-400 tracking-tight">
             {formatCurrency(summary.totalClaimed)}
           </div>
-          <div className="text-xs text-gray-500 mt-1">
-            {summary.claimedCount} distributions
+          <div className="text-xs text-muted-foreground mt-2 font-medium">
+            {summary.claimedCount} distributions processed
           </div>
         </Card>
-        <Card className="p-6">
-          <div className="text-sm text-gray-600">Pending</div>
-          <div className="text-2xl font-bold text-blue-600 mt-2">
-            {formatCurrency(summary.totalPending)}
+
+        <Card className="glass-card card-hover p-6 border-none relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <div className="h-20 w-20 bg-solar-500 rounded-full blur-3xl -mr-10 -mt-10" />
           </div>
-          <div className="text-xs text-gray-500 mt-1">
-            {summary.pendingCount} available
+          <div className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">Available</div>
+          <div className="text-3xl font-bold text-solar-400 tracking-tight">
+            {formatCurrency(summary.totalPending || 0)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-2 font-medium">
+            {summary.pendingCount} pending claims
           </div>
         </Card>
-        <Card className="p-6 flex items-center justify-center">
+
+        <Card className="glass-card flex items-center justify-center p-6 border-none">
           <Button
             onClick={handleClaimAll}
             disabled={!summary.pendingCount || batchClaiming}
-            className="w-full"
-            size="lg"
+            className="w-full h-12 bg-solar-500 hover:bg-solar-600 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all active:scale-95"
           >
             {batchClaiming
               ? "Claiming..."
-              : `Claim All (${summary.pendingCount})`}
+              : `Claim All Available`}
           </Button>
         </Card>
       </div>
 
       {/* Pending Claims */}
       {summary.pendingClaims.length > 0 && (
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Pending Claims</h2>
-          <div className="space-y-3">
+        <Card className="glass-card p-8 border-none space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1 bg-solar-500 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+            <h2 className="text-xl font-bold text-white tracking-tight">Pending Distributions</h2>
+          </div>
+          <div className="grid gap-4">
             {summary.pendingClaims.map((claim) => (
               <div
                 key={claim.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between p-5 bg-white/5 border border-white/5 rounded-2xl group hover:bg-white/[0.08] transition-all"
               >
-                <div>
-                  <div className="font-semibold">
+                <div className="space-y-1">
+                  <div className="font-bold text-white group-hover:text-solar-400 transition-colors">
                     {claim.distribution.project.name}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-muted-foreground">
                     {claim.distribution.project.location} •{" "}
                     {formatDate(claim.distribution.period)}
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <div className="font-bold text-blue-600">
-                      {formatCurrency(claim.amount)}
+                    <div className="font-bold text-lg text-solar-400">
+                      +{formatCurrency(claim.amount)}
                     </div>
                   </div>
                   <Button
                     onClick={() => handleClaimSingle(claim.id)}
                     disabled={claiming === claim.id}
                     size="sm"
+                    className="bg-white/10 hover:bg-white/20 text-white border-none rounded-lg h-9 px-4"
                   >
-                    {claiming === claim.id ? "Claiming..." : "Claim"}
+                    {claiming === claim.id ? "Processing..." : "Claim Now"}
                   </Button>
                 </div>
               </div>
@@ -222,30 +240,33 @@ export default function YieldsPage() {
 
       {/* Recent Claims */}
       {summary.recentClaims.length > 0 && (
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Claims</h2>
-          <div className="space-y-3">
+        <Card className="glass-card p-8 border-none space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+            <h2 className="text-xl font-bold text-white tracking-tight">History</h2>
+          </div>
+          <div className="grid gap-4">
             {summary.recentClaims.map((claim) => (
               <div
                 key={claim.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between p-5 bg-white/5 border border-white/5 rounded-2xl"
               >
-                <div>
-                  <div className="font-semibold">
+                <div className="space-y-1">
+                  <div className="font-bold text-white">
                     {claim.distribution.project.name}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-muted-foreground">
                     {claim.distribution.project.location} •{" "}
                     {formatDate(claim.distribution.period)}
                   </div>
                   {claim.claimedAt && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Claimed on {formatDate(claim.claimedAt)}
+                    <div className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-widest">
+                      Confirmed {formatDate(claim.claimedAt)}
                     </div>
                   )}
                 </div>
-                <div className="text-right">
-                  <div className="font-bold text-green-600">
+                <div className="text-right space-y-2">
+                  <div className="font-bold text-emerald-400">
                     {formatCurrency(claim.amount)}
                   </div>
                   {claim.txHash && (
@@ -253,9 +274,9 @@ export default function YieldsPage() {
                       href={`https://stellar.expert/explorer/testnet/tx/${claim.txHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline"
+                      className="text-[10px] font-bold text-stellar-400 hover:text-stellar-300 transition-colors uppercase tracking-widest flex items-center gap-1 justify-end"
                     >
-                      View Transaction
+                      Stellar Explorer
                     </a>
                   )}
                 </div>
@@ -267,13 +288,15 @@ export default function YieldsPage() {
 
       {summary.pendingClaims.length === 0 &&
         summary.recentClaims.length === 0 && (
-          <Card className="p-12 text-center">
-            <div className="text-gray-500">
-              <div className="text-lg font-semibold mb-2">No yields yet</div>
-              <p>
-                Your yields will appear here once projects start generating
-                revenue.
-              </p>
+          <Card className="glass-card p-20 text-center border-none">
+            <div className="max-w-md mx-auto space-y-4">
+              <Sun className="h-16 w-16 text-muted-foreground/20 mx-auto" />
+              <div className="space-y-2">
+                <div className="text-xl font-bold text-white">Generating Activity...</div>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Your yields will manifest here as your solar assets begin generating clean energy and revenue.
+                </p>
+              </div>
             </div>
           </Card>
         )}

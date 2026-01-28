@@ -11,8 +11,8 @@ export default function HomePage() {
         <div className="container flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
             <Sun className="h-8 w-8 text-solar-500" />
-            <span className="text-xl font-bold bg-gradient-to-r from-solar-500 to-stellar-500 bg-clip-text text-transparent">
-              Aethera
+            <span className="text-xl font-bold bg-gradient-to-r from-solar-500 to-solar-400 bg-clip-text text-transparent">
+              Solar
             </span>
           </Link>
           <div className="flex items-center gap-4">
@@ -44,7 +44,7 @@ export default function HomePage() {
               </span>
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Aethera connects solar installers with global investors through tokenized renewable energy assets. 
+              Solar connects solar developers with global investors through tokenized renewable energy assets.
               Earn stable yields while powering a sustainable future.
             </p>
             <div className="flex items-center justify-center gap-4">
@@ -131,7 +131,7 @@ export default function HomePage() {
         <div className="container">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-6">Why Aethera?</h2>
+              <h2 className="text-3xl font-bold mb-6">Why Solar?</h2>
               <div className="space-y-6">
                 <div className="flex gap-4">
                   <div className="h-10 w-10 rounded-lg bg-solar-500/10 flex items-center justify-center flex-shrink-0">
@@ -193,10 +193,10 @@ export default function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sun className="h-6 w-6 text-solar-500" />
-              <span className="font-bold">Aethera</span>
+              <span className="font-bold">Solar</span>
             </div>
             <p className="text-muted-foreground text-sm">
-              © 2026 Aethera. Financing the solar revolution on Stellar.
+              © 2026 Solar. Financing the solar revolution on Stellar.
             </p>
           </div>
         </div>
