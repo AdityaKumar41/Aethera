@@ -1,0 +1,273 @@
+// ============================================
+// Aethera Platform - Prisma Schema
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// Enums
+// ============================================
+
+enum UserRole {
+  INVESTOR
+  INSTALLER
+  ADMIN
+}
+
+enum KYCStatus {
+  PENDING
+  IN_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum ProjectStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  FUNDING
+  FUNDED
+  ACTIVE
+  COMPLETED
+}
+
+enum InvestmentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+// ============================================
+// User Model
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?  // Optional for Clerk managed users
+  name      String
+  role      UserRole @default(INVESTOR)
+  
+  // KYC / Compliance
+  kycStatus       KYCStatus @default(PENDING)
+  kycSubmittedAt  DateTime?
+  kycVerifiedAt   DateTime?
+  kycDocuments    Json?     // Store document references
+  
+  // Stellar Wallet (Custodial)
+  stellarPubKey   String?   @unique
+  stellarSecretEncrypted String? // Encrypted secret key
+  
+  // Profile
+  phone           String?
+  company         String?   // For installers
+  address         String?
+  country         String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  projects      Project[]        // For installers
+  investments   Investment[]     // For investors
+  yieldClaims   YieldClaim[]    // For investors
+  
+  @@index([role])
+  @@index([kycStatus])
+}
+
+// ============================================
+// Project Model (Solar Asset)
+// ============================================
+
+model Project {
+  id          String        @id @default(cuid())
+  installerId String
+  installer   User          @relation(fields: [installerId], references: [id])
+  
+  // Basic Info
+  name        String
+  description String        @db.Text
+  location    String
+  country     String
+  
+  // Solar Asset Details
+  capacity          Float     // kW capacity
+  panelType         String?
+  inverterType      String?
+  estimatedAnnualProduction Float? // kWh
+  
+  // Financial Details
+  expectedYield     Float     // Annual yield percentage
+  fundingTarget     Decimal   @db.Decimal(18, 2)
+  fundingRaised     Decimal   @default(0) @db.Decimal(18, 2)
+  pricePerToken     Decimal   @db.Decimal(18, 6)
+  
+  // Token Details
+  tokenSymbol       String?   @unique
+  tokenContractId   String?   @unique // Soroban contract ID
+  totalTokens       Int?      // Total tokens minted
+  tokensRemaining   Int?      // Tokens available for investment
+  
+  // Timeline
+  startDate               DateTime?
+  estimatedCompletionDate DateTime?
+  actualCompletionDate    DateTime?
+  
+  // Status
+  status            ProjectStatus @default(DRAFT)
+  approvedAt        DateTime?
+  approvedBy        String?       // Admin user ID
+  rejectionReason   String?
+  
+  // Documents
+  documents         Json?     // Array of document references
+  images            Json?     // Array of image URLs
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  investments       Investment[]
+  yieldDistributions YieldDistribution[]
+  
+  @@index([installerId])
+  @@index([status])
+  @@index([tokenSymbol])
+}
+
+// ============================================
+// Investment Model
+// ============================================
+
+model Investment {
+  id          String           @id @default(cuid())
+  investorId  String
+  investor    User             @relation(fields: [investorId], references: [id])
+  projectId   String
+  project     Project          @relation(fields: [projectId], references: [id])
+  
+  // Investment Details
+  amount          Decimal          @db.Decimal(18, 2) // USDC amount
+  tokenAmount     Int              // Number of tokens received
+  pricePerToken   Decimal          @db.Decimal(18, 6) // Price at time of investment
+  
+  // Transaction
+  status          InvestmentStatus @default(PENDING)
+  txHash          String?          // Stellar transaction hash
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([investorId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// ============================================
+// Yield Distribution Model
+// ============================================
+
+model YieldDistribution {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  
+  // Distribution Details
+  period          DateTime  // Month/quarter of distribution
+  totalRevenue    Decimal   @db.Decimal(18, 2) // Total revenue collected
+  platformFee     Decimal   @db.Decimal(18, 2) // Platform's fee
+  totalYield      Decimal   @db.Decimal(18, 2) // Amount to distribute
+  yieldPerToken   Decimal   @db.Decimal(18, 10) // Yield per token
+  
+  // Distribution Status
+  distributed     Boolean   @default(false)
+  distributedAt   DateTime?
+  txHash          String?   // Stellar transaction hash
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  claims     YieldClaim[]
+  
+  @@index([projectId])
+  @@index([period])
+}
+
+// ============================================
+// Yield Claim Model
+// ============================================
+
+model YieldClaim {
+  id              String            @id @default(cuid())
+  distributionId  String
+  distribution    YieldDistribution @relation(fields: [distributionId], references: [id])
+  investorId      String
+  investor        User              @relation(fields: [investorId], references: [id])
+  
+  // Claim Details
+  tokenAmount     Int               // Tokens held at distribution time
+  amount          Decimal           @db.Decimal(18, 2) // Yield amount
+  claimed         Boolean           @default(false)
+  claimedAt       DateTime?
+  txHash          String?           // Stellar transaction hash
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  @@unique([distributionId, investorId])
+  @@index([investorId])
+}
+
+// ============================================
+// Transaction Log
+// ============================================
+
+model TransactionLog {
+  id          String   @id @default(cuid())
+  type        String   // INVESTMENT, YIELD_DISTRIBUTION, TOKEN_MINT, etc.
+  userId      String?
+  projectId   String?
+  
+  // Transaction Details
+  amount      Decimal? @db.Decimal(18, 2)
+  txHash      String   @unique
+  status      String   // PENDING, SUCCESS, FAILED
+  
+  // Stellar Details
+  sourceAccount  String?
+  destAccount    String?
+  
+  // Metadata
+  metadata    Json?
+  error       String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  @@index([type])
+  @@index([userId])
+  @@index([projectId])
+}
+
+// ============================================
+// System Settings
+// ============================================
+
+model SystemSettings {
+  key         String   @id
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+}
