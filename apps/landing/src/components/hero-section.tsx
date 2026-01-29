@@ -78,7 +78,7 @@ export function HeroSection() {
           className="block text-white font-bold text-[28vw] sm:text-[25vw] md:text-[22vw] lg:text-[20vw] tracking-tighter select-none text-center leading-none"
           style={{ marginBottom: "0" }}
         >
-          SOLAR
+          AETHERA
         </span>
       </div>
 
@@ -88,7 +88,7 @@ export function HeroSection() {
             className={`transition-all duration-1000 delay-[800ms] ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"}`}
           >
             <h1 className="text-sm md:text-base lg:text-lg font-medium tracking-widest uppercase mb-6 w-full px-4 max-w-6xl mx-auto text-balance text-white/90">
-              <AnimatedText text="Financing the Solar Transition" delay={0.3} />
+              <AnimatedText text="Financing the Energy Transition" delay={0.3} />
             </h1>
           </div>
         </div>

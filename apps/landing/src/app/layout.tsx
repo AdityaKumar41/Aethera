@@ -7,7 +7,7 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Solar - Renewable Energy Financing Platform",
+  title: "Aethera - Renewable Energy Financing Platform",
   description: "Unlocking capital for renewable energy through DePIN and asset tokenization on the Stellar blockchain.",
   generator: 'v0.app'
 }

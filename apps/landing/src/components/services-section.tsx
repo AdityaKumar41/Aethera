@@ -128,7 +128,7 @@ export function ServicesSection() {
               </h2>
               <div className="space-y-6 text-white/90 leading-relaxed">
                 <p>
-                  Solar is a DePIN-powered financing platform designed to bridge the $350 billion global financing gap
+                  Aethera is a DePIN-powered financing platform designed to bridge the $350 billion global financing gap
                   in renewable energy.
                 </p>
                 <p>

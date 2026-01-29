@@ -11,8 +11,8 @@ interface HeaderProps {
 
 const sectionTitles: Record<Section, string> = {
   portfolio: "Portfolio Overview",
-  marketplace: "Solar Marketplace",
-  projects: "My Solar Projects",
+  marketplace: "Aethera Marketplace",
+  projects: "My Aethera Projects",
   yield: "Yield & Rewards",
   governance: "Governance",
   settings: "Settings",

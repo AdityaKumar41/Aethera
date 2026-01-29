@@ -51,7 +51,7 @@ export function Header() {
             <span
               className={`text-lg font-medium tracking-tight transition-colors duration-300 ${isScrolled ? "text-black" : "text-foreground"}`}
             >
-              Solar
+              Aethera
             </span>
           </a>
 
@@ -88,10 +88,18 @@ export function Header() {
             >
               FAQ
             </a>
+            <a
+              href="http://localhost:3001"
+              className={`text-sm font-medium transition-colors cursor-pointer ${isScrolled ? "text-orange-600 hover:text-orange-700" : "text-orange-500 hover:text-orange-400"
+                }`}
+            >
+              Dashboard
+            </a>
           </nav>
 
           <div className="hidden md:flex items-center gap-1">
-            <button
+            <a
+              href="http://localhost:3001"
               className={`relative flex items-center gap-0 border rounded-full pl-5 pr-1 py-1 transition-all duration-300 group overflow-hidden ${isScrolled ? "border-zinc-300" : "border-border"
                 }`}
             >
@@ -115,7 +123,7 @@ export function Header() {
                     }`}
                 />
               </span>
-            </button>
+            </a>
           </div>
 
           <button
@@ -163,13 +171,18 @@ export function Header() {
             >
               FAQ
             </a>
+            <a
+              href="http://localhost:3001"
+              className={`font-medium transition-colors cursor-pointer ${isScrolled ? "text-orange-600 hover:text-orange-700" : "text-orange-500 hover:text-orange-400"
+                }`}
+            >
+              Dashboard
+            </a>
             <div
               className={`flex flex-col gap-3 mt-4 pt-4 border-t ${isScrolled ? "border-zinc-200" : "border-border"}`}
             >
-              <a href="#" className={isScrolled ? "text-black" : "text-foreground"}>
-                Login
-              </a>
-              <button
+              <a
+                href="http://localhost:3001"
                 className={`relative flex items-center gap-0 border rounded-full pl-5 pr-1 py-1 w-fit transition-all duration-300 group overflow-hidden ${isScrolled ? "border-zinc-300" : "border-border"
                   }`}
               >
@@ -193,7 +206,7 @@ export function Header() {
                       }`}
                   />
                 </span>
-              </button>
+              </a>
             </div>
           </nav>
         )}

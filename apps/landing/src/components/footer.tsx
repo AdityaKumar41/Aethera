@@ -31,14 +31,14 @@ const footerLinks = {
 
 export function Footer() {
   return (
-    <div className="relative">
-      <div className="absolute -top-[20vw] left-0 right-0 w-full h-[50vw] z-0 overflow-hidden">
-        <Image src="/images/solar-field.png" alt="Solar farm landscape" fill className="object-cover" priority />
+    <div className="relative overflow-hidden">
+      <div className="absolute -top-[20vw] left-0 right-0 w-full h-[40vw] z-0 overflow-hidden">
+        <Image src="/images/solar-field.png" alt="Solar farm landscape" fill className="object-cover object-top" priority />
       </div>
 
       <div className="absolute -top-[15vw] left-0 right-0 flex items-end justify-center overflow-visible pointer-events-none z-10">
         <h2 className="font-bold text-center text-[28vw] sm:text-[25vw] md:text-[22vw] lg:text-[20vw] leading-[0.85] tracking-tighter text-white whitespace-nowrap">
-          SOLAR
+          AETHERA
         </h2>
       </div>
 
@@ -59,7 +59,7 @@ export function Footer() {
                   <line x1="9" y1="9" x2="9.01" y2="9" />
                   <line x1="15" y1="9" x2="15.01" y2="9" />
                 </svg>
-                <span className="text-base font-medium text-foreground">Solar</span>
+                <span className="text-base font-medium text-foreground">Aethera</span>
               </Link>
               <p className="text-sm text-muted-foreground mb-6">Renewable energy financing, decentralized.</p>
               <div className="flex gap-4">
@@ -156,8 +156,8 @@ export function Footer() {
           </div>
 
           <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-xs text-muted-foreground">© 2026 Solar. All rights reserved.</p>
-            <p className="text-xs text-muted-foreground">Solar DePIN Ltd. - Financing the future of energy</p>
+            <p className="text-xs text-muted-foreground">© 2026 Aethera. All rights reserved.</p>
+            <p className="text-xs text-muted-foreground">Aethera DePIN Ltd. - Financing the future of energy</p>
           </div>
         </div>
       </footer>

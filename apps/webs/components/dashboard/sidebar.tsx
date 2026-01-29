@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Wallet,
   Shield,
+  Home,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -57,7 +58,7 @@ export function Sidebar({
               collapsed ? "opacity-0 w-0" : "opacity-100 w-auto"
             )}
           >
-            Solar
+            Aethera
           </span>
         </div>
       </div>
@@ -131,6 +132,30 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      {/* Back to Home */}
+      <div className={cn(
+        "px-3 py-2 border-t border-sidebar-border",
+        collapsed && "px-2"
+      )}>
+        <a
+          href="http://localhost:3000"
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
+            "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+          )}
+        >
+          <Home className="w-5 h-5 shrink-0 group-hover:scale-110 transition-transform" />
+          <span
+            className={cn(
+              "whitespace-nowrap transition-all duration-300",
+              collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+            )}
+          >
+            Back to Home
+          </span>
+        </a>
+      </div>
 
       {/* Network Status */}
       {!collapsed && (

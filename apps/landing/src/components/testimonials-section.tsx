@@ -7,13 +7,13 @@ const testimonials = [
   {
     name: "Dr. Elena Rossi",
     role: "Impact Investor",
-    content: "Solar has completely changed how I view green investments. The transparency of real-time generation is incredible!",
+    content: "Aethera has completely changed how I view green investments. The transparency of real-time generation is incredible!",
     avatar: "https://ui-avatars.com/api/?name=Elena+Rossi&background=f59e0b&color=fff",
   },
   {
     name: "Marcus Chen",
     role: "Solar Developer",
-    content: "Getting upfront capital for our 5MW array was seamless. Solar is the future of renewable energy financing.",
+    content: "Getting upfront capital for our 5MW array was seamless. Aethera is the future of renewable energy financing.",
     avatar: "https://ui-avatars.com/api/?name=Marcus+Chen&background=3b82f6&color=fff",
   },
   {

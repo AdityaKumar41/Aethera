@@ -276,7 +276,7 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
               <div className="w-8 h-8 rounded-full gradient-solar flex items-center justify-center text-white text-xs font-bold">
                 AET
               </div>
-              <span className="font-medium">Solar Token</span>
+              <span className="font-medium">Aethera Token</span>
             </div>
             <span className="font-semibold">0 AET</span>
           </div>

@@ -127,12 +127,12 @@ export function PropertyBookingCard({
               <span className="text-sm font-normal text-slate-500"> / fraction</span>
             </div>
           </div>
-          <button
-            onClick={onBook}
+          <a
+            href="http://localhost:3001"
             className="rounded-xl bg-foreground px-6 py-3 font-semibold text-background transition-colors hover:bg-foreground/90 text-sm"
           >
             Invest Now
-          </button>
+          </a>
         </div>
       </div>
     </div>

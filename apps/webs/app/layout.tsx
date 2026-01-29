@@ -10,9 +10,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Solar | Solar Energy Financing Platform',
+  title: 'Aethera | Solar Energy Financing Platform',
   description: 'DePIN-powered renewable energy financing. Invest in tokenized solar assets and earn real yield from clean energy production.',
-  generator: 'Solar Platform',
+  generator: 'Aethera Platform',
   keywords: ['solar', 'renewable energy', 'DePIN', 'tokenization', 'Stellar', 'blockchain', 'green investment'],
 }
 

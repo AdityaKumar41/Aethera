@@ -2,9 +2,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 const faqs = [
   {
-    question: "What is Solar?",
+    question: "What is Aethera?",
     answer:
-      "Solar is a DePIN-powered financing platform that tokenizes real-world renewable energy assets, starting with solar, to bridge the global financing gap.",
+      "Aethera is a DePIN-powered financing platform that tokenizes real-world renewable energy assets, starting with solar, to bridge the global financing gap.",
   },
   {
     question: "How does solar asset tokenization work?",
@@ -40,7 +40,7 @@ export function FAQSection() {
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-normal mb-6 text-balance font-sans">Frequently Asked Questions</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Everything you need to know about Solar. Have a question not listed? Reach out to our team.
+            Everything you need to know about Aethera. Have a question not listed? Reach out to our team.
           </p>
         </div>
 
