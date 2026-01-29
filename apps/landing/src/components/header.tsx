@@ -43,18 +43,11 @@ export function Header() {
       >
         <div className="flex items-center justify-between">
           <a href="#" onClick={handleLogoClick} className="flex items-center gap-2 cursor-pointer">
-            <svg
-              className={`w-6 h-6 transition-colors duration-300 ${isScrolled ? "text-black" : "text-foreground"}`}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-              <line x1="9" y1="9" x2="9.01" y2="9" />
-              <line x1="15" y1="9" x2="15.01" y2="9" />
-            </svg>
+            <img
+              src="/SteezyInk_Temporary_Tattoo_Distorted_Disco_Ball_v1_Last_Upto_2_Weeks_2_x_2_Inches-removebg-preview.png"
+              alt="Solar Logo"
+              className="h-6 w-auto object-contain"
+            />
             <span
               className={`text-lg font-medium tracking-tight transition-colors duration-300 ${isScrolled ? "text-black" : "text-foreground"}`}
             >
