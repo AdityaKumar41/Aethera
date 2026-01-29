@@ -32,6 +32,16 @@ export {
 // Soroban Contract Service
 export { SorobanContractService, getSorobanService } from "./soroban";
 
+// Contract Registry
+export {
+  getNetworkConfig as getRegistryConfig,
+  getContractAddresses,
+  validateContractsDeployed,
+  NETWORK_CONFIGS,
+  type ContractAddresses,
+  type NetworkConfig as RegistryNetworkConfig,
+} from "./registry";
+
 // Re-export useful Stellar SDK items
 export {
   Keypair,

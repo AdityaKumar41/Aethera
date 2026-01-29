@@ -13,7 +13,7 @@ import {
 } from "../middleware/auth.js";
 import { createApiError } from "../middleware/error.js";
 import { requireTrustline } from "../middleware/trustline.js";
-import { contractDeploymentService, Keypair } from "@aethera/stellar";
+import { getInvestmentService } from "../services/investmentService.js";
 
 const router = Router();
 
@@ -21,7 +21,7 @@ const router = Router();
 router.use(authenticate);
 
 // ============================================
-// Create Investment
+// Create Investment (Real On-Chain Flow)
 // ============================================
 
 const createInvestmentSchema = z.object({
@@ -36,59 +36,78 @@ router.post(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const data = createInvestmentSchema.parse(req.body);
+      const investorId = req.auth?.userId!;
 
-      // Create investment record
-      const investment = await prisma.$transaction(async (tx) => {
-        // Get project with lock
-        const project = await tx.project.findUnique({
-          where: { id: data.projectId },
+      // Check KYC status first
+      const investor = await prisma.user.findUnique({
+        where: { id: investorId },
+        select: { kycStatus: true },
+      });
+
+      if (!investor || investor.kycStatus !== "VERIFIED") {
+        return res.status(403).json({
+          success: false,
+          error: "KYC verification required before investing",
+          code: "KYC_REQUIRED",
         });
+      }
 
-        if (!project) {
-          throw createApiError("Project not found", 404);
-        }
+      // Get project and calculate tokens
+      const project = await prisma.project.findUnique({
+        where: { id: data.projectId },
+      });
 
-        if (project.status !== "FUNDING") {
-          throw createApiError(
-            "Project is not open for funding",
-            400,
-            "PROJECT_NOT_FUNDABLE",
-          );
-        }
+      if (!project) {
+        throw createApiError("Project not found", 404);
+      }
 
-        // Calculate tokens
-        const tokenAmount = Math.floor(
-          data.amount / Number(project.pricePerToken),
+      if (project.status !== "FUNDING") {
+        throw createApiError(
+          "Project is not open for funding",
+          400,
+          "PROJECT_NOT_FUNDABLE"
         );
+      }
 
-        if (tokenAmount < 1) {
-          throw createApiError(
-            "Investment amount too low for at least 1 token",
-            400,
-          );
-        }
+      // Calculate tokens
+      const tokenAmount = Math.floor(
+        data.amount / Number(project.pricePerToken)
+      );
 
-        if (tokenAmount > (project.tokensRemaining ?? 0)) {
-          throw createApiError(
-            "Not enough tokens available",
-            400,
-            "INSUFFICIENT_TOKENS",
-          );
-        }
+      if (tokenAmount < 1) {
+        throw createApiError(
+          "Investment amount too low for at least 1 token",
+          400
+        );
+      }
 
-        // Create investment
-        const inv = await tx.investment.create({
-          data: {
-            investorId: req.auth?.userId!,
-            projectId: data.projectId,
-            amount: data.amount,
-            tokenAmount,
-            pricePerToken: project.pricePerToken,
-            status: "PENDING",
-          },
+      if (tokenAmount > (project.tokensRemaining ?? 0)) {
+        throw createApiError(
+          "Not enough tokens available",
+          400,
+          "INSUFFICIENT_TOKENS"
+        );
+      }
+
+      // Process investment through the real on-chain service
+      const investmentService = getInvestmentService();
+      const result = await investmentService.processInvestment({
+        investorId,
+        projectId: data.projectId,
+        amount: data.amount,
+        tokenAmount,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: result.error,
+          investmentId: result.investmentId,
         });
+      }
 
-        // Update project funding
+      // Update project funding (in transaction)
+      await prisma.$transaction(async (tx) => {
         const newFundingRaised = Number(project.fundingRaised) + data.amount;
         const newTokensRemaining = (project.tokensRemaining ?? 0) - tokenAmount;
 
@@ -97,82 +116,17 @@ router.post(
           data: {
             fundingRaised: newFundingRaised,
             tokensRemaining: newTokensRemaining,
-            // Auto-mark as FUNDED if target reached
             status:
               newFundingRaised >= Number(project.fundingTarget)
                 ? "FUNDED"
                 : "FUNDING",
           },
         });
-
-        return { inv, tokenAmount, project };
       });
 
-      const { inv, tokenAmount, project } = investment;
-
-      // ============================================
-      // BLOCKCHAIN INTEGRATION
-      // ============================================
-      let mintTxHash: string | undefined;
-      let investmentStatus: "CONFIRMED" | "FAILED" = "CONFIRMED";
-
-      try {
-        // Get investor wallet address
-        const investor = await prisma.user.findUnique({
-          where: { id: req.auth?.userId },
-          select: { stellarPubKey: true },
-        });
-
-        if (!investor?.stellarPubKey) {
-          throw new Error("Investor wallet not found");
-        }
-
-        // Mint tokens on-chain if project has contract deployed
-        if (project.tokenContractId) {
-          const adminSecret = process.env.STELLAR_ADMIN_SECRET;
-          if (!adminSecret) {
-            console.error(
-              "⚠️ Admin secret not configured, skipping token mint",
-            );
-          } else {
-            try {
-              const adminKeypair = Keypair.fromSecret(adminSecret);
-
-              // Mint tokens to investor
-              mintTxHash = await contractDeploymentService.mintTokens(
-                project.tokenContractId,
-                adminKeypair,
-                investor.stellarPubKey,
-                BigInt(tokenAmount),
-              );
-
-              console.log(
-                `✅ Minted ${tokenAmount} tokens to ${investor.stellarPubKey}`,
-              );
-              console.log(`   TX Hash: ${mintTxHash}`);
-            } catch (mintError) {
-              console.error("Token minting failed:", mintError);
-              // Continue with investment record but mark as failed
-              investmentStatus = "FAILED";
-              mintTxHash = undefined;
-            }
-          }
-        } else {
-          console.warn(`⚠️ Project ${project.id} has no contract deployed`);
-          mintTxHash = `mock_tx_${Date.now()}`; // Fallback for projects without contracts
-        }
-      } catch (error) {
-        console.error("Blockchain integration error:", error);
-        investmentStatus = "FAILED";
-      }
-
-      // Update investment with blockchain transaction hash
-      const confirmed = await prisma.investment.update({
-        where: { id: inv.id },
-        data: {
-          status: investmentStatus,
-          txHash: mintTxHash || `mock_tx_${Date.now()}`,
-        },
+      // Get updated investment
+      const investment = await prisma.investment.findUnique({
+        where: { id: result.investmentId },
         include: {
           project: {
             select: { name: true, tokenSymbol: true },
@@ -180,42 +134,93 @@ router.post(
         },
       });
 
-      // Log investment state transition
+      // Log investment transition
       await AuditLogger.logInvestmentTransition(
-        inv.id,
+        result.investmentId!,
         "PENDING",
-        investmentStatus,
-        req.auth?.userId!,
+        "PENDING_ONCHAIN",
+        investorId,
         {
           projectId: data.projectId,
           amount: data.amount,
           tokenAmount,
-          txHash: confirmed.txHash,
-        },
+          txHash: result.txHash,
+        }
       );
-
-      // Log transaction
-      await prisma.transactionLog.create({
-        data: {
-          type: "INVESTMENT",
-          userId: req.auth?.userId,
-          projectId: data.projectId,
-          amount: data.amount,
-          txHash: confirmed.txHash!,
-          status: "SUCCESS",
-          metadata: { tokenAmount },
-        },
-      });
 
       res.status(201).json({
         success: true,
-        message: `Successfully invested in ${confirmed.project.name}`,
-        data: confirmed,
+        message: `Investment submitted for ${project.name}`,
+        data: {
+          ...investment,
+          status: "PENDING_ONCHAIN",
+          message: "Transaction submitted to blockchain. Awaiting confirmation.",
+        },
       });
     } catch (error) {
       next(error);
     }
-  },
+  }
+);
+
+// ============================================
+// Get Investment Status (with on-chain verification)
+// ============================================
+
+router.get(
+  "/:id/status",
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const investmentService = getInvestmentService();
+      const investment = await investmentService.getInvestmentStatus(req.params.id);
+
+      if (!investment) {
+        throw createApiError("Investment not found", 404);
+      }
+
+      if (investment.investorId !== req.auth?.userId) {
+        throw createApiError("Not authorized", 403);
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: investment.id,
+          status: investment.status,
+          txHash: investment.txHash,
+          txLedger: investment.txLedger,
+          txConfirmedAt: investment.txConfirmedAt,
+          mintStatus: investment.mintStatus,
+          mintConfirmedAt: investment.mintConfirmedAt,
+          amount: investment.amount,
+          tokenAmount: investment.tokenAmount,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ============================================
+// Cancel Pending Investment
+// ============================================
+
+router.post(
+  "/:id/cancel",
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const investmentService = getInvestmentService();
+      await investmentService.cancelInvestment(req.params.id, req.auth?.userId!);
+
+      res.json({
+        success: true,
+        message: "Investment cancelled",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 );
 
 // ============================================

@@ -44,6 +44,10 @@ pub enum DataKey {
     TokenInfo,
     Balance(Address),
     Allowance((Address, Address)),
+    HolderCount,           // Track number of holders
+    HolderAt(u32),         // Holder address by index
+    HolderIndex(Address),  // Index of holder address
+    Paused,                // Emergency pause flag
 }
 
 // ============================================
@@ -111,6 +115,11 @@ impl AssetTokenContract {
     /// Mint tokens to an investor (called when investment is confirmed)
     /// Only admin can mint
     pub fn mint(env: Env, to: Address, amount: i128) {
+        // Check if paused
+        if env.storage().instance().get::<_, bool>(&DataKey::Paused).unwrap_or(false) {
+            panic!("Contract is paused");
+        }
+
         let mut token_info: TokenInfo = env
             .storage()
             .instance()
@@ -129,6 +138,11 @@ impl AssetTokenContract {
         let current_balance: i128 = env.storage().persistent().get(&balance_key).unwrap_or(0);
         let new_balance = current_balance + amount;
 
+        // Track holder if new
+        if current_balance == 0 {
+            Self::add_holder(&env, to.clone());
+        }
+
         env.storage().persistent().set(&balance_key, &new_balance);
 
         // Update total supply
@@ -140,6 +154,24 @@ impl AssetTokenContract {
             (Symbol::new(&env, "mint"), to.clone()),
             amount,
         );
+    }
+
+    /// Internal: Add a holder to the tracking list
+    fn add_holder(env: &Env, holder: Address) {
+        let holder_index_key = DataKey::HolderIndex(holder.clone());
+        
+        // Check if already tracked
+        if env.storage().persistent().has(&holder_index_key) {
+            return;
+        }
+
+        // Get current holder count
+        let count: u32 = env.storage().instance().get(&DataKey::HolderCount).unwrap_or(0);
+        
+        // Store holder at index
+        env.storage().persistent().set(&DataKey::HolderAt(count), &holder);
+        env.storage().persistent().set(&holder_index_key, &count);
+        env.storage().instance().set(&DataKey::HolderCount, &(count + 1));
     }
 
     /// Get balance of an address
@@ -270,6 +302,97 @@ impl AssetTokenContract {
             .get(&DataKey::TokenInfo)
             .expect("Not initialized");
         token_info.metadata.symbol
+    }
+
+    // ============================================
+    // Admin Functions
+    // ============================================
+
+    /// Pause the contract (emergency stop)
+    /// Only admin can pause
+    pub fn pause(env: Env) {
+        let token_info: TokenInfo = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenInfo)
+            .expect("Not initialized");
+
+        token_info.metadata.admin.require_auth();
+        
+        env.storage().instance().set(&DataKey::Paused, &true);
+        
+        env.events().publish(
+            (Symbol::new(&env, "paused"),),
+            true,
+        );
+    }
+
+    /// Unpause the contract
+    /// Only admin can unpause
+    pub fn unpause(env: Env) {
+        let token_info: TokenInfo = env
+            .storage()
+            .instance()
+            .get(&DataKey::TokenInfo)
+            .expect("Not initialized");
+
+        token_info.metadata.admin.require_auth();
+        
+        env.storage().instance().set(&DataKey::Paused, &false);
+        
+        env.events().publish(
+            (Symbol::new(&env, "paused"),),
+            false,
+        );
+    }
+
+    /// Check if contract is paused
+    pub fn is_paused(env: Env) -> bool {
+        env.storage().instance().get::<_, bool>(&DataKey::Paused).unwrap_or(false)
+    }
+
+    // ============================================
+    // Holder Snapshot Functions (for yield distribution)
+    // ============================================
+
+    /// Get the number of unique token holders
+    pub fn holder_count(env: Env) -> u32 {
+        env.storage().instance().get(&DataKey::HolderCount).unwrap_or(0)
+    }
+
+    /// Get holder address by index (for iterating)
+    pub fn holder_at(env: Env, index: u32) -> Address {
+        env.storage()
+            .persistent()
+            .get(&DataKey::HolderAt(index))
+            .expect("Holder not found at index")
+    }
+
+    /// Get all holders with their balances (for snapshot)
+    /// Returns Vec of (holder_index, balance) pairs
+    /// Use holder_at() to get the actual address
+    pub fn get_holder_balances(env: Env, start: u32, limit: u32) -> soroban_sdk::Vec<(u32, i128)> {
+        let holder_count: u32 = env.storage().instance().get(&DataKey::HolderCount).unwrap_or(0);
+        let end = core::cmp::min(start + limit, holder_count);
+        
+        let mut results = soroban_sdk::Vec::new(&env);
+        
+        for i in start..end {
+            let holder: Address = env.storage()
+                .persistent()
+                .get(&DataKey::HolderAt(i))
+                .unwrap();
+            let balance: i128 = env.storage()
+                .persistent()
+                .get(&DataKey::Balance(holder))
+                .unwrap_or(0);
+            
+            if balance > 0 {
+                results.push_back((i, balance));
+            }
+        }
+        
+        results
     }
 }
 

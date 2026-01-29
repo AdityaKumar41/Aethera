@@ -18,6 +18,10 @@ import yieldRoutes from "./routes/yields.js";
 import adminRoutes from "./routes/admin.js";
 import stellarRoutes from "./routes/stellar.js";
 import oracleRoutes from "./routes/oracle.js";
+import kycRoutes from "./routes/kyc.js";
+import governanceRoutes from "./routes/governance.js";
+import emergencyRoutes from "./routes/emergency.js";
+import monitoringRoutes from "./routes/monitoring.js";
 
 // Import middleware
 import { clerkMiddleware } from "@clerk/express";
@@ -79,6 +83,10 @@ app.use("/api/yields", yieldRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/stellar", stellarRoutes);
 app.use("/api/oracle", oracleRoutes);
+app.use("/api/kyc", kycRoutes);
+app.use("/api/governance", governanceRoutes);
+app.use("/api/emergency", emergencyRoutes);
+app.use("/api/monitoring", monitoringRoutes);
 
 // ============================================
 // Error Handling

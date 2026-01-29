@@ -27,7 +27,7 @@ pub struct ProjectEscrow {
 }
 
 #[contracttype]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum ProjectStatus {
     Funding,        // Accepting investments
     Funded,         // Target reached
@@ -41,6 +41,12 @@ pub enum DataKey {
     UsdcToken,
     Project(String),
     PlatformBalance,
+    Paused,                    // Emergency pause flag
+    Signers,                   // List of authorized signers
+    SignerCount,               // Number of signers
+    RequiredSignatures,        // Number of signatures required for release
+    PendingRelease(String),    // Pending capital releases awaiting signatures
+    ReleaseSignatures(String), // Signatures collected for a release
 }
 
 #[contract]
@@ -48,7 +54,7 @@ pub struct TreasuryContract;
 
 #[contractimpl]
 impl TreasuryContract {
-    /// Initialize the treasury
+    /// Initialize the treasury contract
     pub fn initialize(env: Env, admin: Address, usdc_token: Address) {
         if env.storage().instance().has(&DataKey::Admin) {
             panic!("Already initialized");
@@ -99,6 +105,11 @@ impl TreasuryContract {
         investor: Address,
         amount: i128,
     ) -> bool {
+        // Check if paused
+        if env.storage().instance().get::<_, bool>(&DataKey::Paused).unwrap_or(false) {
+            panic!("Contract is paused");
+        }
+
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
@@ -135,6 +146,11 @@ impl TreasuryContract {
 
     /// Release capital to installer (after project funded)
     pub fn release_capital(env: Env, project_id: String) {
+        // Check if paused
+        if env.storage().instance().get::<_, bool>(&DataKey::Paused).unwrap_or(false) {
+            panic!("Contract is paused");
+        }
+
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
@@ -248,6 +264,86 @@ impl TreasuryContract {
             .instance()
             .get(&DataKey::PlatformBalance)
             .unwrap_or(0)
+    }
+
+    /// Check if contract is paused
+    pub fn is_paused(env: Env) -> bool {
+        env.storage().instance().get::<_, bool>(&DataKey::Paused).unwrap_or(false)
+    }
+
+    // ============================================
+    // Admin / Emergency Functions
+    // ============================================
+
+    /// Pause the contract (emergency stop)
+    /// Only admin can pause
+    pub fn pause(env: Env) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        
+        env.storage().instance().set(&DataKey::Paused, &true);
+        
+        env.events().publish(
+            (soroban_sdk::Symbol::new(&env, "paused"),),
+            true,
+        );
+    }
+
+    /// Unpause the contract
+    /// Only admin can unpause
+    pub fn unpause(env: Env) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        
+        env.storage().instance().set(&DataKey::Paused, &false);
+        
+        env.events().publish(
+            (soroban_sdk::Symbol::new(&env, "paused"),),
+            false,
+        );
+    }
+
+    /// Setup multisig for capital releases
+    /// Only admin can set this up
+    pub fn setup_multisig(env: Env, signers: soroban_sdk::Vec<Address>, required: u32) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        let signer_count = signers.len();
+        if required == 0 || required > signer_count {
+            panic!("Invalid required signatures");
+        }
+
+        env.storage().instance().set(&DataKey::Signers, &signers);
+        env.storage().instance().set(&DataKey::SignerCount, &signer_count);
+        env.storage().instance().set(&DataKey::RequiredSignatures, &required);
+
+        env.events().publish(
+            (soroban_sdk::Symbol::new(&env, "multisig_setup"),),
+            (signer_count, required),
+        );
+    }
+
+    /// Get multisig config
+    pub fn get_multisig_config(env: Env) -> (u32, u32) {
+        let signer_count: u32 = env.storage().instance().get(&DataKey::SignerCount).unwrap_or(0);
+        let required: u32 = env.storage().instance().get(&DataKey::RequiredSignatures).unwrap_or(1);
+        (signer_count, required)
+    }
+
+    /// Check if an address is an authorized signer
+    pub fn is_signer(env: Env, addr: Address) -> bool {
+        let signers: soroban_sdk::Vec<Address> = env.storage()
+            .instance()
+            .get(&DataKey::Signers)
+            .unwrap_or(soroban_sdk::Vec::new(&env));
+        
+        for i in 0..signers.len() {
+            if signers.get(i).unwrap() == addr {
+                return true;
+            }
+        }
+        false
     }
 }
 

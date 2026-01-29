@@ -39,9 +39,19 @@ enum ProjectStatus {
 }
 
 enum InvestmentStatus {
-  PENDING
-  CONFIRMED
-  FAILED
+  PENDING           // Initial state, awaiting processing
+  PENDING_ONCHAIN   // Transaction submitted, awaiting confirmation
+  CONFIRMED         // Transaction confirmed on-chain
+  FAILED            // Transaction failed
+}
+
+// On-chain transaction finality states
+enum TransactionStatus {
+  PENDING           // Transaction created, not yet submitted
+  SUBMITTED         // Transaction submitted to network
+  CONFIRMED         // Transaction included in ledger
+  FAILED            // Transaction failed
+  EXPIRED           // Transaction expired (not included in time)
 }
 
 // ============================================
@@ -152,6 +162,56 @@ model Project {
 }
 
 // ============================================
+// Oracle Provider Model
+// ============================================
+
+enum OracleStatus {
+  PENDING           // Awaiting approval
+  ACTIVE            // Approved and active
+  SUSPENDED         // Temporarily suspended
+  REVOKED           // Permanently revoked
+}
+
+model OracleProvider {
+  id              String        @id @default(cuid())
+  name            String
+  description     String?       @db.Text
+  
+  // Authentication
+  apiKeyHash      String        @unique // Hashed API key
+  publicKey       String        @unique // Ed25519 public key for signatures
+  
+  // Status
+  status          OracleStatus  @default(PENDING)
+  approvedAt      DateTime?
+  approvedBy      String?       // Admin user ID
+  
+  // Trust Score (0-100)
+  trustScore      Int           @default(50)
+  totalSubmissions Int          @default(0)
+  disputedSubmissions Int       @default(0)
+  
+  // Rate Limiting
+  rateLimit       Int           @default(100) // Max submissions per hour
+  lastSubmissionAt DateTime?
+  
+  // Contact
+  contactEmail    String?
+  webhookUrl      String?       // For dispute notifications
+  
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  productionData  ProductionData[]
+  disputes        OracleDispute[]
+  
+  @@index([status])
+  @@index([trustScore])
+}
+
+// ============================================
 // Production Data Model (Oracle)
 // ============================================
 
@@ -163,11 +223,24 @@ model ProductionData {
   // Production Metrics
   energyProduced  Decimal  @db.Decimal(18, 4) // kWh produced
   recordedAt      DateTime // When the production occurred
+  periodStart     DateTime? // Start of measurement period
+  periodEnd       DateTime? // End of measurement period
   
   // Data Source
-  source          String   // MANUAL, AUTOMATIC, METER
+  source          String   // MANUAL, AUTOMATIC, METER, ORACLE
   verifiedBy      String?  // Admin user ID who verified
   notes           String?  @db.Text
+  
+  // Oracle Verification
+  oracleProviderId String?
+  oracleProvider   OracleProvider? @relation(fields: [oracleProviderId], references: [id])
+  signature        String?         // Ed25519 signature of data
+  signedPayload    String?         // Original signed payload (JSON)
+  signatureValid   Boolean?        // Whether signature was verified
+  
+  // Dispute Info
+  disputed        Boolean  @default(false)
+  disputeId       String?
   
   // Timestamps
   createdAt DateTime @default(now())
@@ -175,6 +248,49 @@ model ProductionData {
   
   @@index([projectId])
   @@index([recordedAt])
+  @@index([oracleProviderId])
+  @@index([disputed])
+}
+
+// ============================================
+// Oracle Dispute Model
+// ============================================
+
+enum DisputeStatus {
+  OPEN              // Dispute filed
+  UNDER_REVIEW      // Being reviewed
+  RESOLVED_VALID    // Data found valid
+  RESOLVED_INVALID  // Data found invalid
+  ESCALATED         // Escalated to governance
+}
+
+model OracleDispute {
+  id                String        @id @default(cuid())
+  productionDataId  String
+  oracleProviderId  String
+  oracleProvider    OracleProvider @relation(fields: [oracleProviderId], references: [id])
+  
+  // Dispute Details
+  filedBy           String        // User ID who filed
+  reason            String        @db.Text
+  evidence          Json?         // Supporting evidence
+  
+  // Resolution
+  status            DisputeStatus @default(OPEN)
+  resolvedBy        String?       // Admin user ID
+  resolution        String?       @db.Text
+  resolvedAt        DateTime?
+  
+  // Impact
+  trustScoreChange  Int?          // Change to oracle's trust score
+  dataInvalidated   Boolean       @default(false)
+  
+  // Timestamps
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  @@index([oracleProviderId])
+  @@index([status])
 }
 
 // ============================================
@@ -193,9 +309,19 @@ model Investment {
   tokenAmount     Int              // Number of tokens received
   pricePerToken   Decimal          @db.Decimal(18, 6) // Price at time of investment
   
-  // Transaction
+  // On-chain Transaction Tracking
   status          InvestmentStatus @default(PENDING)
   txHash          String?          // Stellar transaction hash
+  txLedger        Int?             // Ledger number when confirmed
+  txSubmittedAt   DateTime?        // When transaction was submitted
+  txConfirmedAt   DateTime?        // When transaction was confirmed
+  txRetryCount    Int              @default(0) // Number of retry attempts
+  txError         String?          // Error message if failed
+  
+  // Token Minting (separate from investment tx)
+  mintTxHash      String?          // Token mint transaction hash
+  mintStatus      TransactionStatus? // Status of token minting
+  mintConfirmedAt DateTime?        // When tokens were minted
   
   // Timestamps
   createdAt DateTime @default(now())
@@ -204,6 +330,7 @@ model Investment {
   @@index([investorId])
   @@index([projectId])
   @@index([status])
+  @@index([txHash])
 }
 
 // ============================================
