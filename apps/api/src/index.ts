@@ -22,6 +22,7 @@ import kycRoutes from "./routes/kyc.js";
 import governanceRoutes from "./routes/governance.js";
 import emergencyRoutes from "./routes/emergency.js";
 import monitoringRoutes from "./routes/monitoring.js";
+import webhookRoutes from "./routes/webhooks.js";
 
 // Import middleware
 import { clerkMiddleware } from "@clerk/express";
@@ -38,10 +39,18 @@ const PORT = process.env.PORT || 3001;
 // Security headers
 app.use(helmet());
 
-// CORS
+// CORS - Split comma-separated origins into array
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000").split(",").map(o => o.trim());
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: function(origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   }),
 );
@@ -87,6 +96,7 @@ app.use("/api/kyc", kycRoutes);
 app.use("/api/governance", governanceRoutes);
 app.use("/api/emergency", emergencyRoutes);
 app.use("/api/monitoring", monitoringRoutes);
+app.use("/api/webhooks", webhookRoutes);
 
 // ============================================
 // Error Handling

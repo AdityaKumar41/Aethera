@@ -12,12 +12,12 @@ const router = Router();
 
 /**
  * Sync Clerk user with internal database
- * Called by frontend after successful sign-up/login
+ * Called by frontend after successful sign-up/login or onboarding
  */
 router.post('/sync', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
     const { userId } = req.auth!;
-    const { email, name, role } = req.body;
+    const { email, name, role, company, phone, country } = req.body;
 
     // Check if user already exists
     let user = await prisma.user.findUnique({
@@ -35,8 +35,23 @@ router.post('/sync', authenticate, async (req: AuthenticatedRequest, res, next) 
           email: email,
           name: name || 'User',
           role: (role as UserRole) || 'INVESTOR',
+          company: company,
+          phone: phone,
+          country: country,
           stellarPubKey: wallet.publicKey,
           stellarSecretEncrypted: wallet.encryptedSecret,
+        },
+      });
+    } else {
+      // Update existing user with onboarding data
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: name || user.name,
+          role: (role as UserRole) || user.role,
+          company: company || user.company,
+          phone: phone || user.phone,
+          country: country || user.country,
         },
       });
     }

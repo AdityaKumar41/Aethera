@@ -3,7 +3,14 @@
 import { ArrowUpRight, ArrowDownRight, Coins, Zap, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const transactions: { id: string; type: "yield" | "investment" | "claim"; project: string; amount: number; date: string; status: "completed" }[] = [];
+interface Transaction {
+    id: string;
+    type: "yield" | "investment" | "claim";
+    project: string;
+    amount: number;
+    date: string;
+    status: "completed" | "pending";
+}
 
 const typeConfig = {
     yield: { icon: Coins, color: "bg-emerald-500/10 text-emerald-600", label: "Yield" },
@@ -11,7 +18,33 @@ const typeConfig = {
     claim: { icon: ArrowUpRight, color: "bg-violet-500/10 text-violet-600", label: "Claim" },
 };
 
-export function RecentTransactions() {
+interface RecentTransactionsProps {
+    transactions?: Transaction[];
+    loading?: boolean;
+}
+
+export function RecentTransactions({ transactions = [], loading }: RecentTransactionsProps) {
+    if (loading) {
+        return (
+            <div className="bg-card border border-border rounded-2xl p-5 h-full">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold">Recent Transactions</h3>
+                </div>
+                <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center gap-3 animate-pulse">
+                            <div className="w-10 h-10 rounded-xl bg-secondary" />
+                            <div className="flex-1 space-y-2">
+                                <div className="h-4 bg-secondary rounded w-2/3" />
+                                <div className="h-3 bg-secondary rounded w-1/3" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">

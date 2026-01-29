@@ -3,23 +3,76 @@
 import { useState } from "react";
 import { EnergyProductionChart } from "@/components/dashboard/charts/energy-production-chart";
 import { cn } from "@/lib/utils";
-import { Zap, Sun, TrendingUp, Battery, ExternalLink, MoreVertical } from "lucide-react";
-
-const myProjects: { id: string; name: string; location: string; tokensOwned: number; tokenValue: number; purchasePrice: number; cumulativeYield: number; status: "producing" | "funding" | "funded" | "maintenance"; energyToday: number; energyMonth: number; lastYieldDate: string | null; lastYieldAmount: number }[] = [];
+import { Zap, Sun, TrendingUp, Battery, MoreVertical, Loader2 } from "lucide-react";
+import { useInvestments, usePortfolio } from "@/hooks/use-dashboard-data";
 
 const statusConfig = {
     producing: { label: "Producing", color: "bg-emerald-500", textColor: "text-emerald-600" },
     funding: { label: "Funding", color: "bg-amber-500", textColor: "text-amber-600" },
     funded: { label: "Funded", color: "bg-blue-500", textColor: "text-blue-600" },
     maintenance: { label: "Maintenance", color: "bg-orange-500", textColor: "text-orange-600" },
+    confirmed: { label: "Confirmed", color: "bg-emerald-500", textColor: "text-emerald-600" },
+    pending: { label: "Pending", color: "bg-amber-500", textColor: "text-amber-600" },
 };
 
-export function ProjectsSection() {
-    const [selectedProject, setSelectedProject] = useState(myProjects[0]);
+interface MappedProject {
+    id: string;
+    name: string;
+    location: string;
+    tokensOwned: number;
+    tokenValue: number;
+    purchasePrice: number;
+    cumulativeYield: number;
+    status: keyof typeof statusConfig;
+    energyToday: number;
+    energyMonth: number;
+    lastYieldDate: string | null;
+    lastYieldAmount: number;
+}
 
-    const totalValue = myProjects.reduce((sum, p) => sum + p.tokenValue, 0);
-    const totalYield = myProjects.reduce((sum, p) => sum + p.cumulativeYield, 0);
+export function ProjectsSection() {
+    const { investments, loading, error } = useInvestments();
+    const { portfolio } = usePortfolio();
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+    // Map investments to project format
+    const myProjects: MappedProject[] = investments.map(inv => ({
+        id: inv.id,
+        name: inv.project.name,
+        location: inv.project.location || "Unknown location",
+        tokensOwned: inv.tokenAmount,
+        tokenValue: inv.amount, // Current value same as purchase for now
+        purchasePrice: inv.amount,
+        cumulativeYield: 0, // Would come from yield history
+        status: (inv.project.status?.toLowerCase() || inv.status.toLowerCase()) as keyof typeof statusConfig,
+        energyToday: 0,
+        energyMonth: 0,
+        lastYieldDate: null,
+        lastYieldAmount: 0,
+    }));
+
+    const selectedProject = myProjects.find(p => p.id === selectedProjectId) || myProjects[0] || null;
+
+    const totalValue = portfolio?.totalInvested || 0;
+    const totalYield = 0; // Would come from yield summary
     const producingProjects = myProjects.filter((p) => p.status === "producing").length;
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading projects...</span>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-red-500">{error}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -45,7 +98,9 @@ export function ProjectsSection() {
                         <span className="text-sm text-muted-foreground">Portfolio Value</span>
                     </div>
                     <p className="text-3xl font-bold">${totalValue.toLocaleString()}</p>
-                    <p className="text-sm text-success mt-1">+{((totalValue / 7400 - 1) * 100).toFixed(1)}% all time</p>
+                    <p className="text-sm text-emerald-600 mt-1">
+                        {totalValue > 0 ? "+0.0% all time" : "No investments yet"}
+                    </p>
                 </div>
                 <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center gap-3 mb-3">
@@ -67,21 +122,24 @@ export function ProjectsSection() {
                         <div className="bg-card border border-border rounded-xl p-6 text-center">
                             <Sun className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                             <p className="text-sm text-muted-foreground">No projects yet</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Visit the Marketplace to invest in a solar project
+                            </p>
                         </div>
                     ) : (
                         myProjects.map((project) => {
-                            const config = statusConfig[project.status];
+                            const config = statusConfig[project.status] || statusConfig.confirmed;
                             const isSelected = selectedProject?.id === project.id;
 
                             return (
                                 <button
                                     key={project.id}
-                                    onClick={() => setSelectedProject(project)}
+                                    onClick={() => setSelectedProjectId(project.id)}
                                     className={cn(
                                         "w-full text-left p-4 rounded-xl border transition-all duration-200",
                                         isSelected
-                                            ? "bg-accent/10 border-accent"
-                                            : "bg-card border-border hover:border-accent/50"
+                                            ? "bg-emerald-50 border-emerald-500"
+                                            : "bg-card border-border hover:border-emerald-300"
                                     )}
                                 >
                                     <div className="flex items-start justify-between mb-2">
@@ -127,15 +185,15 @@ export function ProjectsSection() {
                                             <h3 className="text-xl font-semibold">{selectedProject.name}</h3>
                                             <span className={cn(
                                                 "px-2 py-0.5 rounded-full text-xs font-medium",
-                                                statusConfig[selectedProject.status].color,
+                                                statusConfig[selectedProject.status]?.color || "bg-gray-500",
                                                 "text-white"
                                             )}>
-                                                {statusConfig[selectedProject.status].label}
+                                                {statusConfig[selectedProject.status]?.label || selectedProject.status}
                                             </span>
                                         </div>
                                         <p className="text-sm text-muted-foreground">{selectedProject.location}</p>
                                     </div>
-                                    <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                                    <button className="p-2 rounded-lg hover:bg-zinc-100 transition-colors">
                                         <MoreVertical className="w-5 h-5 text-muted-foreground" />
                                     </button>
                                 </div>
@@ -151,11 +209,11 @@ export function ProjectsSection() {
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground mb-1">Total Yield</p>
-                                        <p className="text-lg font-semibold text-success">${selectedProject.cumulativeYield.toFixed(2)}</p>
+                                        <p className="text-lg font-semibold text-emerald-600">${selectedProject.cumulativeYield.toFixed(2)}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground mb-1">ROI</p>
-                                        <p className="text-lg font-semibold text-success">
+                                        <p className="text-lg font-semibold text-emerald-600">
                                             {selectedProject.purchasePrice > 0
                                                 ? `+${(((selectedProject.tokenValue + selectedProject.cumulativeYield) / selectedProject.purchasePrice - 1) * 100).toFixed(1)}%`
                                                 : "N/A"
@@ -170,14 +228,14 @@ export function ProjectsSection() {
                                 <EnergyProductionChart projectName={selectedProject.name} />
                             )}
 
-                            {selectedProject.status === "funding" && (
+                            {(selectedProject.status === "funding" || selectedProject.status === "pending") && (
                                 <div className="bg-card border border-border rounded-2xl p-6 text-center">
                                     <Battery className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                                     <h4 className="font-medium mb-2">Project Still Funding</h4>
                                     <p className="text-sm text-muted-foreground mb-4">
                                         This project is still in the funding phase. Energy production data will be available once the project is operational.
                                     </p>
-                                    <button className="px-4 py-2 bg-secondary text-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors">
+                                    <button className="px-4 py-2 bg-zinc-100 text-foreground rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors">
                                         View Project Details
                                     </button>
                                 </div>

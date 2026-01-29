@@ -77,11 +77,13 @@ router.get("/proposals", async (req, res, next) => {
     
     res.json({
       success: true,
-      data: proposals,
-      pagination: {
-        limit: parseInt(limit as string),
-        offset: parseInt(offset as string),
-        total: proposals.length,
+      data: {
+        data: proposals,
+        pagination: {
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string),
+          total: proposals.length,
+        },
       },
     });
   } catch (error) {

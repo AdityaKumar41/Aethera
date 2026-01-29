@@ -13,6 +13,7 @@ import {
   KYC_LEVELS,
   type WebhookPayload,
 } from "@aethera/kyc";
+import { authenticate, type AuthenticatedRequest } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -32,11 +33,20 @@ const startKycSchema = z.object({
  * Start KYC verification flow
  * Returns access token for Sumsub WebSDK
  */
-router.post("/start", async (req: Request, res: Response) => {
+router.post("/start", authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) {
+    const userId = req.auth?.userId;
+    if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    // Get user from DB
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
     }
 
     const { level } = startKycSchema.parse(req.body);
@@ -88,19 +98,30 @@ router.post("/start", async (req: Request, res: Response) => {
 /**
  * Get current KYC status
  */
-router.get("/status", async (req: Request, res: Response) => {
+router.get("/status", authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) {
+    const userId = req.auth?.userId;
+    if (!userId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
     const sumsubService = getSumsubService();
-    const status = await sumsubService.getApplicantStatus(user.id);
+    const status = await sumsubService.getApplicantStatus(userId);
+
+    // Map Sumsub status to internal KYCStatus
+    const statusMap: Record<string, string> = {
+      approved: "VERIFIED",
+      rejected: "REJECTED",
+      pending: "IN_REVIEW",
+      retry: "PENDING", // If retry, they need to do it again, so effectively PENDING for the user
+      not_started: "PENDING",
+    };
+
+    const currentKycStatus = statusMap[status.status] || "PENDING";
 
     // Get user's KYC data from database
     const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
+      where: { id: userId },
       select: {
         kycStatus: true,
         kycSubmittedAt: true,
@@ -108,10 +129,26 @@ router.get("/status", async (req: Request, res: Response) => {
       },
     });
 
+    // Sync DB if status has changed
+    if (dbUser && dbUser.kycStatus !== currentKycStatus) {
+      const updateData: any = { kycStatus: currentKycStatus };
+      if (currentKycStatus === "VERIFIED") updateData.kycVerifiedAt = new Date();
+      if (status.status !== "not_started" && !dbUser.kycSubmittedAt) {
+        updateData.kycSubmittedAt = new Date(status.createdAt);
+      }
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+      
+      dbUser.kycStatus = currentKycStatus as any;
+    }
+
     res.json({
       success: true,
       data: {
-        status: dbUser?.kycStatus || "PENDING",
+        status: dbUser?.kycStatus || currentKycStatus,
         submittedAt: dbUser?.kycSubmittedAt,
         verifiedAt: dbUser?.kycVerifiedAt,
         sumsub: {
@@ -136,10 +173,9 @@ router.get("/status", async (req: Request, res: Response) => {
  * Reset KYC for re-verification
  * Admin only
  */
-router.post("/reset/:userId", async (req: Request, res: Response) => {
+router.post("/reset/:userId", authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user || user.role !== "ADMIN") {
+    if (!req.auth || req.auth.role !== "ADMIN") {
       return res.status(403).json({ success: false, error: "Admin access required" });
     }
 
@@ -236,10 +272,10 @@ router.post("/webhook", async (req: Request, res: Response) => {
 /**
  * Get KYC requirements for a user's role
  */
-router.get("/requirements", async (req: Request, res: Response) => {
+router.get("/requirements", authenticate, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) {
+    const role = req.auth?.role;
+    if (!role) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
@@ -263,7 +299,7 @@ router.get("/requirements", async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: requirements[user.role as keyof typeof requirements] || requirements.INVESTOR,
+      data: requirements[role as keyof typeof requirements] || requirements.INVESTOR,
     });
   } catch (error: any) {
     console.error("KYC requirements error:", error);

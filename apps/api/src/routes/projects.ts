@@ -40,9 +40,14 @@ router.get("/marketplace", async (req, res, next) => {
     );
     const skip = (page - 1) * limit;
 
+    const status = (req.query.status as string)?.toUpperCase();
+    const where: Prisma.ProjectWhereInput = status && status !== 'ALL'
+      ? { status: status as ProjectStatus }
+      : { status: { in: ["FUNDING", "FUNDED", "ACTIVE", "COMPLETED"] } };
+
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
-        where: { status: "FUNDING" },
+        where,
         include: {
           installer: {
             select: { id: true, name: true, company: true },
@@ -55,7 +60,7 @@ router.get("/marketplace", async (req, res, next) => {
         take: limit,
         orderBy: { createdAt: "desc" },
       }),
-      prisma.project.count({ where: { status: "FUNDING" } }),
+      prisma.project.count({ where }),
     ]);
 
     const projectsWithStats = projects.map((p: any) => ({
@@ -68,12 +73,14 @@ router.get("/marketplace", async (req, res, next) => {
 
     res.json({
       success: true,
-      data: projectsWithStats,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+      data: {
+        data: projectsWithStats,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
       },
     });
   } catch (error) {
@@ -340,6 +347,65 @@ router.post(
       next(error);
     }
   },
+);
+
+// ============================================
+// Report Energy Production (Installers)
+// ============================================
+
+const reportProductionSchema = z.object({
+  energyProduced: z.number().positive(),
+  recordedAt: z.string().datetime(),
+  notes: z.string().optional(),
+});
+
+router.post(
+  "/:id/production",
+  authenticate,
+  requireRole("INSTALLER"),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { id } = req.params;
+      const data = reportProductionSchema.parse(req.body);
+
+      const project = await prisma.project.findFirst({
+        where: { id, installerId: req.auth?.userId },
+      });
+
+      if (!project) {
+        throw createApiError("Project not found", 404);
+      }
+
+      const production = await prisma.productionData.create({
+        data: {
+          projectId: id,
+          energyProduced: new Prisma.Decimal(data.energyProduced),
+          recordedAt: new Date(data.recordedAt),
+          source: "MANUAL",
+          notes: data.notes,
+        },
+      });
+
+      // Update project total energy
+      await prisma.project.update({
+        where: { id },
+        data: {
+          totalEnergyProduced: {
+            increment: new Prisma.Decimal(data.energyProduced),
+          },
+          lastProductionUpdate: new Date(),
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Production data recorded successfully",
+        data: production,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 );
 
 export default router;

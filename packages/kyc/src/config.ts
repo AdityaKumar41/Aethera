@@ -32,9 +32,9 @@ export function getSumsubConfig(): SumsubConfig {
  * KYC Levels supported by Aethera
  */
 export const KYC_LEVELS = {
-  BASIC: "basic-kyc-level",           // Name + ID document
-  ENHANCED: "enhanced-kyc-level",     // + Address verification
-  ACCREDITED: "accredited-investor",  // + Accredited investor check
+  BASIC: process.env.SUMSUB_LEVEL_BASIC || "aethera",           // Name + ID document
+  ENHANCED: process.env.SUMSUB_LEVEL_ENHANCED || "enhanced-kyc-level",     // + Address verification
+  ACCREDITED: process.env.SUMSUB_LEVEL_ACCREDITED || "accredited-investor",  // + Accredited investor check
 } as const;
 
 export type KycLevel = typeof KYC_LEVELS[keyof typeof KYC_LEVELS];

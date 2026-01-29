@@ -14,20 +14,28 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
-const generateData = () => {
-    const months = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan"];
-    return months.map((month) => ({
-        month,
-        value: 0,
-    }));
-};
+interface ChartData {
+    month: string;
+    value: number;
+}
 
 type TimeRange = "1M" | "3M" | "6M" | "1Y" | "ALL";
 
-export function PortfolioChart() {
-    const [data, setData] = useState(generateData());
+interface PortfolioChartProps {
+    data?: ChartData[];
+    loading?: boolean;
+}
+
+export function PortfolioChart({ data: initialData = [], loading }: PortfolioChartProps) {
+    const [data, setData] = useState<ChartData[]>(initialData);
     const [timeRange, setTimeRange] = useState<TimeRange>("6M");
     const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        if (initialData.length > 0) {
+            setData(initialData);
+        }
+    }, [initialData]);
 
     useEffect(() => {
         const timer = setTimeout(() => setIsVisible(true), 300);

@@ -90,11 +90,30 @@ export class SumsubService {
       phone,
     };
 
-    return this.request<SumsubApplicant>(
-      "POST",
-      `/resources/applicants?levelName=${levelName}`,
-      body
-    );
+    try {
+      return await this.request<SumsubApplicant>(
+        "POST",
+        `/resources/applicants?levelName=${levelName}`,
+        body
+      );
+    } catch (error: any) {
+      // Handle conflict if applicant already exists
+      if (error.message.includes("409")) {
+        console.log(`Applicant ${externalUserId} already exists, fetching existing...`);
+        
+        // Try to extract applicant ID from error message if possible
+        // Sumsub error often contains: "Applicant with external user id '...' already exists: <ID>"
+        const match = error.message.match(/already exists: ([a-z0-9]+)/i);
+        if (match && match[1]) {
+          console.log(`Extracted applicant ID from 409 error: ${match[1]}`);
+          return await this.getApplicant(match[1]);
+        }
+
+        const existing = await this.getApplicantByExternalId(externalUserId);
+        if (existing) return existing;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -104,14 +123,19 @@ export class SumsubService {
     externalUserId: string
   ): Promise<SumsubApplicant | null> {
     try {
-      const response = await this.request<{ items: SumsubApplicant[] }>(
+      // Sumsub returns the applicant object directly for this endpoint
+      return await this.request<SumsubApplicant>(
         "GET",
         `/resources/applicants/-/externalUserId/${encodeURIComponent(externalUserId)}`
       );
-      return response.items?.[0] || null;
-    } catch (error) {
-      // Applicant not found
-      return null;
+    } catch (error: any) {
+      // If 404, return null. 
+      if (error.message.includes("404")) {
+        return null;
+      }
+      // Log other errors but rethrow if it's a critical connectivity issue or 401/403
+      console.error(`Error fetching applicant by external ID: ${error.message}`);
+      throw error;
     }
   }
 

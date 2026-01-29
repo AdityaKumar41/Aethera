@@ -40,7 +40,7 @@ export const USDC_CONFIG = {
 export const API_CONFIG = {
   rateLimit: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per window
+    max: 1000, // limit each IP to 1000 requests per window
   },
   pagination: {
     defaultLimit: 10,

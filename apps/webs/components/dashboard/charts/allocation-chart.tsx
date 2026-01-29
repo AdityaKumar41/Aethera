@@ -3,9 +3,18 @@
 import { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
-const allocationData: { name: string; value: number; color: string }[] = [];
+interface AllocationItem {
+    name: string;
+    value: number;
+    color: string;
+}
 
-export function AllocationChart() {
+interface AllocationChartProps {
+    data?: AllocationItem[];
+    loading?: boolean;
+}
+
+export function AllocationChart({ data: allocationData = [], loading }: AllocationChartProps) {
     const [isVisible, setIsVisible] = useState(false);
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -13,6 +22,14 @@ export function AllocationChart() {
         const timer = setTimeout(() => setIsVisible(true), 400);
         return () => clearTimeout(timer);
     }, []);
+
+    if (loading) {
+        return (
+            <div className="bg-card border border-border rounded-2xl p-5 h-full min-h-[300px] flex items-center justify-center">
+                <div className="w-32 h-32 rounded-full border-4 border-secondary border-t-accent animate-spin" />
+            </div>
+        );
+    }
 
     const total = allocationData.reduce((sum, item) => sum + item.value, 0);
 

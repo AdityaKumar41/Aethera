@@ -21,15 +21,22 @@ interface Project {
 interface ProjectCardProps {
     project: Project;
     delay?: number;
+    onInvest?: (id: string) => void;
 }
 
 const statusConfig = {
     funding: { label: "Funding", color: "bg-blue-500" },
     funded: { label: "Funded", color: "bg-emerald-500" },
     producing: { label: "Producing", color: "bg-amber-500" },
+    active: { label: "Active", color: "bg-amber-500" },
+    completed: { label: "Completed", color: "bg-zinc-500" },
+    draft: { label: "Draft", color: "bg-zinc-400" },
+    pending_approval: { label: "Pending", color: "bg-orange-400" },
+    approved: { label: "Approved", color: "bg-blue-400" },
+    rejected: { label: "Rejected", color: "bg-red-500" },
 };
 
-export function ProjectCard({ project, delay = 0 }: ProjectCardProps) {
+export function ProjectCard({ project, delay = 0, onInvest }: ProjectCardProps) {
     const [isVisible, setIsVisible] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
 
@@ -38,7 +45,7 @@ export function ProjectCard({ project, delay = 0 }: ProjectCardProps) {
         return () => clearTimeout(timer);
     }, [delay]);
 
-    const config = statusConfig[project.status];
+    const config = statusConfig[project.status as keyof typeof statusConfig] || statusConfig.active;
 
     return (
         <div
@@ -52,10 +59,10 @@ export function ProjectCard({ project, delay = 0 }: ProjectCardProps) {
             onMouseLeave={() => setIsHovered(false)}
         >
             {/* Image placeholder */}
-            <div className="relative h-40 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 overflow-hidden">
+            <div className="relative h-40 bg-linear-to-br from-amber-400 via-orange-500 to-red-500 overflow-hidden">
                 <div className="absolute inset-0 bg-black/20" />
                 <div className={cn(
-                    "absolute inset-0 bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300",
+                    "absolute inset-0 bg-linear-to-t from-black/60 to-transparent transition-opacity duration-300",
                     isHovered ? "opacity-100" : "opacity-0"
                 )} />
 
@@ -96,7 +103,7 @@ export function ProjectCard({ project, delay = 0 }: ProjectCardProps) {
                                 "h-full rounded-full transition-all duration-500",
                                 project.fundingProgress >= 100
                                     ? "bg-emerald-500"
-                                    : "bg-gradient-to-r from-amber-400 to-orange-500"
+                                    : "bg-linear-to-r from-amber-400 to-orange-500"
                             )}
                             style={{ width: `${Math.min(project.fundingProgress, 100)}%` }}
                         />
@@ -125,6 +132,7 @@ export function ProjectCard({ project, delay = 0 }: ProjectCardProps) {
                 {/* CTA */}
                 <button
                     disabled={project.status !== "funding"}
+                    onClick={() => onInvest && onInvest(project.id)}
                     className={cn(
                         "w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all duration-200",
                         project.status === "funding"

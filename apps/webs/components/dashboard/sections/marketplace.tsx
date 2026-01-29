@@ -2,22 +2,60 @@
 
 import { useState } from "react";
 import { ProjectCard } from "@/components/dashboard/project-card";
-import { Search, Filter, SlidersHorizontal } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const solarProjects: { id: string; name: string; location: string; capacity: string; fundingProgress: number; fundingGoal: number; currentFunding: number; expectedYield: number; tokenPrice: number; status: "funding" | "funded" | "producing"; image: string }[] = [];
+import { useMarketplace, useKyc } from "@/hooks/use-dashboard-data";
+import { toast } from "sonner";
 
 type FilterStatus = "all" | "funding" | "funded" | "producing";
 
 export function MarketplaceSection() {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+    const { projects: rawProjects, loading, error } = useMarketplace(1, 20, filterStatus);
+    const { status: kycStatus } = useKyc();
+    const projects = rawProjects || [];
 
-    const filteredProjects = solarProjects.filter((project) => {
+    const handleInvestClick = (projectId: string) => {
+        if (kycStatus?.status !== "VERIFIED") {
+            toast.error("KYC Verification Required", {
+                description: "You must complete your identity verification before you can invest in projects.",
+                action: {
+                    label: "Verify Now",
+                    onClick: () => {
+                        // This could redirect to the settings tab for KYC
+                        window.location.hash = "settings"; 
+                    }
+                }
+            });
+            return;
+        }
+        
+        // Open investment modal (to be implemented/integrated)
+        toast.info("Investment flow starting...", {
+            description: "Opening secure investment portal for project " + projectId
+        });
+    };
+
+    // Transform API data to match component expectations
+    const mappedProjects = projects.map(project => ({
+        id: project.id,
+        name: project.name,
+        location: project.location,
+        capacity: `${project.capacity} kW`,
+        fundingProgress: project.fundingPercentage || 0,
+        fundingGoal: project.fundingTarget,
+        currentFunding: project.fundingRaised,
+        expectedYield: project.expectedYield,
+        tokenPrice: project.pricePerToken,
+        status: project.status.toLowerCase() as any,
+        image: "/placeholder-solar.jpg",
+    }));
+
+    const filteredProjects = mappedProjects.filter((project) => {
         const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             project.location.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesFilter = filterStatus === "all" || project.status === filterStatus;
-        return matchesSearch && matchesFilter;
+        return matchesSearch;
     });
 
     const statusFilters: { label: string; value: FilterStatus }[] = [
@@ -39,7 +77,7 @@ export function MarketplaceSection() {
                         placeholder="Search projects by name or location..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full h-10 pl-10 pr-4 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent transition-all duration-200"
+                        className="w-full h-10 pl-10 pr-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-200"
                     />
                 </div>
 
@@ -53,7 +91,7 @@ export function MarketplaceSection() {
                                 "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200",
                                 filterStatus === filter.value
                                     ? "bg-foreground text-background"
-                                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                                    : "bg-zinc-100 text-muted-foreground hover:text-foreground hover:bg-zinc-200"
                             )}
                         >
                             {filter.label}
@@ -63,7 +101,7 @@ export function MarketplaceSection() {
             </div>
 
             {/* Featured project banner */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 p-6 sm:p-8">
+            <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-amber-500 via-orange-500 to-red-500 p-6 sm:p-8">
                 <div className="absolute inset-0 bg-black/20" />
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
                 <div className="relative z-10">
@@ -71,41 +109,83 @@ export function MarketplaceSection() {
                         🔥 Featured Project
                     </span>
                     <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-                        Desert Star Array
+                        {projects.length > 0 ? projects[0].name : "Coming Soon"}
                     </h3>
                     <p className="text-white/80 mb-4 max-w-lg">
-                        5.0 MW utility-scale solar installation in Arizona. Premium location with 300+ sunny days per year.
+                        {projects.length > 0 
+                            ? projects[0].description?.slice(0, 120) + "..."
+                            : "New solar investment opportunities are coming soon. Be the first to invest!"
+                        }
                     </p>
                     <div className="flex flex-wrap gap-4 mb-4">
                         <div className="text-white">
                             <p className="text-white/60 text-xs">Expected Yield</p>
-                            <p className="text-xl font-bold">14.2% APY</p>
+                            <p className="text-xl font-bold">
+                                {projects.length > 0 ? `${projects[0].expectedYield}% APY` : "-- APY"}
+                            </p>
                         </div>
                         <div className="text-white">
                             <p className="text-white/60 text-xs">Token Price</p>
-                            <p className="text-xl font-bold">$25</p>
+                            <p className="text-xl font-bold">
+                                {projects.length > 0 ? `$${projects[0].pricePerToken}` : "$--"}
+                            </p>
                         </div>
                         <div className="text-white">
                             <p className="text-white/60 text-xs">Funding Progress</p>
-                            <p className="text-xl font-bold">45%</p>
+                            <p className="text-xl font-bold">
+                                {projects.length > 0 
+                                    ? `${Math.round(projects[0].fundingPercentage || 0)}%` 
+                                    : "--%"
+                                }
+                            </p>
                         </div>
                     </div>
-                    <button className="px-6 py-3 bg-white text-orange-600 rounded-xl font-semibold hover:bg-white/90 transition-colors">
+                    <button 
+                        onClick={() => projects.length > 0 && handleInvestClick(projects[0].id)}
+                        className="px-6 py-3 bg-white text-orange-600 rounded-xl font-semibold hover:bg-white/90 transition-colors"
+                    >
                         Invest Now
                     </button>
                 </div>
             </div>
 
-            {/* Projects grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredProjects.map((project, index) => (
-                    <ProjectCard key={project.id} project={project} delay={index} />
-                ))}
-            </div>
+            {/* Loading state */}
+            {loading && (
+                <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading projects...</span>
+                </div>
+            )}
 
-            {filteredProjects.length === 0 && (
+            {/* Error state */}
+            {error && (
                 <div className="text-center py-12">
-                    <p className="text-muted-foreground">No projects found matching your criteria.</p>
+                    <p className="text-red-500">{error}</p>
+                </div>
+            )}
+
+            {/* Projects grid */}
+            {!loading && !error && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {filteredProjects.map((project, index) => (
+                        <ProjectCard 
+                            key={project.id} 
+                            project={project} 
+                            delay={index} 
+                            onInvest={handleInvestClick}
+                        />
+                    ))}
+                </div>
+            )}
+
+            {!loading && !error && filteredProjects.length === 0 && (
+                <div className="text-center py-12">
+                    <p className="text-muted-foreground">
+                        {projects.length === 0 
+                            ? "No projects available yet. Check back soon!"
+                            : "No projects found matching your criteria."
+                        }
+                    </p>
                 </div>
             )}
         </div>
