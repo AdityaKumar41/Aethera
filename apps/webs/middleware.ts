@@ -1,27 +1,38 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-// Public routes that don't require authentication
+// Auth routes (sign-in, sign-up)
+const isAuthRoute = createRouteMatcher([
+  '/sign-in(.*)',
+  '/sign-up(.*)'
+])
+
+// Protected routes that require authentication
+const isProtectedRoute = createRouteMatcher([
+  '/dashboard(.*)',
+  '/onboarding(.*)'
+])
+
+// Public routes that don't require any redirect logic
 const isPublicRoute = createRouteMatcher([
   '/',
-  '/sign-in(.*)', 
-  '/sign-up(.*)', 
   '/api/webhooks(.*)'
 ])
 
-// Dashboard routes that require authentication
-const isDashboardRoute = createRouteMatcher(['/dashboard(.*)'])
-const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
-
 export default clerkMiddleware(async (auth, request) => {
-  // Allow public routes without authentication
-  if (isPublicRoute(request)) {
-    return NextResponse.next()
+  const { userId } = await auth()
+  const url = request.nextUrl
+
+  // If user is authenticated and trying to access auth pages, redirect to dashboard
+  if (userId && isAuthRoute(request)) {
+    return NextResponse.redirect(new URL('/dashboard/portfolio', request.url))
   }
 
-  // Protect dashboard and onboarding routes
-  if (isDashboardRoute(request) || isOnboardingRoute(request)) {
-    await auth.protect()
+  // If user is not authenticated and trying to access protected routes, redirect to sign-in
+  if (!userId && isProtectedRoute(request)) {
+    const signInUrl = new URL('/sign-in', request.url)
+    signInUrl.searchParams.set('redirect_url', url.pathname)
+    return NextResponse.redirect(signInUrl)
   }
 
   return NextResponse.next()

@@ -2,29 +2,40 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { useOnboardingStatus } from "@/hooks/use-onboarding";
 import { Loader2, Sun, ArrowRight, Zap, Shield, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 export default function HomePage() {
   const router = useRouter();
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const { isComplete, role, loading } = useOnboardingStatus();
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated users based on their onboarding status
   useEffect(() => {
-    if (!loading && isComplete) {
-      if (role === "INSTALLER") {
-        router.push("/dashboard/my-projects");
-      } else if (role === "ADMIN") {
-        router.push("/dashboard/admin-stats");
+    if (!clerkLoaded || loading) return;
+
+    // If user is authenticated with Clerk
+    if (clerkUser) {
+      if (isComplete) {
+        // User completed onboarding, redirect to their dashboard
+        if (role === "INSTALLER") {
+          router.push("/dashboard/my-projects");
+        } else if (role === "ADMIN") {
+          router.push("/dashboard/admin-stats");
+        } else {
+          router.push("/dashboard/portfolio");
+        }
       } else {
-        router.push("/dashboard/portfolio");
+        // User is authenticated but hasn't completed onboarding
+        router.push("/onboarding");
       }
     }
-  }, [loading, isComplete, role, router]);
+  }, [clerkLoaded, clerkUser, loading, isComplete, role, router]);
 
   // Loading state
-  if (loading) {
+  if (loading || !clerkLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
@@ -39,7 +50,7 @@ export default function HomePage() {
   }
 
   // If authenticated, show loading while redirecting
-  if (isComplete) {
+  if (clerkUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
@@ -47,7 +58,7 @@ export default function HomePage() {
             <Sun className="w-8 h-8 text-white" />
           </div>
           <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Redirecting to dashboard...</p>
+          <p className="text-sm text-muted-foreground">Redirecting...</p>
         </div>
       </div>
     );
