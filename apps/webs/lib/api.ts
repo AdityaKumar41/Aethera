@@ -89,7 +89,18 @@ export const userApi = {
     apiRequest<UserProfile>('/api/users/profile', { method: 'PATCH', body: data }),
   getPortfolio: () => apiRequest<PortfolioData>('/api/users/portfolio'),
   getWalletBalances: () => apiRequest<WalletBalances>('/api/users/wallet/balances'),
+  getWalletTransactions: () => apiRequest<Transaction[]>('/api/users/wallet/transactions'),
 };
+
+export interface Transaction {
+  id: string;
+  hash: string;
+  created_at: string;
+  source_account: string;
+  fee_charged: string;
+  memo: string;
+  successful: boolean;
+}
 
 // KYC endpoints
 export const kycApi = {

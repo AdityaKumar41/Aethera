@@ -31,7 +31,6 @@ const investorNavItems = [
   { id: "marketplace", label: "Marketplace", icon: Store, href: "/dashboard/marketplace" },
   { id: "projects", label: "My Investments", icon: Building2, href: "/dashboard/my-investments" },
   { id: "yield", label: "Yield & Rewards", icon: Coins, href: "/dashboard/yield" },
-  { id: "wallet", label: "Wallet", icon: Wallet, href: "/dashboard/wallet" },
   { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
 
@@ -41,7 +40,6 @@ const installerNavItems = [
   { id: "new-project", label: "Submit Project", icon: Plus, href: "/dashboard/new-project" },
   { id: "production", label: "Production", icon: Zap, href: "/dashboard/production" },
   { id: "revenue", label: "Revenue", icon: DollarSign, href: "/dashboard/revenue" },
-  { id: "wallet", label: "Wallet", icon: Wallet, href: "/dashboard/wallet" },
   { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
 

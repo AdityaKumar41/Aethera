@@ -20,8 +20,10 @@ import {
   Plus,
   MoreVertical,
   ArrowRight,
+  ArrowUpRight,
   Zap,
   DollarSign,
+  Clock,
 } from "lucide-react";
 import { useUserProfile, useWalletBalances, useKyc } from "@/hooks/use-dashboard-data";
 import { SumsubWidget } from "@/components/kyc/sumsub-widget";
@@ -278,14 +280,30 @@ function KYCTab() {
 
 import { toast } from "sonner";
 
+import { Transaction } from "@/lib/api";
+
 function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied: boolean }) {
   const { balances, loading, error, refetch } = useWalletBalances();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [txLoading, setTxLoading] = useState(true);
   const [showReceive, setShowReceive] = useState(false);
   const [showSend, setShowSend] = useState(false);
   const [sendFormData, setSendFormData] = useState({ address: "", amount: "", asset: "XLM" });
   const [sending, setSending] = useState(false);
   
   const walletAddress = balances?.publicKey || "";
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      setTxLoading(true);
+      const res = await userApi.getWalletTransactions();
+      if (res.success && res.data) {
+        setTransactions(res.data);
+      }
+      setTxLoading(false);
+    };
+    if (walletAddress) fetchTransactions();
+  }, [walletAddress]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,12 +336,12 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
 
   return (
     <div className="max-w-2xl space-y-6">
-      {/* Connected wallet - Glassmorphism */}
+      {/* Connected wallet - Glassmorphism with Solar Theme */}
       <div className="relative overflow-hidden group">
-        <div className="absolute inset-0 bg-linear-to-br from-emerald-500/10 via-blue-500/10 to-purple-500/10 blur-3xl opacity-50 group-hover:opacity-70 transition-opacity" />
-        <div className="relative bg-white/40 backdrop-blur-xl border border-white/40 rounded-3xl p-8 shadow-xl">
+        <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 via-orange-500/10 to-emerald-500/20 blur-3xl opacity-50 group-hover:opacity-70 transition-opacity" />
+        <div className="relative bg-white/40 backdrop-blur-xl border border-white/40 rounded-3xl p-8 shadow-xl shadow-orange-500/5">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-zinc-900 to-zinc-500">
+            <h3 className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-orange-600 to-amber-500">
               Connected Wallet
             </h3>
             <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-semibold flex items-center gap-1.5">
@@ -337,7 +355,7 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
               <div className="p-6 rounded-2xl bg-white/60 border border-white/60 mb-8 shadow-inner group/address">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Stellar Address</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-blue-100 text-blue-600 font-bold">ED25519</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold border border-amber-200">ED25519</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <code className="flex-1 text-sm font-mono truncate text-zinc-800 font-medium">
@@ -391,8 +409,8 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
             </>
           ) : (
             <div className="text-center py-12">
-              <div className="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                <Wallet className="w-10 h-10 text-muted-foreground" />
+              <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-amber-100">
+                <Wallet className="w-10 h-10 text-amber-500" />
               </div>
               <p className="text-muted-foreground mb-8 font-medium">No wallet connected</p>
               <button className="px-10 py-4 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-black transition-all hover:shadow-xl active:scale-95">
@@ -403,25 +421,35 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
         </div>
       </div>
 
-      {/* Balances - Vibrant Grid */}
+      {/* Asset Holdings - Vibrant Grid */}
       <div className="bg-card border border-border rounded-3xl p-8">
-        <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-          <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
-          Asset Holdings
-        </h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
+            Asset Holdings
+          </h3>
+          <span className="text-xs font-medium text-muted-foreground">Stellar Testnet Assets</span>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {balances?.balances && balances.balances.length > 0 ? (
             balances.balances.map((balance, index) => (
-              <div key={index} className="group relative overflow-hidden p-5 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-blue-200 transition-all hover:bg-white hover:shadow-md">
-                <div className="absolute inset-0 bg-linear-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div key={index} className="group relative overflow-hidden p-5 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-amber-200 transition-all hover:bg-white hover:shadow-md">
+                <div className="absolute inset-0 bg-linear-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center text-white text-sm font-black shadow-lg shadow-blue-500/20">
+                    <div className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-lg",
+                      balance.asset === 'XLM' ? "bg-amber-500 shadow-amber-500/20" : 
+                      balance.asset === 'AET' ? "gradient-solar shadow-orange-500/20" :
+                      "bg-blue-500 shadow-blue-500/20"
+                    )}>
                       {balance.asset ? balance.asset.slice(0, 3).toUpperCase() : "..."}
                     </div>
                     <div>
                       <p className="font-bold text-zinc-900">{balance.asset || "Unknown"}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">Stellar Asset</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                        {balance.asset === 'XLM' ? "Native Asset" : "Stellar Asset"}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -448,22 +476,103 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                   <p className="text-lg font-black text-zinc-400">0.00</p>
                 </div>
               </div>
-              <div className="p-5 rounded-2xl gradient-solar-soft border border-emerald-100/50 hover:shadow-md transition-all group relative overflow-hidden">
-                <div className="absolute inset-0 bg-linear-to-br from-emerald-500/10 to-transparent opacity-100" />
+              <div className="p-5 rounded-2xl bg-white border border-orange-100 hover:shadow-md transition-all group relative overflow-hidden">
+                <div className="absolute inset-0 bg-linear-to-br from-orange-500/10 to-transparent opacity-100" />
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl gradient-solar flex items-center justify-center text-white text-xs font-black shadow-lg shadow-emerald-500/30">
+                    <div className="w-12 h-12 rounded-xl gradient-solar flex items-center justify-center text-white text-xs font-black shadow-lg shadow-orange-500/30">
                       AET
                     </div>
                     <div>
-                      <p className="font-bold text-emerald-900">Aethera Tokens</p>
-                      <p className="text-[10px] text-emerald-700/60 uppercase font-black tracking-tighter">Impact Token</p>
+                      <p className="font-bold text-orange-900">Aethera Tokens</p>
+                      <p className="text-[10px] text-orange-700/60 uppercase font-black tracking-tighter">Impact Token</p>
                     </div>
                   </div>
-                  <p className="text-lg font-black text-emerald-400">0</p>
+                  <p className="text-lg font-black text-orange-400">0</p>
                 </div>
               </div>
             </>
+          )}
+        </div>
+      </div>
+
+      {/* Transaction History - Added Section */}
+      <div className="bg-card border border-border rounded-3xl p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Clock className="w-5 h-5 text-zinc-500" />
+            Recent Activity
+          </h3>
+          <button 
+            onClick={() => {
+              const fetchTransactions = async () => {
+                setTxLoading(true);
+                const res = await userApi.getWalletTransactions();
+                if (res.success && res.data) setTransactions(res.data);
+                setTxLoading(false);
+              };
+              fetchTransactions();
+            }}
+            className="text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+          >
+            Refresh History
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {txLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mb-2" />
+              <p className="text-xs text-muted-foreground">Loading ledger history...</p>
+            </div>
+          ) : transactions.length > 0 ? (
+            transactions.map((tx) => (
+              <div 
+                key={tx.id}
+                className="flex items-center justify-between p-4 rounded-2xl bg-zinc-50 border border-zinc-100 hover:bg-white hover:border-amber-100 transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center border",
+                    tx.successful 
+                      ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-600" 
+                      : "bg-red-500/5 border-red-500/20 text-red-600"
+                  )}>
+                    <ArrowUpRight className={cn("w-5 h-5", !tx.successful && "rotate-90")} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-zinc-900 truncate max-w-[120px]">
+                        {tx.hash.slice(0, 8)}...{tx.hash.slice(-4)}
+                      </p>
+                      <a 
+                        href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-amber-600" />
+                      </a>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">
+                      {new Date(tx.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={cn("text-xs font-black", tx.successful ? "text-emerald-600" : "text-red-600")}>
+                    {tx.successful ? "SUCCESS" : "FAILED"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground font-mono">{tx.fee_charged} XLM Fee</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
+              <Clock className="w-8 h-8 text-zinc-300 mb-3" />
+              <p className="text-sm text-zinc-500 font-medium">No ledger activity yet</p>
+              <p className="text-[10px] text-zinc-400 mt-1 max-w-[200px]">Transactions on the Stellar network will appear here automatically.</p>
+            </div>
           )}
         </div>
       </div>
