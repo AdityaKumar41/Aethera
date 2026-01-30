@@ -5,10 +5,13 @@
  * Uses Ed25519 signatures for cryptographic verification.
  */
 
-import { prisma } from "@aethera/database";
+import { prisma, Prisma } from "@aethera/database";
 import { createHash, createHmac, randomBytes } from "crypto";
 import * as nacl from "tweetnacl";
 import * as naclUtil from "tweetnacl-util";
+import { impactService } from "./impactService.js";
+import { contractService, getContractAddresses } from "@aethera/stellar";
+import { Keypair } from "@stellar/stellar-sdk";
 
 // ============================================
 // Types
@@ -194,11 +197,15 @@ export class OracleService {
       return { success: false, error: "Project not found" };
     }
 
-    // 6. Store production data
+    // 7. Calculate impact (Carbon Credits)
+    const carbonCredits = impactService.calculateCarbonCredits(submission.data.energyProduced);
+
+    // 8. Store production data (initial DB entry)
     const productionData = await prisma.productionData.create({
       data: {
         projectId: submission.data.projectId,
         energyProduced: submission.data.energyProduced,
+        carbonCredits: carbonCredits,
         recordedAt: new Date(submission.data.recordedAt),
         periodStart: submission.data.periodStart ? new Date(submission.data.periodStart) : null,
         periodEnd: submission.data.periodEnd ? new Date(submission.data.periodEnd) : null,
@@ -210,7 +217,47 @@ export class OracleService {
       },
     });
 
-    // 7. Update provider stats
+    // 9. On-chain Anchoring (Anchor verified data to Stellar)
+    let onChainTxHash: string | undefined;
+    if (isValid) {
+      try {
+        const contracts = getContractAddresses();
+        if (contracts.oracle) {
+          // Use platform admin key to anchor the data
+          const adminSecret = process.env.STAT_RELAYER_SECRET; // Or dedicated oracle relayer key
+          if (adminSecret) {
+            const adminKeypair = Keypair.fromSecret(adminSecret);
+            const anchorResult = await contractService.commitProduction(
+              contracts.oracle,
+              adminKeypair,
+              submission.data.projectId,
+              Math.floor(new Date(submission.data.periodStart || submission.data.recordedAt).getTime() / 1000),
+              Math.floor(new Date(submission.data.periodEnd || submission.data.recordedAt).getTime() / 1000),
+              BigInt(Math.floor(submission.data.energyProduced * 100)), // Scale to avoid decimals in contract
+              submission.signature
+            );
+
+            if (anchorResult.success) {
+              onChainTxHash = anchorResult.txHash;
+              
+              // Update record with anchoring info
+              await prisma.productionData.update({
+                where: { id: productionData.id },
+                data: {
+                  onChainCommitTx: onChainTxHash,
+                  onChainCommitAt: new Date(),
+                },
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to anchor production data on-chain:", err);
+        // We don't fail the whole request since DB data is stored
+      }
+    }
+
+    // 10. Update provider stats
     await prisma.oracleProvider.update({
       where: { id: provider.id },
       data: {
@@ -219,11 +266,12 @@ export class OracleService {
       },
     });
 
-    // 8. Update project's total production
+    // 11. Update project metrics
     await prisma.project.update({
       where: { id: submission.data.projectId },
       data: {
         totalEnergyProduced: { increment: submission.data.energyProduced },
+        carbonCredits: { increment: carbonCredits },
         lastProductionUpdate: new Date(),
       },
     });

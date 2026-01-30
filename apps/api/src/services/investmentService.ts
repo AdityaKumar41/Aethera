@@ -12,6 +12,7 @@ import {
   getContractAddresses,
   SorobanContractService,
   getSorobanService,
+  contractService,
 } from "@aethera/stellar";
 import {
   Keypair,
@@ -23,6 +24,7 @@ import {
   scValToNative,
   Contract,
 } from "@stellar/stellar-sdk";
+import crypto from "crypto";
 
 interface InvestmentInput {
   investorId: string;
@@ -133,7 +135,7 @@ export class InvestmentService {
         );
 
         // Update investment with pending on-chain status
-        await prisma.investment.update({
+        const updatedInvestment = await prisma.investment.update({
           where: { id: investment.id },
           data: {
             status: "PENDING_ONCHAIN",
@@ -141,6 +143,50 @@ export class InvestmentService {
             txSubmittedAt: new Date(),
           },
         });
+
+        // 6. Check if project is now funded and trigger capital release
+        const updatedProject = await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { fundingRaised: true, fundingTarget: true, status: true, installer: { select: { stellarPubKey: true } } }
+        });
+
+        if (updatedProject && updatedProject.status === "FUNDED") {
+          console.log(`🚀 Project ${projectId} is FUNDED! Triggering capital release...`);
+          
+          try {
+            const contracts = getContractAddresses();
+            const relayerSecret = process.env.STAT_RELAYER_SECRET;
+            
+            if (contracts.treasury && relayerSecret && updatedProject.installer?.stellarPubKey) {
+              const relayerKeypair = Keypair.fromSecret(relayerSecret);
+              
+              const releaseResult = await contractService.releaseEscrow(
+                contracts.treasury,
+                relayerKeypair,
+                projectId,
+                updatedProject.installer.stellarPubKey
+              );
+
+              if (releaseResult.success) {
+                console.log(`✅ Capital released for project ${projectId}. Tx: ${releaseResult.txHash}`);
+                
+                // Transition project to ACTIVE
+                await prisma.project.update({
+                  where: { id: projectId },
+                  data: { 
+                    status: "ACTIVE",
+                    // Also initialize total production and carbon credits if null
+                    totalEnergyProduced: 0,
+                    carbonCredits: 0
+                  }
+                });
+              }
+            }
+          } catch (releaseError) {
+            console.error("Capital release failed:", releaseError);
+            // We don't fail the investment if release fails, it can be retried by admin
+          }
+        }
 
         return {
           success: true,
@@ -226,7 +272,7 @@ export class InvestmentService {
   /**
    * Get investor keypair from encrypted secret
    */
-  private async getInvestorKeypair(investor: any): Promise<Keypair> {
+  public async getInvestorKeypair(investor: any): Promise<Keypair> {
     if (!investor.stellarSecretEncrypted) {
       throw new Error("No encrypted secret key found");
     }
@@ -246,20 +292,50 @@ export class InvestmentService {
   }
 
   /**
-   * Decrypt a secret (placeholder - implement proper encryption)
+   * Encrypt a secret (AES-256-GCM)
    */
-  private decryptSecret(encrypted: string, key: string): string {
-    // TODO: Implement proper AES decryption
-    // For now, we'll use a simple XOR (NOT SECURE - replace in production)
-    const buffer = Buffer.from(encrypted, "base64");
-    const keyBuffer = Buffer.from(key);
-    const result = Buffer.alloc(buffer.length);
+  public encryptSecret(text: string, password: string): string {
+    const iv = crypto.randomBytes(12);
+    const salt = crypto.randomBytes(16);
+    const key = crypto.pbkdf2Sync(password, salt, 100000, 32, "sha256");
+    const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
     
-    for (let i = 0; i < buffer.length; i++) {
-      result[i] = buffer[i] ^ keyBuffer[i % keyBuffer.length];
+    let encrypted = cipher.update(text, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    
+    const authTag = cipher.getAuthTag().toString("hex");
+    
+    // Format: salt:iv:authTag:encrypted
+    return `${salt.toString("hex")}:${iv.toString("hex")}:${authTag}:${encrypted}`;
+  }
+
+  /**
+   * Decrypt a secret (AES-256-GCM)
+   */
+  private decryptSecret(encryptedData: string, password: string): string {
+    try {
+      const [saltHex, ivHex, authTagHex, encryptedHex] = encryptedData.split(":");
+      
+      const salt = Buffer.from(saltHex, "hex");
+      const iv = Buffer.from(ivHex, "hex");
+      const authTag = Buffer.from(authTagHex, "hex");
+      const encrypted = Buffer.from(encryptedHex, "hex");
+      
+      const key = crypto.pbkdf2Sync(password, salt, 100000, 32, "sha256");
+      const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+      
+      decipher.setAuthTag(authTag);
+      
+      let decrypted = decipher.update(encrypted as any, undefined, "utf8");
+      decrypted += decipher.final("utf8");
+      
+      return decrypted;
+    } catch (error) {
+      console.error("Decryption failed:", error);
+      // Fallback for old XOR encrypted keys during transition if needed
+      // but here we prefer to fail and have user re-link wallet
+      throw new Error("Failed to decrypt secure key. Please re-link your wallet.");
     }
-    
-    return result.toString("utf8");
   }
 
   /**
@@ -347,4 +423,5 @@ export function getInvestmentService(): InvestmentService {
   return investmentServiceInstance;
 }
 
+export const investmentService = getInvestmentService();
 export default InvestmentService;

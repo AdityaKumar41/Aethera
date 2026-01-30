@@ -1,7 +1,3 @@
-// ============================================
-// Aethera Platform - Prisma Schema
-// ============================================
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,9 +6,242 @@ datasource db {
   provider = "postgresql"
 }
 
-// ============================================
-// Enums
-// ============================================
+model User {
+  id                     String       @id @default(cuid())
+  email                  String       @unique
+  password               String?
+  name                   String
+  role                   UserRole     @default(INVESTOR)
+  kycStatus              KYCStatus    @default(PENDING)
+  kycSubmittedAt         DateTime?
+  kycVerifiedAt          DateTime?
+  kycDocuments           Json?
+  stellarPubKey          String?      @unique
+  stellarSecretEncrypted String?
+  phone                  String?
+  company                String?
+  address                String?
+  country                String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  investments            Investment[]
+  projects               Project[]
+  yieldClaims            YieldClaim[]
+
+  @@index([role])
+  @@index([kycStatus])
+}
+
+model Project {
+  id                        String              @id @default(cuid())
+  installerId               String
+  name                      String
+  description               String
+  location                  String
+  country                   String
+  capacity                  Float
+  panelType                 String?
+  inverterType              String?
+  estimatedAnnualProduction Float?
+  expectedYield             Float
+  fundingTarget             Decimal             @db.Decimal(18, 2)
+  fundingRaised             Decimal             @default(0) @db.Decimal(18, 2)
+  pricePerToken             Decimal             @db.Decimal(18, 6)
+  tokenSymbol               String?             @unique
+  tokenContractId           String?             @unique
+  totalTokens               Int?
+  tokensRemaining           Int?
+  startDate                 DateTime?
+  estimatedCompletionDate   DateTime?
+  actualCompletionDate      DateTime?
+  status                    ProjectStatus       @default(DRAFT)
+  approvedAt                DateTime?
+  approvedBy                String?
+  rejectionReason           String?
+  documents                 Json?
+  images                    Json?
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+  totalEnergyProduced       Decimal?            @db.Decimal(18, 4)
+  currentYieldRate          Float?
+  lastProductionUpdate      DateTime?
+  carbonCredits             Decimal?            @db.Decimal(18, 4)
+  investments               Investment[]
+  productionData            ProductionData[]
+  installer                 User                @relation(fields: [installerId], references: [id])
+  yieldDistributions        YieldDistribution[]
+
+  @@index([installerId])
+  @@index([status])
+  @@index([tokenSymbol])
+}
+
+model OracleProvider {
+  id                  String           @id @default(cuid())
+  name                String
+  description         String?
+  apiKeyHash          String           @unique
+  publicKey           String           @unique
+  status              OracleStatus     @default(PENDING)
+  approvedAt          DateTime?
+  approvedBy          String?
+  trustScore          Int              @default(50)
+  totalSubmissions    Int              @default(0)
+  disputedSubmissions Int              @default(0)
+  rateLimit           Int              @default(100)
+  lastSubmissionAt    DateTime?
+  contactEmail        String?
+  webhookUrl          String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  disputes            OracleDispute[]
+  productionData      ProductionData[]
+
+  @@index([status])
+  @@index([trustScore])
+}
+
+model ProductionData {
+  id               String          @id @default(cuid())
+  projectId        String
+  energyProduced   Decimal         @db.Decimal(18, 4)
+  recordedAt       DateTime
+  source           String
+  verifiedBy       String?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  disputeId        String?
+  disputed         Boolean         @default(false)
+  oracleProviderId String?
+  periodEnd        DateTime?
+  periodStart      DateTime?
+  signature        String?
+  signatureValid   Boolean?
+  signedPayload    String?
+  carbonCredits    Decimal?        @db.Decimal(18, 4)
+  onChainCommitAt  DateTime?
+  onChainCommitTx  String?         @unique
+  oracleProvider   OracleProvider? @relation(fields: [oracleProviderId], references: [id])
+  project          Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([recordedAt])
+  @@index([oracleProviderId])
+  @@index([disputed])
+}
+
+model OracleDispute {
+  id               String         @id @default(cuid())
+  productionDataId String
+  oracleProviderId String
+  filedBy          String
+  reason           String
+  evidence         Json?
+  status           DisputeStatus  @default(OPEN)
+  resolvedBy       String?
+  resolution       String?
+  resolvedAt       DateTime?
+  trustScoreChange Int?
+  dataInvalidated  Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  oracleProvider   OracleProvider @relation(fields: [oracleProviderId], references: [id])
+
+  @@index([oracleProviderId])
+  @@index([status])
+}
+
+model Investment {
+  id              String             @id @default(cuid())
+  investorId      String
+  projectId       String
+  amount          Decimal            @db.Decimal(18, 2)
+  tokenAmount     Int
+  pricePerToken   Decimal            @db.Decimal(18, 6)
+  status          InvestmentStatus   @default(PENDING)
+  txHash          String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  mintConfirmedAt DateTime?
+  mintStatus      TransactionStatus?
+  mintTxHash      String?
+  txConfirmedAt   DateTime?
+  txError         String?
+  txLedger        Int?
+  txRetryCount    Int                @default(0)
+  txSubmittedAt   DateTime?
+  investor        User               @relation(fields: [investorId], references: [id])
+  project         Project            @relation(fields: [projectId], references: [id])
+
+  @@index([investorId])
+  @@index([projectId])
+  @@index([status])
+  @@index([txHash])
+}
+
+model YieldDistribution {
+  id            String       @id @default(cuid())
+  projectId     String
+  period        DateTime
+  totalRevenue  Decimal      @db.Decimal(18, 2)
+  platformFee   Decimal      @db.Decimal(18, 2)
+  totalYield    Decimal      @db.Decimal(18, 2)
+  yieldPerToken Decimal      @db.Decimal(18, 10)
+  distributed   Boolean      @default(false)
+  distributedAt DateTime?
+  txHash        String?
+  metadata      Json?
+  createdAt     DateTime     @default(now())
+  claims        YieldClaim[]
+  project       Project      @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([period])
+}
+
+model YieldClaim {
+  id             String            @id @default(cuid())
+  distributionId String
+  investorId     String
+  tokenAmount    Int
+  amount         Decimal           @db.Decimal(18, 2)
+  claimed        Boolean           @default(false)
+  claimedAt      DateTime?
+  txHash         String?
+  createdAt      DateTime          @default(now())
+  distribution   YieldDistribution @relation(fields: [distributionId], references: [id])
+  investor       User              @relation(fields: [investorId], references: [id])
+
+  @@unique([distributionId, investorId])
+  @@index([investorId])
+}
+
+model TransactionLog {
+  id            String   @id @default(cuid())
+  type          String
+  userId        String?
+  projectId     String?
+  amount        Decimal? @db.Decimal(18, 2)
+  txHash        String   @unique
+  status        String
+  sourceAccount String?
+  destAccount   String?
+  metadata      Json?
+  error         String?
+  createdAt     DateTime @default(now())
+
+  @@index([type])
+  @@index([userId])
+  @@index([projectId])
+}
+
+model SystemSettings {
+  key         String   @id
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+}
 
 enum UserRole {
   INVESTOR
@@ -39,397 +268,31 @@ enum ProjectStatus {
 }
 
 enum InvestmentStatus {
-  PENDING           // Initial state, awaiting processing
-  PENDING_ONCHAIN   // Transaction submitted, awaiting confirmation
-  CONFIRMED         // Transaction confirmed on-chain
-  FAILED            // Transaction failed
+  PENDING
+  CONFIRMED
+  FAILED
+  PENDING_ONCHAIN
 }
 
-// On-chain transaction finality states
 enum TransactionStatus {
-  PENDING           // Transaction created, not yet submitted
-  SUBMITTED         // Transaction submitted to network
-  CONFIRMED         // Transaction included in ledger
-  FAILED            // Transaction failed
-  EXPIRED           // Transaction expired (not included in time)
+  PENDING
+  SUBMITTED
+  CONFIRMED
+  FAILED
+  EXPIRED
 }
-
-// ============================================
-// User Model
-// ============================================
-
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String?  // Optional for Clerk managed users
-  name      String
-  role      UserRole @default(INVESTOR)
-  
-  // KYC / Compliance
-  kycStatus       KYCStatus @default(PENDING)
-  kycSubmittedAt  DateTime?
-  kycVerifiedAt   DateTime?
-  kycDocuments    Json?     // Store document references
-  
-  // Stellar Wallet (Custodial)
-  stellarPubKey   String?   @unique
-  stellarSecretEncrypted String? // Encrypted secret key
-  
-  // Profile
-  phone           String?
-  company         String?   // For installers
-  address         String?
-  country         String?
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  projects      Project[]        // For installers
-  investments   Investment[]     // For investors
-  yieldClaims   YieldClaim[]    // For investors
-  
-  @@index([role])
-  @@index([kycStatus])
-}
-
-// ============================================
-// Project Model (Solar Asset)
-// ============================================
-
-model Project {
-  id          String        @id @default(cuid())
-  installerId String
-  installer   User          @relation(fields: [installerId], references: [id])
-  
-  // Basic Info
-  name        String
-  description String        @db.Text
-  location    String
-  country     String
-  
-  // Solar Asset Details
-  capacity          Float     // kW capacity
-  panelType         String?
-  inverterType      String?
-  estimatedAnnualProduction Float? // kWh
-  
-  // Financial Details
-  expectedYield     Float     // Annual yield percentage
-  fundingTarget     Decimal   @db.Decimal(18, 2)
-  fundingRaised     Decimal   @default(0) @db.Decimal(18, 2)
-  pricePerToken     Decimal   @db.Decimal(18, 6)
-  
-  // Token Details
-  tokenSymbol       String?   @unique
-  tokenContractId   String?   @unique // Soroban contract ID
-  totalTokens       Int?      // Total tokens minted
-  tokensRemaining   Int?      // Tokens available for investment
-  
-  // Timeline
-  startDate               DateTime?
-  estimatedCompletionDate DateTime?
-  actualCompletionDate    DateTime?
-  
-  // Status
-  status            ProjectStatus @default(DRAFT)
-  approvedAt        DateTime?
-  approvedBy        String?       // Admin user ID
-  rejectionReason   String?
-  
-  // Documents
-  documents         Json?     // Array of document references
-  images            Json?     // Array of image URLs
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  investments       Investment[]
-  yieldDistributions YieldDistribution[]
-  productionData    ProductionData[]
-  
-  // Performance Tracking (computed from ProductionData)
-  totalEnergyProduced   Decimal? @db.Decimal(18, 4)
-  currentYieldRate      Float?
-  lastProductionUpdate  DateTime?
-  
-  @@index([installerId])
-  @@index([status])
-  @@index([tokenSymbol])
-}
-
-// ============================================
-// Oracle Provider Model
-// ============================================
 
 enum OracleStatus {
-  PENDING           // Awaiting approval
-  ACTIVE            // Approved and active
-  SUSPENDED         // Temporarily suspended
-  REVOKED           // Permanently revoked
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REVOKED
 }
-
-model OracleProvider {
-  id              String        @id @default(cuid())
-  name            String
-  description     String?       @db.Text
-  
-  // Authentication
-  apiKeyHash      String        @unique // Hashed API key
-  publicKey       String        @unique // Ed25519 public key for signatures
-  
-  // Status
-  status          OracleStatus  @default(PENDING)
-  approvedAt      DateTime?
-  approvedBy      String?       // Admin user ID
-  
-  // Trust Score (0-100)
-  trustScore      Int           @default(50)
-  totalSubmissions Int          @default(0)
-  disputedSubmissions Int       @default(0)
-  
-  // Rate Limiting
-  rateLimit       Int           @default(100) // Max submissions per hour
-  lastSubmissionAt DateTime?
-  
-  // Contact
-  contactEmail    String?
-  webhookUrl      String?       // For dispute notifications
-  
-  // Timestamps
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  // Relations
-  productionData  ProductionData[]
-  disputes        OracleDispute[]
-  
-  @@index([status])
-  @@index([trustScore])
-}
-
-// ============================================
-// Production Data Model (Oracle)
-// ============================================
-
-model ProductionData {
-  id              String   @id @default(cuid())
-  projectId       String
-  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  // Production Metrics
-  energyProduced  Decimal  @db.Decimal(18, 4) // kWh produced
-  recordedAt      DateTime // When the production occurred
-  periodStart     DateTime? // Start of measurement period
-  periodEnd       DateTime? // End of measurement period
-  
-  // Data Source
-  source          String   // MANUAL, AUTOMATIC, METER, ORACLE
-  verifiedBy      String?  // Admin user ID who verified
-  notes           String?  @db.Text
-  
-  // Oracle Verification
-  oracleProviderId String?
-  oracleProvider   OracleProvider? @relation(fields: [oracleProviderId], references: [id])
-  signature        String?         // Ed25519 signature of data
-  signedPayload    String?         // Original signed payload (JSON)
-  signatureValid   Boolean?        // Whether signature was verified
-  
-  // Dispute Info
-  disputed        Boolean  @default(false)
-  disputeId       String?
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([projectId])
-  @@index([recordedAt])
-  @@index([oracleProviderId])
-  @@index([disputed])
-}
-
-// ============================================
-// Oracle Dispute Model
-// ============================================
 
 enum DisputeStatus {
-  OPEN              // Dispute filed
-  UNDER_REVIEW      // Being reviewed
-  RESOLVED_VALID    // Data found valid
-  RESOLVED_INVALID  // Data found invalid
-  ESCALATED         // Escalated to governance
-}
-
-model OracleDispute {
-  id                String        @id @default(cuid())
-  productionDataId  String
-  oracleProviderId  String
-  oracleProvider    OracleProvider @relation(fields: [oracleProviderId], references: [id])
-  
-  // Dispute Details
-  filedBy           String        // User ID who filed
-  reason            String        @db.Text
-  evidence          Json?         // Supporting evidence
-  
-  // Resolution
-  status            DisputeStatus @default(OPEN)
-  resolvedBy        String?       // Admin user ID
-  resolution        String?       @db.Text
-  resolvedAt        DateTime?
-  
-  // Impact
-  trustScoreChange  Int?          // Change to oracle's trust score
-  dataInvalidated   Boolean       @default(false)
-  
-  // Timestamps
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  
-  @@index([oracleProviderId])
-  @@index([status])
-}
-
-// ============================================
-// Investment Model
-// ============================================
-
-model Investment {
-  id          String           @id @default(cuid())
-  investorId  String
-  investor    User             @relation(fields: [investorId], references: [id])
-  projectId   String
-  project     Project          @relation(fields: [projectId], references: [id])
-  
-  // Investment Details
-  amount          Decimal          @db.Decimal(18, 2) // USDC amount
-  tokenAmount     Int              // Number of tokens received
-  pricePerToken   Decimal          @db.Decimal(18, 6) // Price at time of investment
-  
-  // On-chain Transaction Tracking
-  status          InvestmentStatus @default(PENDING)
-  txHash          String?          // Stellar transaction hash
-  txLedger        Int?             // Ledger number when confirmed
-  txSubmittedAt   DateTime?        // When transaction was submitted
-  txConfirmedAt   DateTime?        // When transaction was confirmed
-  txRetryCount    Int              @default(0) // Number of retry attempts
-  txError         String?          // Error message if failed
-  
-  // Token Minting (separate from investment tx)
-  mintTxHash      String?          // Token mint transaction hash
-  mintStatus      TransactionStatus? // Status of token minting
-  mintConfirmedAt DateTime?        // When tokens were minted
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([investorId])
-  @@index([projectId])
-  @@index([status])
-  @@index([txHash])
-}
-
-// ============================================
-// Yield Distribution Model
-// ============================================
-
-model YieldDistribution {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id])
-  
-  // Distribution Details
-  period          DateTime  // Month/quarter of distribution
-  totalRevenue    Decimal   @db.Decimal(18, 2) // Total revenue collected
-  platformFee     Decimal   @db.Decimal(18, 2) // Platform's fee
-  totalYield      Decimal   @db.Decimal(18, 2) // Amount to distribute
-  yieldPerToken   Decimal   @db.Decimal(18, 10) // Yield per token
-  
-  // Distribution Status
-  distributed     Boolean   @default(false)
-  distributedAt   DateTime?
-  txHash          String?   // Stellar transaction hash
-  
-  // Metadata (JSON)
-  metadata        Json?     // Additional context (periodStart, periodEnd, energyProduced, etc.)
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  
-  // Relations
-  claims     YieldClaim[]
-  
-  @@index([projectId])
-  @@index([period])
-}
-
-// ============================================
-// Yield Claim Model
-// ============================================
-
-model YieldClaim {
-  id              String            @id @default(cuid())
-  distributionId  String
-  distribution    YieldDistribution @relation(fields: [distributionId], references: [id])
-  investorId      String
-  investor        User              @relation(fields: [investorId], references: [id])
-  
-  // Claim Details
-  tokenAmount     Int               // Tokens held at distribution time
-  amount          Decimal           @db.Decimal(18, 2) // Yield amount
-  claimed         Boolean           @default(false)
-  claimedAt       DateTime?
-  txHash          String?           // Stellar transaction hash
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  
-  @@unique([distributionId, investorId])
-  @@index([investorId])
-}
-
-// ============================================
-// Transaction Log
-// ============================================
-
-model TransactionLog {
-  id          String   @id @default(cuid())
-  type        String   // INVESTMENT, YIELD_DISTRIBUTION, TOKEN_MINT, etc.
-  userId      String?
-  projectId   String?
-  
-  // Transaction Details
-  amount      Decimal? @db.Decimal(18, 2)
-  txHash      String   @unique
-  status      String   // PENDING, SUCCESS, FAILED
-  
-  // Stellar Details
-  sourceAccount  String?
-  destAccount    String?
-  
-  // Metadata
-  metadata    Json?
-  error       String?
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  
-  @@index([type])
-  @@index([userId])
-  @@index([projectId])
-}
-
-// ============================================
-// System Settings
-// ============================================
-
-model SystemSettings {
-  key         String   @id
-  value       Json
-  description String?
-  updatedAt   DateTime @updatedAt
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_VALID
+  RESOLVED_INVALID
+  ESCALATED
 }

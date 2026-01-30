@@ -26,6 +26,11 @@ import webhookRoutes from "./routes/webhooks.js";
 import relayerRoutes from "./routes/relayer.js";
 // import auditRoutes from "./routes/audit.js"; // Removed as file doesn't exist
 
+// Import services
+import { getTransactionMonitor } from "./services/transactionMonitor.js";
+import { eventIndexer } from "./services/eventIndexer.js";
+import { monitoringService } from "./services/monitoringService.js";
+
 // Import middleware
 import { clerkMiddleware } from "@clerk/express";
 import { errorHandler } from "./middleware/error.js";
@@ -136,6 +141,17 @@ app.listen(PORT, () => {
   console.log(
     `⭐ Stellar Network: ${process.env.STELLAR_NETWORK || "testnet"}`,
   );
+
+  // Start background services
+  try {
+    console.log("🛠️ Initializing background services...");
+    getTransactionMonitor().start();
+    eventIndexer.start();
+    monitoringService.start();
+    console.log("✅ All background services active");
+  } catch (error) {
+    console.error("❌ Failed to start background services:", error);
+  }
 });
 
 export default app;

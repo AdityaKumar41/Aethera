@@ -12,7 +12,7 @@ export { StellarClient, stellarClient } from "./client";
 export { WalletService, walletService } from "./wallet";
 
 // Contract Service
-export { ContractService, contractService } from "./contracts";
+export { ContractService, contractService, type ContractInvocationResult } from "./contracts";
 
 // Contract Deployment Service
 export {

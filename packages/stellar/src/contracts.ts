@@ -6,7 +6,7 @@ import * as StellarSdk from '@stellar/stellar-sdk';
 import { StellarClient } from './client';
 import { type NetworkType } from './config';
 
-interface ContractInvocationResult {
+export interface ContractInvocationResult {
   success: boolean;
   result?: unknown;
   txHash?: string;
@@ -301,6 +301,45 @@ export class ContractService {
     ];
 
     return await this.invokeContract(contractId, 'distribute', args, adminKeypair);
+  }
+
+  /**
+   * Claim yield for an investor (YieldDistributor contract)
+   */
+  async claimYield(
+    contractId: string,
+    investorKeypair: StellarSdk.Keypair,
+    projectId: string
+  ): Promise<ContractInvocationResult> {
+    const args = [
+      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
+      StellarSdk.nativeToScVal(investorKeypair.publicKey(), { type: 'address' }),
+    ];
+
+    return await this.invokeContract(contractId, 'claim', args, investorKeypair);
+  }
+
+  /**
+   * Commit production data to the blockchain (Oracle contract)
+   */
+  async commitProduction(
+    contractId: string,
+    signerKeypair: StellarSdk.Keypair,
+    projectId: string,
+    periodStart: number,
+    periodEnd: number,
+    energyKwh: bigint,
+    signature: string
+  ): Promise<ContractInvocationResult> {
+    const args = [
+      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
+      StellarSdk.nativeToScVal(periodStart, { type: 'u64' }),
+      StellarSdk.nativeToScVal(periodEnd, { type: 'u64' }),
+      StellarSdk.nativeToScVal(energyKwh, { type: 'i128' }),
+      StellarSdk.nativeToScVal(signature, { type: 'string' }),
+    ];
+
+    return await this.invokeContract(contractId, 'commit_production', args, signerKeypair);
   }
 }
 

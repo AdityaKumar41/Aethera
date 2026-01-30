@@ -149,10 +149,14 @@ router.post(
 
       // Deploy Soroban contract
       const { contractDeploymentService } = await import("@aethera/stellar");
+      const { Keypair } = await import("@stellar/stellar-sdk");
       
+      const adminSecret = process.env.STAT_RELAYER_SECRET;
+      if (!adminSecret) throw new Error("Admin secret not configured");
+      const adminKeypair = Keypair.fromSecret(adminSecret);
+
       const deploymentResult = await contractDeploymentService.deployAssetToken(
-        // In a real app, we'd use a platform admin keypair from vault
-        {} as any, 
+        adminKeypair, 
         {
           projectId: project.id,
           name: project.name,

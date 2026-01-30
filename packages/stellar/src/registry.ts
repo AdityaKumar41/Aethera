@@ -10,6 +10,7 @@ export interface ContractAddresses {
   treasury: string;
   yieldDistributor?: string;
   governance?: string;
+  oracle?: string;
 }
 
 export interface NetworkConfig {
@@ -28,6 +29,7 @@ const TESTNET_CONTRACTS: ContractAddresses = {
   treasury: "CAIHTVYVWCTBIOQWB333JJGYJ2NY22IAQOMB6F66XV2NYUEXL76AC62Z",
   yieldDistributor: "CAVPHTDZJKOPAMEI474ABMX75VIC5GXG4N53V6D5VX6AZHMHYNA6FPVQ",
   governance: "CAMQSYAH6YL7NMMSGWTZ4VDS6WLDDPEIT6TGUQY5DPCPIAKN57AUEJN5",
+  oracle: "CBJ5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5",
 };
 
 /**

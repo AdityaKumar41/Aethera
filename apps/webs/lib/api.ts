@@ -180,6 +180,12 @@ export interface PortfolioData {
   totalTokens: number;
   pendingYieldAmount: number;
   investments: Investment[];
+  impact?: {
+    carbonOffset: number;
+    treesPlanted: number;
+    waterSaved: number;
+    cleanEnergy: number;
+  };
 }
 
 export interface WalletBalances {

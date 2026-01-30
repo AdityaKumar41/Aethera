@@ -10,6 +10,7 @@ import {
   Prisma,
   YieldDistributionService,
 } from "@aethera/database";
+import { yieldService } from "../services/yieldService.js";
 import { PLATFORM_FEE_PERCENTAGE } from "@aethera/config";
 import {
   authenticate,
@@ -79,13 +80,8 @@ router.post(
         throw createApiError("Claim not found or already claimed", 404);
       }
 
-      // TODO: In production, initiate Stellar USDC payment
-      const txHash = `mock_yield_tx_${Date.now()}`;
-
-      const updated = await YieldDistributionService.processClaim(
-        claim.id,
-        txHash,
-      );
+      // Process claim through YieldService (Stellar + DB)
+      const result = await yieldService.claimYield(claim.id, req.auth?.userId!);
 
       // Log transaction
       await prisma.transactionLog.create({
@@ -93,7 +89,7 @@ router.post(
           type: "YIELD_CLAIM",
           userId: req.auth?.userId,
           amount: claim.amount,
-          txHash,
+          txHash: result.txHash,
           status: "SUCCESS",
         },
       });
@@ -101,7 +97,7 @@ router.post(
       res.json({
         success: true,
         message: "Yield claimed successfully",
-        data: updated,
+        data: result.claim,
       });
     } catch (error) {
       next(error);
@@ -129,14 +125,14 @@ router.post(
     try {
       const data = createDistributionSchema.parse(req.body);
 
-      // Create distribution using service
-      const distribution = await YieldDistributionService.createDistribution({
+      // Create distribution using real YieldService (Stellar + DB)
+      const result = await yieldService.distributeYield({
         projectId: data.projectId,
         periodStart: new Date(data.periodStart),
         periodEnd: new Date(data.periodEnd),
         revenuePerKwh: data.revenuePerKwh,
         platformFeePercent: data.platformFeePercent,
-        triggeredBy: req.auth?.userId!,
+        adminId: req.auth?.userId!,
         notes: data.notes,
       });
 
@@ -145,11 +141,11 @@ router.post(
         data: {
           type: "YIELD_DISTRIBUTION",
           projectId: data.projectId,
-          amount: distribution.totalYield,
-          txHash: `pending_distribution_${distribution.id}`,
-          status: "PENDING",
+          amount: 0, // YieldService will handle actual pro-rata tracking
+          txHash: result.txHash || `failed_distribution_${Date.now()}`,
+          status: result.txHash ? "SUCCESS" : "FAILED",
           metadata: {
-            distributionId: distribution.id,
+            distributionId: result.distributionId,
             periodStart: data.periodStart,
             periodEnd: data.periodEnd,
           },
@@ -157,7 +153,7 @@ router.post(
       });
 
       const summary = await YieldDistributionService.getDistributionSummary(
-        distribution.id,
+        result.distributionId,
       );
 
       res.status(201).json({
@@ -279,14 +275,10 @@ router.post(
         throw createApiError("Some claims are invalid or already claimed", 400);
       }
 
-      // TODO: In production, create single batch payment transaction
-      const txHash = `mock_batch_yield_tx_${Date.now()}`;
-      const txHashes = claimIds.map(() => txHash);
-
-      // Process batch claim
-      const results = await YieldDistributionService.batchClaim(
+      // Process batch claim through YieldService
+      const results = await yieldService.batchClaim(
         claimIds,
-        txHashes,
+        req.auth?.userId!
       );
 
       // Calculate total amount
@@ -301,11 +293,12 @@ router.post(
           type: "YIELD_CLAIM",
           userId: req.auth?.userId,
           amount: totalAmount,
-          txHash,
+          txHash: (results.details[0] as any)?.txHash || "batch_claim", // For simplicity
           status: "SUCCESS",
           metadata: {
             claimCount: claims.length,
             claimIds,
+            results: results.details,
           },
         },
       });
@@ -316,7 +309,6 @@ router.post(
         data: {
           ...results,
           totalAmount,
-          txHash,
         },
       });
     } catch (error) {

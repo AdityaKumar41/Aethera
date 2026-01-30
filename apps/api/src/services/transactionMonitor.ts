@@ -6,8 +6,8 @@
  */
 
 import { prisma } from "@aethera/database";
-import { StellarClient, stellarClient, getContractAddresses } from "@aethera/stellar";
-import { Horizon } from "@stellar/stellar-sdk";
+import { StellarClient, stellarClient, getContractAddresses, contractService } from "@aethera/stellar";
+import { Horizon, Keypair } from "@stellar/stellar-sdk";
 
 interface TransactionResult {
   confirmed: boolean;
@@ -265,19 +265,45 @@ export class TransactionMonitorService {
         return;
       }
 
-      // Mark mint as pending
+      const relayerSecret = process.env.STAT_RELAYER_SECRET;
+      if (!relayerSecret) {
+        console.error("Relayer secret not configured for token minting");
+        return;
+      }
+
+      const adminKeypair = Keypair.fromSecret(relayerSecret);
+      const amountScaled = BigInt(Math.round(investment.tokenAmount * 1_000_000)); // 6 decimals for asset tokens
+
+      console.log(`Initiating token mint for investment ${investment.id}...`);
+
+      const result = await contractService.mintTokens(
+        investment.project.tokenContractId,
+        adminKeypair,
+        investment.investor.stellarPubKey,
+        amountScaled
+      );
+
+      if (result.success && result.txHash) {
+        await prisma.investment.update({
+          where: { id: investment.id },
+          data: {
+            mintStatus: "SUBMITTED",
+            mintTxHash: result.txHash,
+          },
+        });
+        console.log(`Token mint submitted for ${investment.id}. Tx: ${result.txHash}`);
+      } else {
+        throw new Error(result.error || "Minting failed");
+      }
+    } catch (error) {
+      console.error(`Error triggering token mint for ${investment.id}:`, error);
       await prisma.investment.update({
         where: { id: investment.id },
         data: {
-          mintStatus: "PENDING",
+          mintStatus: "FAILED",
+          txError: error instanceof Error ? error.message : "Minting failed",
         },
       });
-
-      // TODO: Call the Asset Token contract to mint tokens
-      // This will be implemented when we wire the full investment flow
-      console.log(`Token mint triggered for investment ${investment.id}`);
-    } catch (error) {
-      console.error(`Error triggering token mint for ${investment.id}:`, error);
     }
   }
 

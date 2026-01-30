@@ -40,10 +40,10 @@ router.get("/marketplace", async (req, res, next) => {
     );
     const skip = (page - 1) * limit;
 
-    const status = (req.query.status as string)?.toUpperCase();
-    const where: Prisma.ProjectWhereInput = status && status !== 'ALL'
-      ? { status: status as ProjectStatus }
-      : { status: { in: ["FUNDING", "FUNDED", "ACTIVE", "COMPLETED"] } };
+    const status = (req.query.status as string)?.toUpperCase() as ProjectStatus;
+    const where: Prisma.ProjectWhereInput = status && status !== ('ALL' as any)
+      ? { status }
+      : { status: { in: [ProjectStatus.FUNDING, ProjectStatus.FUNDED, ProjectStatus.ACTIVE, ProjectStatus.COMPLETED] } };
 
     const [projects, total] = await Promise.all([
       prisma.project.findMany({

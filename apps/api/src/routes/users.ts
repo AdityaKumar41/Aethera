@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '@aethera/database';
 import { walletService } from '@aethera/stellar';
+import { impactService } from '../services/impactService.js';
 import { authenticate, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createApiError } from '../middleware/error.js';
 import { syncKycStatus } from './kyc.js';
@@ -268,6 +269,8 @@ router.get('/portfolio', async (req: AuthenticatedRequest, res, next) => {
             status: true,
             expectedYield: true,
             tokenSymbol: true,
+            totalEnergyProduced: true,
+            totalTokens: true,
           },
         },
       },
@@ -300,6 +303,17 @@ router.get('/portfolio', async (req: AuthenticatedRequest, res, next) => {
       0
     );
 
+    // Calculate total impact (based on pro-rata share of project production)
+    let totalImpactEnergy = 0;
+    for (const inv of investments) {
+      const projectProduction = Number(inv.project.totalEnergyProduced || 0);
+      const totalTokens = Number(inv.project.totalTokens || 1); // Avoid div by zero
+      const userShare = inv.tokenAmount / totalTokens;
+      totalImpactEnergy += projectProduction * userShare;
+    }
+
+    const impact = impactService.getImpactMetrics(totalImpactEnergy);
+
     res.json({
       success: true,
       data: {
@@ -307,6 +321,12 @@ router.get('/portfolio', async (req: AuthenticatedRequest, res, next) => {
         totalTokens,
         pendingYieldAmount,
         investments,
+        impact: {
+          carbonOffset: impact.carbonOffset,
+          treesPlanted: impact.treesPlanted,
+          waterSaved: impact.waterSaved,
+          cleanEnergy: impact.cleanEnergy,
+        },
       },
     });
   } catch (error) {
