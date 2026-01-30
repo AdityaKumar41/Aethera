@@ -69,6 +69,7 @@ router.post("/start", authenticate, async (req: AuthenticatedRequest, res: Respo
       email: user.email,
     };
 
+    console.log(`[KYC Start] Generating token for ${user.id} at level ${sumsubLevel}`);
     const accessToken = await sumsubService.generateAccessToken(
       user.id,
       sumsubLevel,
@@ -107,8 +108,10 @@ router.post("/start", authenticate, async (req: AuthenticatedRequest, res: Respo
  * Helper to sync KYC status from Sumsub to DB
  */
 export async function syncKycStatus(userId: string) {
+  console.log(`[KYC Sync] Checking status for ${userId}`);
   const sumsubService = getSumsubService();
   const status = await sumsubService.getApplicantStatus(userId);
+  console.log(`[KYC Sync] Raw status for ${userId}:`, status);
 
   // Map Sumsub status to internal KYCStatus
   const statusMap: Record<string, string> = {
@@ -131,25 +134,42 @@ export async function syncKycStatus(userId: string) {
   });
 
   if (dbUser && dbUser.kycStatus !== currentKycStatus) {
-    const updateData: any = { kycStatus: currentKycStatus };
-    if (currentKycStatus === "VERIFIED") updateData.kycVerifiedAt = new Date();
-    if (status.status !== "not_started" && !dbUser.kycSubmittedAt) {
-      updateData.kycSubmittedAt = new Date(status.createdAt);
+    // Don't downgrade from a definitive state to PENDING if Sumsub says not_started (which can be a 404)
+    // unless the DB status is currently PENDING/null
+    const isDowngrade = (dbUser.kycStatus === 'VERIFIED' || dbUser.kycStatus === 'REJECTED' || dbUser.kycStatus === 'IN_REVIEW') && 
+                       (currentKycStatus === 'PENDING');
+    
+    if (!isDowngrade) {
+      console.log(`[KYC Sync] Updating DB for ${userId}: ${dbUser.kycStatus} -> ${currentKycStatus}`);
+      const updateData: any = { kycStatus: currentKycStatus };
+      if (currentKycStatus === "VERIFIED") updateData.kycVerifiedAt = new Date();
+      if (status.status !== "not_started" && !dbUser.kycSubmittedAt) {
+        updateData.kycSubmittedAt = new Date(status.createdAt);
+      }
+  
+      await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+    } else {
+      console.log(`[KYC Sync] Skipping downgrade for ${userId}: ${dbUser.kycStatus} -> ${currentKycStatus} (Sumsub status: ${status.status})`);
     }
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-    });
   }
 
+  // Determine the authoritative status to return to the frontend
+  // If the DB has a definitive status and Sumsub lookup failed (not_started), use DB
+  const finalStatus = (status.status === 'not_started' && dbUser && dbUser.kycStatus !== 'PENDING')
+    ? dbUser.kycStatus 
+    : currentKycStatus;
+
   return {
-    status: currentKycStatus,
+    status: finalStatus,
     submittedAt: dbUser?.kycSubmittedAt || (status.status !== 'not_started' ? status.createdAt : undefined),
-    verifiedAt: currentKycStatus === 'VERIFIED' ? (dbUser?.kycVerifiedAt || new Date().toISOString()) : undefined,
+    verifiedAt: finalStatus === 'VERIFIED' ? (dbUser?.kycVerifiedAt || new Date().toISOString()) : undefined,
     sumsub: {
       applicantId: status.applicantId,
       status: status.status,
+      level: status.levelName,
       reviewAnswer: status.reviewAnswer,
       rejectLabels: status.rejectLabels,
       moderationComment: status.moderationComment,

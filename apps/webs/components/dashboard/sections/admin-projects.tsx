@@ -144,7 +144,7 @@ export function AdminProjectsSection() {
                         </span>
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          Submitted 2 days ago
+                          Submitted {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : "recently"}
                         </span>
                       </div>
                       <h3 className="text-xl font-bold group-hover:text-purple-600 transition-colors">
@@ -176,7 +176,9 @@ export function AdminProjectsSection() {
                     </div>
                     <div className="p-3 bg-zinc-50 rounded-xl">
                       <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Installer</p>
-                      <p className="text-sm font-bold truncate">{project.installer?.company || "Green Solar Co"}</p>
+                      <p className="text-sm font-bold truncate">
+                        {project.installer?.company || project.installer?.name || "Independent"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -210,11 +212,6 @@ export function AdminProjectsSection() {
                 </div>
               </div>
 
-              {/* Warnings / Alerts */}
-              <div className="mt-4 flex items-center gap-2 p-3 bg-amber-50 text-amber-700 rounded-xl text-xs border border-amber-100">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>Verification required for installer credentials and land lease agreements.</span>
-              </div>
             </div>
           ))}
         </div>

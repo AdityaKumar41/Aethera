@@ -19,6 +19,7 @@ import {
 
 import { useInstallerProjects } from "@/hooks/use-dashboard-data";
 import type { Project } from "@/lib/api";
+import { ProjectDetailsSection } from "./project-details";
 
 const statusConfig = {
   DRAFT: { label: "Draft", color: "bg-zinc-500", icon: Clock },
@@ -33,6 +34,7 @@ const statusConfig = {
 
 export function InstallerProjectsSection() {
   const { projects, loading, error } = useInstallerProjects();
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   const stats = {
     total: projects.length,
@@ -59,6 +61,15 @@ export function InstallerProjectsSection() {
         <h4 className="font-semibold mb-2">Failed to load projects</h4>
         <p className="text-sm text-muted-foreground">{error}</p>
       </div>
+    );
+  }
+
+  if (selectedProjectId) {
+    return (
+      <ProjectDetailsSection 
+        projectId={selectedProjectId} 
+        onBack={() => setSelectedProjectId(null)} 
+      />
     );
   }
 
@@ -185,7 +196,10 @@ export function InstallerProjectsSection() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button className="p-2 rounded-lg hover:bg-zinc-100 transition-colors">
+                      <button 
+                        onClick={() => setSelectedProjectId(project.id)}
+                        className="p-2 rounded-lg hover:bg-zinc-100 transition-colors"
+                      >
                         <Eye className="w-4 h-4 text-muted-foreground" />
                       </button>
                       <button className="p-2 rounded-lg hover:bg-zinc-100 transition-colors">

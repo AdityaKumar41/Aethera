@@ -62,6 +62,8 @@ export class SumsubService {
       "Content-Type": "application/json",
     };
 
+    console.log(`[Sumsub API] ${method} ${this.config.baseUrl}${path} (Token: ${this.config.appToken.slice(0, 4)}...)`);
+    console.log(`[Sumsub API] TS: ${ts}, Sig: ${signature.slice(0, 8)}...`);
     const response = await fetch(`${this.config.baseUrl}${path}`, {
       method,
       headers,
@@ -205,6 +207,9 @@ export class SumsubService {
 
     const reviewStatus = applicant.review?.reviewStatus;
     const reviewAnswer = applicant.review?.reviewResult?.reviewAnswer;
+    const levelName = applicant.review?.levelName;
+
+    console.log(`[SumsubService] Status for ${externalUserId}:`, { reviewStatus, reviewAnswer, levelName });
 
     let status: ApplicantStatusResponse["status"] = "pending";
 
@@ -221,6 +226,7 @@ export class SumsubService {
     return {
       applicantId: applicant.id,
       status,
+      levelName,
       reviewAnswer,
       rejectLabels: applicant.review?.reviewResult?.rejectLabels,
       moderationComment: applicant.review?.reviewResult?.moderationComment,

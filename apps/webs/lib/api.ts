@@ -11,6 +11,7 @@ interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+  details?: { field: string; message: string }[];
 }
 
 interface RequestOptions {
@@ -49,6 +50,7 @@ export async function apiRequest<T>(
       return {
         success: false,
         error: data.error || `Request failed with status ${response.status}`,
+        details: data.details,
       };
     }
 
@@ -128,8 +130,8 @@ export const projectApi = {
 export const adminApi = {
   getPendingKYC: () => apiRequest<any[]>('/api/admin/kyc/pending'),
   approveKYC: (userId: string) => apiRequest<any>(`/api/admin/kyc/${userId}/approve`, { method: 'POST' }),
-  getStats: () => apiRequest<any>('/api/admin/stats'),
-  getPendingProjects: () => apiRequest<Project[]>('/api/admin/projects?status=PENDING_APPROVAL'),
+  getStats: () => apiRequest<any>('/api/admin/dashboard'),
+  getPendingProjects: () => apiRequest<Project[]>('/api/admin/projects/pending'),
   approveProject: (id: string) => apiRequest<any>(`/api/admin/projects/${id}/approve`, { method: 'POST' }),
   rejectProject: (id: string, reason: string) => apiRequest<any>(`/api/admin/projects/${id}/reject`, { method: 'POST', body: { reason } }),
 };
@@ -202,6 +204,7 @@ export interface KycStatus {
   sumsub?: {
     applicantId: string;
     status: string;
+    level?: string;
     reviewAnswer?: string;
     rejectLabels?: string[];
     moderationComment?: string;
@@ -237,6 +240,7 @@ export interface Project {
   };
   investorCount?: number;
   fundingPercentage?: number;
+  createdAt?: string;
 }
 
 export interface Investment {

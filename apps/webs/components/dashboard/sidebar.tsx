@@ -24,7 +24,8 @@ import {
   Zap,
   Clock,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useKyc } from "@/hooks/use-dashboard-data";
 
 // Investor navigation items with routes
 const investorNavItems = [
@@ -79,13 +80,24 @@ export function Sidebar({
   kycStatus,
   userName,
 }: SidebarProps) {
+  const { status: liveKycStatus } = useKyc();
   const pathname = usePathname();
-  
+  const [copied, setCopied] = useState(false);
+
   let navItems = investorNavItems;
   if (userRole === "INSTALLER") navItems = installerNavItems;
   if (userRole === "ADMIN") navItems = adminNavItems;
-  
-  const [copied, setCopied] = useState(false);
+
+  // Derive the current status: live hook data takes precedence over the layout prop
+  const displayKycStatus = liveKycStatus?.status || kycStatus;
+
+  useEffect(() => {
+     console.log('[Sidebar] KYC Status Sync:', { 
+       prop: kycStatus, 
+       live: liveKycStatus?.status, 
+       final: displayKycStatus 
+     });
+  }, [kycStatus, liveKycStatus, displayKycStatus]);
 
   const handleCopyAddress = async () => {
     if (walletAddress) {
@@ -95,7 +107,7 @@ export function Sidebar({
     }
   };
 
-  const isKycVerified = kycStatus === "VERIFIED";
+  const isKycVerified = displayKycStatus === "VERIFIED";
 
   return (
     <aside
@@ -175,26 +187,49 @@ export function Sidebar({
           {!collapsed && (
             <div className="flex items-center justify-between mt-2 px-1">
               <div className="flex items-center gap-1.5">
-                {kycStatus === "VERIFIED" ? (
-                  <>
-                    <Shield className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-xs text-emerald-600 font-medium">Verified</span>
-                  </>
-                ) : kycStatus === "IN_REVIEW" ? (
-                  <>
-                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-xs text-amber-600 font-medium">In Review</span>
-                  </>
-                ) : kycStatus === "REJECTED" ? (
-                  <>
-                    <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                    <span className="text-xs text-red-600 font-medium">Rejected</span>
-                  </>
+                {displayKycStatus === "VERIFIED" ? (
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-xs text-emerald-600 font-bold tracking-tight">Verified</span>
+                    </div>
+                    {liveKycStatus?.sumsub?.level && (
+                      <span className="text-[10px] text-muted-foreground ml-5 opacity-70 uppercase tracking-tighter">
+                        {liveKycStatus.sumsub.level.replace(/-/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                ) : displayKycStatus === "IN_REVIEW" ? (
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-xs text-amber-600 font-medium">In Review</span>
+                    </div>
+                    {liveKycStatus?.sumsub?.level && (
+                      <span className="text-[10px] text-muted-foreground ml-5 opacity-70 uppercase tracking-tighter">
+                        {liveKycStatus.sumsub.level.replace(/-/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                ) : displayKycStatus === "REJECTED" ? (
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                      <span className="text-xs text-red-600 font-medium">Rejected</span>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-xs text-amber-600 font-medium">KYC Pending</span>
-                  </>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-xs text-amber-600 font-medium">KYC Pending</span>
+                    </div>
+                    {userRole === 'INSTALLER' && (
+                      <span className="text-[10px] text-amber-600/70 ml-5 tracking-tighter">
+                        Requires Enhanced Identity
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
               <span className={cn(

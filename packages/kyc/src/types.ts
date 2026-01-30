@@ -132,6 +132,7 @@ export interface CreateApplicantRequest {
 export interface ApplicantStatusResponse {
   applicantId: string;
   status: "pending" | "approved" | "rejected" | "retry" | "not_started";
+  levelName?: string;
   reviewAnswer?: string;
   rejectLabels?: string[];
   moderationComment?: string;

@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { userApi, projectApi, investmentApi, yieldApi, kycApi } from '@/lib/api';
+import { userApi, projectApi, investmentApi, yieldApi, kycApi, adminApi } from '@/lib/api';
 import type { 
   UserProfile, 
   PortfolioData, 
@@ -312,4 +312,32 @@ export function useInstallerProjects() {
   }, [fetchProjects]);
 
   return { projects, loading, error, refetch: fetchProjects };
+}
+
+// ==========================
+// useAdminStats Hook
+// ==========================
+
+export function useAdminStats() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    const response = await adminApi.getStats();
+    if (response.success && response.data) {
+      setStats(response.data);
+      setError(null);
+    } else {
+      setError(response.error || 'Failed to fetch admin stats');
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  return { stats, loading, error, refetch: fetchStats };
 }

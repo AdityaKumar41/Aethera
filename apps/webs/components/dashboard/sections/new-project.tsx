@@ -55,6 +55,7 @@ export function NewProjectSection() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{ field: string; message: string }[] | null>(null);
 
   const updateField = (field: keyof ProjectFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -63,6 +64,7 @@ export function NewProjectSection() {
   const handleSubmit = async () => {
     setSubmitting(true);
     setError(null);
+    setValidationErrors(null);
 
     try {
       // Map form data to API format
@@ -87,6 +89,9 @@ export function NewProjectSection() {
         setSubmitted(true);
       } else {
         setError(response.error || "Failed to submit project. Please try again.");
+        if (response.details) {
+          setValidationErrors(response.details);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
@@ -472,8 +477,20 @@ export function NewProjectSection() {
             </div>
 
             {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-                {error}
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-red-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <p className="text-sm font-medium">{error}</p>
+                </div>
+                {validationErrors && validationErrors.length > 0 && (
+                  <ul className="pl-6 space-y-1">
+                    {validationErrors.map((err, idx) => (
+                      <li key={idx} className="text-xs text-red-500 list-disc">
+                        <span className="font-semibold capitalize">{err.field}:</span> {err.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>

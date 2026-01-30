@@ -130,7 +130,7 @@ router.get("/:id", async (req, res, next) => {
 
 const createProjectSchema = z.object({
   name: z.string().min(3).max(100),
-  description: z.string().min(50).max(5000),
+  description: z.string().min(20).max(5000),
   location: z.string().min(3),
   country: z.string().min(2).max(100),
   capacity: z.number().min(1).max(100000), // kW

@@ -30,14 +30,16 @@ const data = [
   { name: "Jun", funding: 950000, projects: 19 },
 ];
 
+import { useAdminStats } from "@/hooks/use-dashboard-data";
+
 export function AdminStatsSection() {
-  const [loading, setLoading] = useState(false);
+  const { stats: apiStats, loading, error } = useAdminStats();
 
   const stats = [
     {
       label: "Total Funding Raised",
-      value: "$2.41M",
-      change: "+12.5%",
+      value: apiStats ? `$${(apiStats.funding.totalRaised / 1000000).toFixed(2)}M` : "$0.00M",
+      change: "+0%", // We'd need historical data for this
       positive: true,
       icon: DollarSign,
       color: "from-emerald-500 to-teal-600",
@@ -45,8 +47,8 @@ export function AdminStatsSection() {
     },
     {
       label: "Active Projects",
-      value: "19",
-      change: "+3",
+      value: apiStats ? apiStats.projects.active.toString() : "0",
+      change: `+${apiStats?.projects.pending || 0} pending`,
       positive: true,
       icon: Zap,
       color: "from-solar-orange to-solar-gold",
@@ -54,17 +56,17 @@ export function AdminStatsSection() {
     },
     {
       label: "Total Users",
-      value: "1,280",
-      change: "+142",
+      value: apiStats ? apiStats.users.total.toLocaleString() : "0",
+      change: `Inst: ${apiStats?.users.installers || 0}`,
       positive: true,
       icon: Users,
       color: "from-blue-500 to-indigo-600",
       shadow: "shadow-blue-500/20"
     },
     {
-      label: "Total Capacity",
-      value: "4.8 MW",
-      change: "-0.2%",
+      label: "KYC Pending Review",
+      value: apiStats ? apiStats.kyc.pendingReview.toString() : "0",
+      change: "Action needed",
       positive: false,
       icon: TrendingUp,
       color: "from-purple-500 to-violet-600",
@@ -76,6 +78,21 @@ export function AdminStatsSection() {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+        <p className="text-sm text-zinc-500 font-medium">Loading platform metrics...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-100 rounded-3xl p-8 text-center">
+        <p className="text-red-600 font-medium">{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }

@@ -83,13 +83,6 @@ export function Header() {
             >
               FAQ
             </a>
-            <a
-              href="http://localhost:3001"
-              className={`text-sm font-medium transition-colors cursor-pointer ${isScrolled ? "text-orange-600 hover:text-orange-700" : "text-orange-500 hover:text-orange-400"
-                }`}
-            >
-              Dashboard
-            </a>
           </nav>
 
           <div className="hidden md:flex items-center gap-1">
@@ -165,13 +158,6 @@ export function Header() {
                 }`}
             >
               FAQ
-            </a>
-            <a
-              href="http://localhost:3001"
-              className={`font-medium transition-colors cursor-pointer ${isScrolled ? "text-orange-600 hover:text-orange-700" : "text-orange-500 hover:text-orange-400"
-                }`}
-            >
-              Dashboard
             </a>
             <div
               className={`flex flex-col gap-3 mt-4 pt-4 border-t ${isScrolled ? "border-zinc-200" : "border-border"}`}
