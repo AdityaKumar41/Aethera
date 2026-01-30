@@ -11,7 +11,7 @@ model User {
   email                  String       @unique
   password               String?
   name                   String
-  role                   UserRole     @default(INVESTOR)
+  role                   UserRole     @default(UNSET)
   kycStatus              KYCStatus    @default(PENDING)
   kycSubmittedAt         DateTime?
   kycVerifiedAt          DateTime?
@@ -251,6 +251,7 @@ enum UserRole {
   INVESTOR
   INSTALLER
   ADMIN
+  UNSET
 }
 
 enum KYCStatus {

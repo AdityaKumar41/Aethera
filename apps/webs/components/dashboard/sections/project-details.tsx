@@ -261,7 +261,9 @@ export function ProjectDetailsSection({ projectId, onBack }: ProjectDetailsSecti
               {project.status === 'ACTIVE' && (
                 <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
                   <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-1">Current Production</p>
-                  <p className="text-2xl font-black text-emerald-950">1,240 <span className="text-xs font-bold text-emerald-700">kWh</span></p>
+                  <p className="text-2xl font-black text-emerald-950">
+                    {Number(project.totalEnergyProduced || 0).toLocaleString()} <span className="text-xs font-bold text-emerald-700">kWh</span>
+                  </p>
                   <p className="text-[10px] text-emerald-700/60 font-bold uppercase mt-1">Live from Network Sensors</p>
                 </div>
               )}

@@ -38,7 +38,11 @@ export function AdminStatsSection() {
   const stats = [
     {
       label: "Total Funding Raised",
-      value: apiStats ? `$${(apiStats.funding.totalRaised / 1000000).toFixed(2)}M` : "$0.00M",
+      value: apiStats ? 
+        apiStats.funding.totalRaised >= 1000000 
+          ? `$${(apiStats.funding.totalRaised / 1000000).toFixed(2)}M`
+          : `$${(apiStats.funding.totalRaised / 1000).toFixed(1)}K` 
+        : "$0.0K",
       change: "+0%", // We'd need historical data for this
       positive: true,
       icon: DollarSign,

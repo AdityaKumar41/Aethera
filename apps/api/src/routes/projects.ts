@@ -43,7 +43,7 @@ router.get("/marketplace", async (req, res, next) => {
     const status = (req.query.status as string)?.toUpperCase() as ProjectStatus;
     const where: Prisma.ProjectWhereInput = status && status !== ('ALL' as any)
       ? { status }
-      : { status: { in: [ProjectStatus.FUNDING, ProjectStatus.FUNDED, ProjectStatus.ACTIVE, ProjectStatus.COMPLETED] } };
+      : { status: { in: [ProjectStatus.APPROVED, ProjectStatus.FUNDING, ProjectStatus.FUNDED, ProjectStatus.ACTIVE, ProjectStatus.COMPLETED] } };
 
     const [projects, total] = await Promise.all([
       prisma.project.findMany({

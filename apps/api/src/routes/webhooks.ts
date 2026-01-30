@@ -80,7 +80,7 @@ router.post('/clerk', async (req: Request, res: Response) => {
                 id,
                 email: email || '',
                 name,
-                role: 'INVESTOR' as UserRole,
+                role: 'UNSET' as UserRole,
                 stellarPubKey: wallet.publicKey,
                 stellarSecretEncrypted: wallet.encryptedSecret,
               },

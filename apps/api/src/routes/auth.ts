@@ -29,13 +29,19 @@ router.post('/sync', authenticate, async (req: AuthenticatedRequest, res, next) 
       // Create custodial wallet for new user
       const wallet = await walletService.createWallet();
 
+      // Validate role - only allow INVESTOR or INSTALLER during sync
+      const requestedRole = (role as UserRole) || 'UNSET';
+      const finalRole = (['INVESTOR', 'INSTALLER'].includes(requestedRole)) 
+        ? requestedRole 
+        : 'UNSET';
+
       // Create user record linked to Clerk ID
       user = await prisma.user.create({
         data: {
           id: userId, // Use Clerk ID as internal ID
           email: email,
           name: name || 'User',
-          role: (role as UserRole) || 'INVESTOR',
+          role: finalRole,
           company: company,
           phone: phone,
           country: country,
@@ -44,16 +50,23 @@ router.post('/sync', authenticate, async (req: AuthenticatedRequest, res, next) 
         },
       });
     } else {
+      // Security: Only allow updating role if it's currently UNSET
+      // and prevent escalation to ADMIN
+      const updateData: any = {
+        name: name || user.name,
+        company: company || user.company,
+        phone: phone || user.phone,
+        country: country || user.country,
+      };
+
+      if ((user.role === 'UNSET' || user.role === 'INVESTOR') && ['INVESTOR', 'INSTALLER'].includes(role)) {
+        updateData.role = role;
+      }
+
       // Update existing user with onboarding data
       user = await prisma.user.update({
         where: { id: userId },
-        data: {
-          name: name || user.name,
-          role: (role as UserRole) || user.role,
-          company: company || user.company,
-          phone: phone || user.phone,
-          country: country || user.country,
-        },
+        data: updateData,
       });
     }
 

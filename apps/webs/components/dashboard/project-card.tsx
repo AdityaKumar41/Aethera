@@ -131,13 +131,13 @@ export function ProjectCard({ project, delay = 0, onInvest }: ProjectCardProps) 
 
                 {/* CTA */}
                 <button
-                    disabled={project.status !== "funding"}
+                    disabled={project.status === "funding" && onInvest === undefined}
                     onClick={() => onInvest && onInvest(project.id)}
                     className={cn(
                         "w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all duration-200",
                         project.status === "funding"
                             ? "bg-foreground text-background hover:opacity-90"
-                            : "bg-secondary text-muted-foreground cursor-not-allowed"
+                            : "bg-secondary text-foreground hover:bg-secondary/80"
                     )}
                 >
                     {project.status === "funding" ? (

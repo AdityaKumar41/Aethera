@@ -22,6 +22,16 @@ export function PortfolioSection() {
     const claimableRewards = yieldSummary?.totalPending || 0;
 
     // Derived Transactions
+    // Map investments to transaction format for display
+    const recentInvestmentTransactions = portfolio?.investments?.map((inv: any) => ({
+        id: inv.id,
+        type: "investment" as const,
+        project: inv.project?.name || "Solar Project",
+        amount: Number(inv.amount),
+        date: new Date(inv.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        status: inv.status.toLowerCase() as "completed" | "pending",
+    })) || [];
+
     const transactions = [
         ...(yieldSummary?.recentClaims || []).map((c: any) => ({
             id: c.id,
@@ -34,7 +44,7 @@ export function PortfolioSection() {
         ...(portfolio?.investments || []).map((i: any) => ({
             id: i.id,
             type: "investment" as const,
-            project: i.project?.name || "Project",
+            project: i.project?.name || "Solar Project",
             amount: Number(i.amount),
             date: new Date(i.createdAt).toLocaleDateString(),
             status: "completed" as const,
@@ -67,12 +77,12 @@ export function PortfolioSection() {
         return acc;
     }, []);
 
-    // Derived Impact Data
+    // Derived Impact Data - Use API data with fallback
     const impactData = {
-        carbonOffset: totalValue * 0.0005,
-        treesPlanted: totalValue * 0.025,
-        waterSaved: totalValue * 0.0018,
-        cleanEnergy: totalValue * 1.5,
+        carbonOffset: portfolio?.impact?.carbonOffset || 0,
+        treesPlanted: portfolio?.impact?.treesPlanted || 0,
+        waterSaved: portfolio?.impact?.waterSaved || 0,
+        cleanEnergy: portfolio?.impact?.cleanEnergy || 0,
     };
 
     // Derived Chart Data (Mocking historical trend relative to current total)

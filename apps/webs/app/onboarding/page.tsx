@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Sun, Building2, ArrowRight, ArrowLeft, Loader2, Check } from "lucide-react";
@@ -34,11 +34,11 @@ export default function OnboardingPage() {
   });
 
   // Pre-fill name from Clerk
-  useState(() => {
-    if (user?.fullName) {
+  useEffect(() => {
+    if (user?.fullName && !data.name) {
       setData(prev => ({ ...prev, name: user.fullName || "" }));
     }
-  });
+  }, [user?.fullName]);
 
   const handleComplete = async () => {
     if (!data.role || !data.acceptedTerms) return;

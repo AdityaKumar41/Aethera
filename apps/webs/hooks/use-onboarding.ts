@@ -59,7 +59,7 @@ export function useOnboardingStatus(): OnboardingStatus {
             const userData = data.data as UserProfile;
             // User exists in our DB with a role
             setStatus({
-              isComplete: true,
+              isComplete: userData.role !== 'UNSET',
               role: userData.role,
               loading: false,
               user: userData,

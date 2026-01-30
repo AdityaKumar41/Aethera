@@ -246,6 +246,7 @@ export interface Project {
   };
   investorCount?: number;
   fundingPercentage?: number;
+  totalEnergyProduced?: number;
   createdAt?: string;
 }
 
