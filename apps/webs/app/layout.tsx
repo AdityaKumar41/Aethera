@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   description: 'DePIN-powered renewable energy financing. Invest in tokenized solar assets and earn real yield from clean energy production.',
   generator: 'Aethera Platform',
   keywords: ['solar', 'renewable energy', 'DePIN', 'tokenization', 'Stellar', 'blockchain', 'green investment'],
+  icons: {
+    icon: '/image.png',
+  },
 }
 
 export default function RootLayout({

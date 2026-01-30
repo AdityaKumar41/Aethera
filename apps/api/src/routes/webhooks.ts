@@ -38,7 +38,7 @@ router.post('/clerk', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing svix headers' });
   }
 
-  const body = JSON.stringify(req.body);
+  const body = (req as any).rawBody || JSON.stringify(req.body);
   const wh = new Webhook(WEBHOOK_SECRET);
   let evt: any;
 
@@ -61,20 +61,32 @@ router.post('/clerk', async (req: Request, res: Response) => {
         const email = email_addresses?.[0]?.email_address;
         const name = [first_name, last_name].filter(Boolean).join(' ') || 'User';
 
-        const existingUser = await prisma.user.findUnique({ where: { id } });
+        const existingUserById = await prisma.user.findUnique({ where: { id } });
+        const existingUserByEmail = email ? await prisma.user.findUnique({ where: { email } }) : null;
 
-        if (!existingUser) {
-          const wallet = await walletService.createWallet();
-          await prisma.user.create({
-            data: {
-              id,
-              email: email || '',
-              name,
-              role: 'INVESTOR' as UserRole,
-              stellarPubKey: wallet.publicKey,
-              stellarSecretEncrypted: wallet.encryptedSecret,
-            },
-          });
+        if (!existingUserById) {
+          if (existingUserByEmail) {
+            // Link existing user with Clerk ID
+            await prisma.user.update({
+              where: { email: email! },
+              data: { id }
+            });
+            console.log(`[Clerk Webhook] Linked Clerk ID ${id} to existing user with email ${email}`);
+          } else {
+            // Create new user
+            const wallet = await walletService.createWallet();
+            await prisma.user.create({
+              data: {
+                id,
+                email: email || '',
+                name,
+                role: 'INVESTOR' as UserRole,
+                stellarPubKey: wallet.publicKey,
+                stellarSecretEncrypted: wallet.encryptedSecret,
+              },
+            });
+            console.log(`[Clerk Webhook] Created new user: ${email} (${id})`);
+          }
         }
         break;
       }
@@ -159,7 +171,11 @@ router.post('/sumsub', async (req: Request, res: Response) => {
   console.log('[Sumsub Webhook] Signature verified successfully');
 
   const { type, applicantId, externalUserId, reviewResult, reviewStatus } = req.body;
-  console.log(`[Sumsub Webhook] Received event: ${type} for user: ${externalUserId}`);
+  console.log(`[Sumsub Webhook] Received event: ${type}`);
+  console.log(`[Sumsub Webhook] Body details: applicantId=${applicantId}, externalUserId=${externalUserId}, reviewStatus=${reviewStatus}`);
+  if (reviewResult) {
+    console.log(`[Sumsub Webhook] Review Result:`, JSON.stringify(reviewResult, null, 2));
+  }
 
   try {
     const sumsubService = getSumsubService();
@@ -177,6 +193,7 @@ router.post('/sumsub', async (req: Request, res: Response) => {
 
     // Map webhook to internal KYC status using the service logic
     const kycStatus = sumsubService.mapWebhookToKycStatus(req.body);
+    console.log(`[Sumsub Webhook] Mapped KYC status to: ${kycStatus}`);
     
     // Update data for database
     const updateData: any = {
@@ -187,6 +204,18 @@ router.post('/sumsub', async (req: Request, res: Response) => {
       updateData.kycVerifiedAt = new Date();
     } else if (kycStatus === 'IN_REVIEW' && !existingUser.kycSubmittedAt) {
       updateData.kycSubmittedAt = new Date();
+    }
+
+    // Store rich review details if available
+    if (reviewResult) {
+      const existingDocs = existingUser.kycDocuments as any;
+      updateData.kycDocuments = {
+        applicantId: applicantId || existingDocs?.applicantId,
+        reviewAnswer: reviewResult.reviewAnswer,
+        rejectLabels: reviewResult.rejectLabels,
+        moderationComment: reviewResult.moderationComment,
+        reviewedAt: new Date().toISOString(),
+      };
     }
 
     await prisma.user.update({

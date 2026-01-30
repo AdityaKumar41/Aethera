@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { prisma, UserRole } from '@aethera/database';
 import { walletService } from '@aethera/stellar';
 import { createApiError } from '../middleware/error.js';
+import { syncKycStatus } from './kyc.js';
 import { authenticate, type AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -70,6 +71,14 @@ router.post('/sync', authenticate, async (req: AuthenticatedRequest, res, next) 
  */
 router.get('/me', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
+    // Sync KYC status in background or inline - inline is safer for frontend consistency
+    let kycSyncResult = null;
+    try {
+      kycSyncResult = await syncKycStatus(req.auth!.userId);
+    } catch (e) {
+      console.error('[Auth Me] Background KYC sync failed:', e);
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.auth?.userId },
       select: {
@@ -91,7 +100,10 @@ router.get('/me', authenticate, async (req: AuthenticatedRequest, res, next) => 
 
     res.json({
       success: true,
-      data: user,
+      data: {
+        ...user,
+        kycStatus: kycSyncResult?.status || user.kycStatus // Use synced if successful
+      },
     });
   } catch (error) {
     next(error);

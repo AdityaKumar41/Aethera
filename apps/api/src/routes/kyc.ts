@@ -104,6 +104,60 @@ router.post("/start", authenticate, async (req: AuthenticatedRequest, res: Respo
 });
 
 /**
+ * Helper to sync KYC status from Sumsub to DB
+ */
+export async function syncKycStatus(userId: string) {
+  const sumsubService = getSumsubService();
+  const status = await sumsubService.getApplicantStatus(userId);
+
+  // Map Sumsub status to internal KYCStatus
+  const statusMap: Record<string, string> = {
+    approved: "VERIFIED",
+    rejected: "REJECTED",
+    pending: "IN_REVIEW",
+    retry: "PENDING", 
+    not_started: "PENDING",
+  };
+
+  const currentKycStatus = statusMap[status.status] || "PENDING";
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      kycStatus: true,
+      kycSubmittedAt: true,
+      kycVerifiedAt: true,
+    },
+  });
+
+  if (dbUser && dbUser.kycStatus !== currentKycStatus) {
+    const updateData: any = { kycStatus: currentKycStatus };
+    if (currentKycStatus === "VERIFIED") updateData.kycVerifiedAt = new Date();
+    if (status.status !== "not_started" && !dbUser.kycSubmittedAt) {
+      updateData.kycSubmittedAt = new Date(status.createdAt);
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+  }
+
+  return {
+    status: currentKycStatus,
+    submittedAt: dbUser?.kycSubmittedAt || (status.status !== 'not_started' ? status.createdAt : undefined),
+    verifiedAt: currentKycStatus === 'VERIFIED' ? (dbUser?.kycVerifiedAt || new Date().toISOString()) : undefined,
+    sumsub: {
+      applicantId: status.applicantId,
+      status: status.status,
+      reviewAnswer: status.reviewAnswer,
+      rejectLabels: status.rejectLabels,
+      moderationComment: status.moderationComment,
+    }
+  };
+}
+
+/**
  * Get current KYC status
  */
 router.get("/status", authenticate, async (req: AuthenticatedRequest, res: Response) => {
@@ -113,60 +167,11 @@ router.get("/status", authenticate, async (req: AuthenticatedRequest, res: Respo
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
-    const sumsubService = getSumsubService();
-    const status = await sumsubService.getApplicantStatus(userId);
-
-    // Map Sumsub status to internal KYCStatus
-    const statusMap: Record<string, string> = {
-      approved: "VERIFIED",
-      rejected: "REJECTED",
-      pending: "IN_REVIEW",
-      retry: "PENDING", // If retry, they need to do it again, so effectively PENDING for the user
-      not_started: "PENDING",
-    };
-
-    const currentKycStatus = statusMap[status.status] || "PENDING";
-
-    // Get user's KYC data from database
-    const dbUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        kycStatus: true,
-        kycSubmittedAt: true,
-        kycVerifiedAt: true,
-      },
-    });
-
-    // Sync DB if status has changed
-    if (dbUser && dbUser.kycStatus !== currentKycStatus) {
-      const updateData: any = { kycStatus: currentKycStatus };
-      if (currentKycStatus === "VERIFIED") updateData.kycVerifiedAt = new Date();
-      if (status.status !== "not_started" && !dbUser.kycSubmittedAt) {
-        updateData.kycSubmittedAt = new Date(status.createdAt);
-      }
-
-      await prisma.user.update({
-        where: { id: userId },
-        data: updateData,
-      });
-      
-      dbUser.kycStatus = currentKycStatus as any;
-    }
+    const data = await syncKycStatus(userId);
 
     res.json({
       success: true,
-      data: {
-        status: dbUser?.kycStatus || currentKycStatus,
-        submittedAt: dbUser?.kycSubmittedAt,
-        verifiedAt: dbUser?.kycVerifiedAt,
-        sumsub: {
-          applicantId: status.applicantId,
-          status: status.status,
-          reviewAnswer: status.reviewAnswer,
-          rejectLabels: status.rejectLabels,
-          moderationComment: status.moderationComment,
-        },
-      },
+      data
     });
   } catch (error: any) {
     console.error("KYC status error:", error);
@@ -220,61 +225,19 @@ router.post("/reset/:userId", authenticate, async (req: AuthenticatedRequest, re
 });
 
 /**
- * Sumsub Webhook
- * Called by Sumsub when verification status changes
+ * Sumsub Webhook (Legacy Path)
+ * 
+ * IMPORTANT: This path is deprecated. New configurations should use /api/webhooks/sumsub.
+ * This remains for backward compatibility with existing sandbox setups.
  */
-router.post("/webhook", async (req: Request, res: Response) => {
-  try {
-    const signature = req.headers["x-signature"] as string;
-    const payload = JSON.stringify(req.body);
-
-    const sumsubService = getSumsubService();
-
-    // Verify webhook signature
-    if (!sumsubService.verifyWebhookSignature(payload, signature)) {
-      console.error("Invalid webhook signature");
-      return res.status(401).json({ error: "Invalid signature" });
-    }
-
-    const webhook: WebhookPayload = req.body;
-    console.log("Sumsub webhook received:", webhook.type, webhook.externalUserId);
-
-    // Map webhook to KYC status
-    const kycStatus = sumsubService.mapWebhookToKycStatus(webhook);
-
-    // Update user in database
-    const updateData: any = {
-      kycStatus,
-    };
-
-    if (kycStatus === "VERIFIED") {
-      updateData.kycVerifiedAt = new Date();
-    }
-
-    // Store review details
-    if (webhook.reviewResult) {
-      updateData.kycDocuments = {
-        applicantId: webhook.applicantId,
-        reviewAnswer: webhook.reviewResult.reviewAnswer,
-        rejectLabels: webhook.reviewResult.rejectLabels,
-        moderationComment: webhook.reviewResult.moderationComment,
-        reviewedAt: webhook.createdAt,
-      };
-    }
-
-    await prisma.user.update({
-      where: { id: webhook.externalUserId },
-      data: updateData,
-    });
-
-    console.log(`User ${webhook.externalUserId} KYC status updated to ${kycStatus}`);
-
-    res.json({ success: true });
-  } catch (error: any) {
-    console.error("Webhook error:", error);
-    // Still return 200 to prevent retries for known errors
-    res.status(200).json({ success: false, error: error.message });
-  }
+router.post("/webhook", async (req, res) => {
+  console.log("--- [LEGACY KYC WEBHOOK HIT] ---");
+  console.log(`[Legacy KYC Webhook] External User ID: ${req.body.externalUserId || 'MISSING'}`);
+  console.log("[Legacy KYC Webhook] Path: /api/kyc/webhook");
+  console.log("[Legacy KYC Webhook] Recommending update to /api/webhooks/sumsub");
+  
+  // Forward to unified handler by redirecting (307 preserves method and body)
+  res.redirect(307, "/api/webhooks/sumsub");
 });
 
 /**

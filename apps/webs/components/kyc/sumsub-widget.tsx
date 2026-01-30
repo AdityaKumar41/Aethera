@@ -74,10 +74,13 @@ export function SumsubWidget({ onComplete, onError }: SumsubWidgetProps) {
           console.log('Step completed:', payload);
         })
         .on('idCheck.onApplicantSubmitted', () => {
-          console.log('Applicant submitted');
+          console.log('[Sumsub] Applicant submitted');
           setIsSubmitted(true);
           // Add a small delay before refetching to allow Sumsub backend to process
-          setTimeout(() => refetch(), 2000);
+          setTimeout(() => {
+            console.log('[Sumsub] Performing post-submission refetch...');
+            refetch();
+          }, 2000);
         })
         .on('idCheck.onApplicantResubmitted', () => {
           console.log('Applicant resubmitted');
@@ -269,35 +272,41 @@ export function SumsubWidget({ onComplete, onError }: SumsubWidgetProps) {
     );
   }
 
-  // Show loading state
-  if (loading || !sdkLoaded) {
+  // Show loading state - only show full screen loader if we don't have a status yet
+  // to prevent flickering during background refreshes
+  if ((loading && !status) || !sdkLoaded) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        <p className="mt-4 text-sm text-muted-foreground">
-          {loading ? 'Loading verification status...' : 'Loading verification widget...'}
+      <div className="flex flex-col items-center justify-center py-20 relative overflow-hidden rounded-2xl border border-zinc-100 bg-zinc-50/50">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+        <Loader2 className="w-10 h-10 animate-spin text-emerald-600 relative z-10" />
+        <p className="mt-6 text-sm font-medium text-zinc-500 tracking-wide uppercase opacity-70 relative z-10">
+          {loading && !status ? 'Fetching verification status' : 'Initializing secure widget'}
         </p>
       </div>
     );
   }
 
   // Show processing state if submitted but DB not yet updated
-  if (isSubmitted && status?.status === 'PENDING') {
+  if (isSubmitted && (!status || status.status === 'PENDING')) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-6">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+      <div className="flex flex-col items-center justify-center py-20 text-center relative overflow-hidden rounded-2xl border border-amber-100 bg-amber-50/20">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10">
+          <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-6 mx-auto shadow-inner">
+            <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+          </div>
+          <h3 className="text-xl font-bold text-zinc-900">Submission Received</h3>
+          <p className="mt-3 text-sm text-zinc-600 max-w-xs mx-auto leading-relaxed">
+            We've received your documents and are syncing with the verification provider. This should only take a few moments.
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-8 px-8 py-2.5 bg-white border border-amber-200 rounded-xl text-sm font-semibold text-amber-700 hover:bg-amber-50 shadow-sm transition-all duration-200"
+          >
+            Refresh Now
+          </button>
         </div>
-        <h3 className="text-lg font-semibold">Submission Received</h3>
-        <p className="mt-2 text-sm text-muted-foreground max-w-xs mx-auto">
-          We've received your documents and are syncing with the verification provider. This should only take a few moments.
-        </p>
-        <button
-          onClick={() => refetch()}
-          className="mt-8 px-6 py-2 border border-border rounded-xl text-sm font-medium hover:bg-zinc-50 transition-colors"
-        >
-          Refresh Now
-        </button>
       </div>
     );
   }
@@ -312,8 +321,17 @@ export function SumsubWidget({ onComplete, onError }: SumsubWidgetProps) {
       )}
       <div 
         ref={containerRef} 
-        className="min-h-[500px] rounded-xl overflow-hidden border border-border"
-      />
+        className="min-h-[500px] rounded-xl overflow-hidden border border-border relative bg-zinc-50"
+      >
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-center">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-[10px] text-muted-foreground/50 font-bold uppercase tracking-widest">
+              Connecting to Sumsub Secure Node
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

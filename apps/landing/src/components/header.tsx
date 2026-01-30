@@ -44,15 +44,10 @@ export function Header() {
         <div className="flex items-center justify-between">
           <a href="#" onClick={handleLogoClick} className="flex items-center gap-2 cursor-pointer">
             <img
-              src="/SteezyInk_Temporary_Tattoo_Distorted_Disco_Ball_v1_Last_Upto_2_Weeks_2_x_2_Inches-removebg-preview.png"
-              alt="Solar Logo"
-              className="h-6 w-auto object-contain"
+              src="/image.png"
+              alt="Aethera"
+              className="h-10 w-auto object-contain"
             />
-            <span
-              className={`text-lg font-medium tracking-tight transition-colors duration-300 ${isScrolled ? "text-black" : "text-foreground"}`}
-            >
-              Aethera
-            </span>
           </a>
 
           <nav className="hidden md:flex items-center gap-8">

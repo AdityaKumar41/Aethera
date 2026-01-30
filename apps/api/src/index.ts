@@ -49,7 +49,20 @@ app.use(clerkMiddleware());
 // Security headers
 app.use(helmet());
 
-// Rate limiting
+// Body parsing - capture raw body for webhook signature verification
+// Must be placed before any routes that rely on req.body or req.rawBody
+app.use(express.json({
+  verify: (req: any, res, buf) => {
+    // Store raw body for webhook signature verification
+    req.rawBody = buf.toString();
+  }
+}));
+
+// Webhook routes - placed before rate limiter to ensure reliable processing
+// from high-volume external providers like Clerk/Sumsub
+app.use("/api/webhooks", webhookRoutes);
+
+// Rate limiting - applied to all routes after webhooks
 app.use(
   rateLimit({
     windowMs: API_CONFIG.rateLimit.windowMs,
@@ -58,13 +71,13 @@ app.use(
   }),
 );
 
-// Body parsing - capture raw body for webhook signature verification
-app.use(express.json({
-  verify: (req: any, res, buf) => {
-    // Store raw body for webhook signature verification
-    req.rawBody = buf.toString();
+// General request tracing for debugging
+app.use((req, res, next) => {
+  if (req.path.includes('webhook')) {
+    console.log(`[TRACE] Incoming Webhook Request: ${req.method} ${req.path}`);
   }
-}));
+  next();
+});
 
 // ============================================
 // Health Check
@@ -98,7 +111,8 @@ app.use("/api/kyc", kycRoutes);
 app.use("/api/governance", governanceRoutes);
 app.use("/api/emergency", emergencyRoutes);
 app.use("/api/monitoring", monitoringRoutes);
-app.use("/api/webhooks", webhookRoutes);
+// app.use("/api/webhooks", webhookRoutes); // Moved before rate limiter
+
 
 
 // ============================================

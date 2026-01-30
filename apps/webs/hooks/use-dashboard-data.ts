@@ -221,16 +221,21 @@ export function useKyc() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStatus = useCallback(async () => {
-    setLoading(true);
+  const fetchStatus = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     const response = await kycApi.getStatus();
     if (response.success && response.data) {
       setStatus(response.data);
       setError(null);
+      
+      // Dispatch global event to notify other instances of this hook
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kyc-status-updated', { detail: response.data }));
+      }
     } else {
       setError(response.error || 'Failed to fetch KYC status');
     }
-    setLoading(false);
+    if (!isSilent) setLoading(false);
   }, []);
 
   const startKyc = useCallback(async (level: 'basic' | 'enhanced' | 'accredited' = 'basic') => {
@@ -247,9 +252,29 @@ export function useKyc() {
     }
   }, []);
 
+  // Initial fetch on mount
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
+
+  // Listen for global status updates from other hook instances
+  useEffect(() => {
+    const handleGlobalUpdate = (event: any) => {
+      const newStatus = event.detail as KycStatus;
+      setStatus(prevStatus => {
+        // Only update if the data is actually different to avoid unnecessary re-renders
+        if (JSON.stringify(newStatus) === JSON.stringify(prevStatus)) {
+          return prevStatus;
+        }
+        return newStatus;
+      });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('kyc-status-updated', handleGlobalUpdate);
+      return () => window.removeEventListener('kyc-status-updated', handleGlobalUpdate);
+    }
+  }, []);
 
   return { 
     status, 

@@ -8,6 +8,7 @@ import { prisma } from '@aethera/database';
 import { walletService } from '@aethera/stellar';
 import { authenticate, type AuthenticatedRequest } from '../middleware/auth.js';
 import { createApiError } from '../middleware/error.js';
+import { syncKycStatus } from './kyc.js';
 
 const router = Router();
 
@@ -20,6 +21,14 @@ router.use(authenticate);
 
 router.get('/profile', async (req: AuthenticatedRequest, res, next) => {
   try {
+    // Sync KYC status inline
+    let kycSyncResult = null;
+    try {
+      kycSyncResult = await syncKycStatus(req.auth!.userId);
+    } catch (e) {
+      console.error('[User Profile] KYC sync failed:', e);
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.auth?.userId },
       select: {
@@ -42,7 +51,13 @@ router.get('/profile', async (req: AuthenticatedRequest, res, next) => {
       throw createApiError('User not found', 404);
     }
 
-    res.json({ success: true, data: user });
+    res.json({ 
+      success: true, 
+      data: {
+        ...user,
+        kycStatus: kycSyncResult?.status || user.kycStatus
+      } 
+    });
   } catch (error) {
     next(error);
   }

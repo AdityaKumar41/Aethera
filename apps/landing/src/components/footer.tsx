@@ -47,19 +47,11 @@ export function Footer() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">
               <Link href="/" className="flex items-center gap-2 mb-4">
-                <svg
-                  className="w-5 h-5 text-foreground"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                  <line x1="9" y1="9" x2="9.01" y2="9" />
-                  <line x1="15" y1="9" x2="15.01" y2="9" />
-                </svg>
-                <span className="text-base font-medium text-foreground">Aethera</span>
+                <img 
+                  src="/image.png" 
+                  alt="Aethera" 
+                  className="w-32 h-8 object-contain"
+                />
               </Link>
               <p className="text-sm text-muted-foreground mb-6">Renewable energy financing, decentralized.</p>
               <div className="flex gap-4">

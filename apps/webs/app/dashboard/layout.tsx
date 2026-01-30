@@ -39,12 +39,12 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isComplete, role, loading, walletAddress, user } = useOnboardingStatus();
+  const { isComplete, role, loading, walletAddress, user, kycStatus: initialKycStatus } = useOnboardingStatus();
   const { status: liveKycStatus, refetch: refetchKyc } = useKyc();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Use live KYC status from hook if available, otherwise fallback to onboarding status
-  const currentKycStatus = liveKycStatus?.status || null;
+  // Use live KYC status from hook if available, otherwise fallback to initial status from onboarding
+  const currentKycStatus = liveKycStatus?.status || initialKycStatus;
 
   // Redirect to onboarding if not complete
   useEffect(() => {
@@ -74,13 +74,32 @@ export default function DashboardLayout({
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl gradient-solar flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/20">
-            <Sun className="w-8 h-8 text-white" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 relative overflow-hidden">
+        {/* Ambient background glows */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-orange-200/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] bg-emerald-100/20 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="relative mb-8">
+            <div className="w-56 h-14 flex items-center justify-center animate-pulse-slow">
+              <img 
+                src="/image.png" 
+                alt="Aethera" 
+                className="w-full h-full object-contain filter drop-shadow-2xl"
+              />
+            </div>
+            {/* Soft outer glow */}
+            <div className="absolute inset-0 rounded-full bg-orange-500/10 blur-3xl -z-10 animate-pulse" />
           </div>
-          <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Loading your dashboard...</p>
+          
+          <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="w-5 h-5 animate-spin text-emerald-600/50" />
+              <p className="text-[10px] text-muted-foreground font-bold tracking-[0.3em] uppercase opacity-40">
+                Initializing Secure Session
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );

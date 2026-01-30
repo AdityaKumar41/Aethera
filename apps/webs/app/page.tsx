@@ -31,133 +31,40 @@ export default function HomePage() {
         // User is authenticated but hasn't completed onboarding
         router.push("/onboarding");
       }
+    } else {
+      // Not authenticated, send to sign-in
+      router.push("/sign-in");
     }
   }, [clerkLoaded, clerkUser, loading, isComplete, role, router]);
 
-  // Loading state
-  if (loading || !clerkLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl gradient-solar flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/20">
-            <Sun className="w-8 h-8 text-white" />
-          </div>
-          <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If authenticated, show loading while redirecting
-  if (clerkUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl gradient-solar flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/20">
-            <Sun className="w-8 h-8 text-white" />
-          </div>
-          <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Landing page for unauthenticated users
+  // Placeholder loading state while determining redirection
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-white to-amber-50/30">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-zinc-200/50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl gradient-solar flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <Sun className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-semibold text-lg">Aethera</span>
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 relative overflow-hidden">
+      {/* Ambient background glows */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-orange-200/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] bg-emerald-100/20 rounded-full blur-[100px] pointer-events-none" />
+      
+      <div className="relative z-10 flex flex-col items-center">
+        <div className="relative mb-8">
+          <div className="w-56 h-14 flex items-center justify-center animate-pulse-slow">
+            <img 
+              src="/image.png" 
+              alt="Aethera" 
+              className="w-full h-full object-contain"
+            />
           </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/sign-in"
-              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/sign-up"
-              className="px-4 py-2 bg-foreground text-background text-sm font-medium rounded-xl hover:opacity-90 transition-opacity"
-            >
-              Get Started
-            </Link>
-          </div>
+          <div className="absolute inset-0 rounded-full bg-orange-500/10 blur-3xl -z-10 animate-pulse" />
         </div>
-      </header>
-
-      {/* Hero */}
-      <main className="pt-32 pb-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-medium mb-6">
-            <Zap className="w-4 h-4" />
-            Powered by Stellar Blockchain
-          </div>
-          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-6">
-            <span className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 bg-clip-text text-transparent">
-              Solar Energy
-            </span>
-            <br />
-            Investment Platform
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Invest in tokenized solar energy projects. Earn sustainable yields while powering the green energy revolution.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/sign-up"
-              className="w-full sm:w-auto px-8 py-4 bg-foreground text-background text-lg font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-            >
-              Start Investing
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-            <Link
-              href="/sign-in"
-              className="w-full sm:w-auto px-8 py-4 bg-zinc-100 text-foreground text-lg font-medium rounded-xl hover:bg-zinc-200 transition-colors"
-            >
-              Sign In
-            </Link>
-          </div>
-        </div>
-
-        {/* Features */}
-        <div className="max-w-5xl mx-auto mt-24 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl bg-white border border-zinc-200 shadow-sm">
-            <div className="w-12 h-12 rounded-xl gradient-solar flex items-center justify-center mb-4">
-              <Sun className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Real Solar Projects</h3>
-            <p className="text-muted-foreground">
-              Invest in verified solar installations with transparent energy production tracking.
-            </p>
-          </div>
-          <div className="p-6 rounded-2xl bg-white border border-zinc-200 shadow-sm">
-            <div className="w-12 h-12 rounded-xl gradient-energy flex items-center justify-center mb-4">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Sustainable Yields</h3>
-            <p className="text-muted-foreground">
-              Earn returns from actual energy production, distributed automatically via smart contracts.
-            </p>
-          </div>
-          <div className="p-6 rounded-2xl bg-white border border-zinc-200 shadow-sm">
-            <div className="w-12 h-12 rounded-xl gradient-investment flex items-center justify-center mb-4">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Secure & Compliant</h3>
-            <p className="text-muted-foreground">
-              KYC-verified investors, regulated tokens, and enterprise-grade security on Stellar.
+        
+        <div className="flex flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-5 h-5 animate-spin text-emerald-600/50" />
+            <p className="text-[10px] text-muted-foreground font-bold tracking-[0.3em] uppercase opacity-40">
+              {clerkUser ? 'Redirecting to Dashboard...' : 'Authenticating...'}
             </p>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

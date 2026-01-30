@@ -106,15 +106,17 @@ export function Sidebar({
     >
       {/* Logo Area */}
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border relative">
-        <Link href="/dashboard/portfolio" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 gradient-solar shadow-lg shadow-orange-500/20">
-            <Sun className="w-5 h-5 text-white" />
+        <Link href="/dashboard/portfolio" className="flex items-center">
+          <div className={cn(
+            "flex items-center justify-center transition-all duration-300",
+            collapsed ? "w-9 h-9" : "w-32 h-10"
+          )}>
+            <img 
+              src="/image.png" 
+              alt="Aethera" 
+              className="max-w-full max-h-full object-contain"
+            />
           </div>
-          {!collapsed && (
-            <span className="font-semibold text-lg text-sidebar-foreground whitespace-nowrap transition-all duration-300">
-              Aethera
-            </span>
-          )}
         </Link>
         
         {/* Collapse Toggle - Top Right */}
@@ -266,29 +268,7 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Back to Home */}
-      <div className={cn(
-        "px-3 py-2 border-t border-sidebar-border",
-        collapsed && "px-2"
-      )}>
-        <Link
-          href="/"
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group",
-            "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-          )}
-        >
-          <Home className="w-5 h-5 shrink-0 group-hover:scale-110 transition-transform" />
-          <span
-            className={cn(
-              "whitespace-nowrap transition-all duration-300",
-              collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-            )}
-          >
-            Back to Home
-          </span>
-        </Link>
-      </div>
+
 
       {/* Network Status */}
       {!collapsed && (

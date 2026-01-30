@@ -12,12 +12,18 @@ if (!connectionString) {
   console.log(`[Database] Connecting with: ${masked}`);
 }
 
-const pool = new pg.Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  pool: pg.Pool | undefined;
 };
+
+const pool = globalForPrisma.pool ?? new pg.Pool({ connectionString });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.pool = pool;
+}
+
+const adapter = new PrismaPg(pool);
 
 export const prisma =
   globalForPrisma.prisma ??

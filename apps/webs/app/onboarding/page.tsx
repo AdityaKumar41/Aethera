@@ -107,9 +107,16 @@ export default function OnboardingPage() {
         {/* Step 1: Role Selection */}
         {step === 1 && (
           <div className="animate-in fade-in slide-in-from-right duration-300">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold mb-2">Welcome to Aethera</h1>
-              <p className="text-muted-foreground">
+            <div className="flex flex-col items-center mb-8">
+              <div className="w-40 h-10 flex items-center justify-center mb-4">
+                <img 
+                  src="/image.png" 
+                  alt="Aethera" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h1 className="text-3xl font-bold">Welcome</h1>
+              <p className="text-muted-foreground mt-2">
                 How do you plan to use the platform?
               </p>
             </div>
@@ -348,29 +355,52 @@ interface RoleCardProps {
   onClick: () => void;
 }
 
-function RoleCard({ title, description, icon: Icon, selected, onClick }: RoleCardProps) {
+function RoleCard({ title, description, icon: Icon, selected, onClick, role }: RoleCardProps) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "text-left p-6 rounded-2xl border-2 transition-all duration-200",
+        "text-left p-6 rounded-[24px] border-2 transition-all duration-300 relative group overflow-hidden",
         selected
-          ? "border-emerald-500 bg-emerald-50"
-          : "border-zinc-200 bg-white hover:border-emerald-300 hover:bg-zinc-50"
+          ? "border-emerald-500 bg-emerald-50/50 shadow-md translate-y-[-2px]"
+          : "border-zinc-200 bg-white hover:border-emerald-200 hover:bg-zinc-50/50 hover:-translate-y-px"
       )}
     >
-      <div className={cn(
-        "w-12 h-12 rounded-xl flex items-center justify-center mb-4",
-        selected ? "bg-emerald-500" : "bg-zinc-100"
-      )}>
-        <Icon className={cn("w-6 h-6", selected ? "text-white" : "text-zinc-600")} />
-      </div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      {/* Decorative background element for selected state */}
       {selected && (
-        <div className="mt-4 flex items-center gap-2 text-emerald-600 text-sm font-medium">
-          <Check className="w-4 h-4" />
-          Selected
+        <div className="absolute -top-12 -right-12 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl" />
+      )}
+
+      <div className={cn(
+        "w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-all duration-300 shadow-sm",
+        selected 
+          ? "bg-emerald-500 text-white shadow-emerald-200 shadow-lg" 
+          : "bg-zinc-50 text-zinc-400 group-hover:bg-white group-hover:text-emerald-500"
+      )}>
+        <Icon className={cn("w-7 h-7 transition-transform duration-300", !selected && "group-hover:scale-110")} />
+      </div>
+
+      <div className="relative z-10">
+        <h3 className={cn(
+          "text-lg font-bold mb-2 transition-colors duration-200",
+          selected ? "text-emerald-900" : "text-zinc-800"
+        )}>
+          {title}
+        </h3>
+        <p className={cn(
+          "text-sm leading-relaxed transition-colors duration-200",
+          selected ? "text-emerald-700/80" : "text-muted-foreground"
+        )}>
+          {description}
+        </p>
+      </div>
+
+      {selected && (
+        <div className="mt-5 flex items-center gap-2 text-emerald-600">
+          <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+            <Check className="w-3 h-3 stroke-3" />
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider">Selected</span>
         </div>
       )}
     </button>

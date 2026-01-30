@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboardingStatus } from "@/hooks/use-onboarding";
-import { Loader2, Sun } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export default function DashboardIndexPage() {
   const router = useRouter();
