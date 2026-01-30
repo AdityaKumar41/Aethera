@@ -77,7 +77,7 @@ Functions:
 * Installer onboarding
 * Project submission (solar plant details)
 * Project risk assessment (off-chain)
-* Financing approval or rejection
+* Financing approval or rejection`
 * Capital disbursement after funding
 
 This is the **entry point** of the entire platform.
