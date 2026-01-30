@@ -26,19 +26,41 @@ import {
 import { useUserProfile, useWalletBalances, useKyc } from "@/hooks/use-dashboard-data";
 import { SumsubWidget } from "@/components/kyc/sumsub-widget";
 import { userApi } from "@/lib/api";
+import { useOnboardingStatus } from "@/hooks/use-onboarding";
+
 
 type SettingsTab = "profile" | "kyc" | "wallet" | "notifications" | "security";
 
-const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "kyc", label: "KYC Verification", icon: Shield },
-  { id: "wallet", label: "Wallet", icon: Wallet },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "security", label: "Security", icon: Lock },
+type UserRole = "INVESTOR" | "INSTALLER" | "ADMIN";
+
+interface TabConfig {
+  id: SettingsTab;
+  label: string;
+  icon: React.ElementType;
+  roles: UserRole[]; // Which roles can see this tab
+}
+
+const allTabs: TabConfig[] = [
+  { id: "profile", label: "Profile", icon: User, roles: ["INVESTOR", "INSTALLER", "ADMIN"] },
+  { id: "kyc", label: "KYC Verification", icon: Shield, roles: ["INVESTOR", "INSTALLER"] }, // Admin doesn't need KYC
+  { id: "wallet", label: "Wallet", icon: Wallet, roles: ["INVESTOR", "INSTALLER"] }, // Admin uses Relayer Wallet instead
+  { id: "notifications", label: "Notifications", icon: Bell, roles: ["INVESTOR", "INSTALLER", "ADMIN"] },
+  { id: "security", label: "Security", icon: Lock, roles: ["INVESTOR", "INSTALLER", "ADMIN"] },
 ];
 
-export function SettingsSection() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+interface SettingsSectionProps {
+  userRole?: UserRole;
+}
+
+export function SettingsSection({ userRole: propRole }: SettingsSectionProps) {
+  // Get role from hook if not passed as prop
+  const { role: hookRole } = useOnboardingStatus();
+  const userRole = propRole || (hookRole as UserRole) || "INVESTOR";
+  
+  // Filter tabs based on user role
+  const tabs = allTabs.filter(tab => tab.roles.includes(userRole));
+  
+  const [activeTab, setActiveTab] = useState<SettingsTab>(tabs[0]?.id || "profile");
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (text: string) => {
@@ -73,17 +95,17 @@ export function SettingsSection() {
 
       {/* Tab content */}
       <div className="animate-in fade-in duration-300">
-        {activeTab === "profile" && <ProfileTab />}
+        {activeTab === "profile" && <ProfileTab userRole={userRole} />}
         {activeTab === "kyc" && <KYCTab />}
         {activeTab === "wallet" && <WalletTab onCopy={handleCopy} copied={copied} />}
-        {activeTab === "notifications" && <NotificationsTab />}
+        {activeTab === "notifications" && <NotificationsTab userRole={userRole} />}
         {activeTab === "security" && <SecurityTab />}
       </div>
     </div>
   );
 }
 
-function ProfileTab() {
+function ProfileTab({ userRole }: { userRole?: UserRole }) {
   const { profile, loading, error, refetch } = useUserProfile();
   const [formData, setFormData] = useState({
     name: "",
@@ -606,11 +628,12 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
   );
 }
 
-function NotificationsTab() {
+function NotificationsTab({ userRole }: { userRole?: UserRole }) {
+  // Different default notifications based on role
   const [notifications, setNotifications] = useState({
-    yieldDistributed: true,
+    yieldDistributed: userRole !== "ADMIN", // Admin doesn't get yield notifications
     projectUpdates: true,
-    marketplaceAlerts: false,
+    marketplaceAlerts: userRole === "INVESTOR", // Only investors get marketplace alerts
     securityAlerts: true,
     emailDigest: true,
   });

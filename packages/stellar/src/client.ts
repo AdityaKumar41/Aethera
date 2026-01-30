@@ -18,6 +18,13 @@ export class StellarClient {
     this.horizonServer = new StellarSdk.Horizon.Server(config.horizonUrl);
     this.rpcServer = new StellarSdk.SorobanRpc.Server(config.rpcUrl);
   }
+  public get horizon(): StellarSdk.Horizon.Server {
+    return this.horizonServer;
+  }
+
+  public get rpc(): StellarSdk.SorobanRpc.Server {
+    return this.rpcServer;
+  }
 
   // ============================================
   // Account Operations

@@ -4,6 +4,14 @@ import pg from "pg";
 
 const connectionString = process.env.DATABASE_URL;
 
+if (!connectionString) {
+  console.warn("[Database] Warning: DATABASE_URL is not defined in process.env");
+} else {
+  // Log a masked version for safety
+  const masked = connectionString.replace(/:([^@]+)@/, ":****@");
+  console.log(`[Database] Connecting with: ${masked}`);
+}
+
 const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 

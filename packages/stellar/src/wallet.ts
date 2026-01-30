@@ -1,5 +1,6 @@
 import { Keypair } from "@stellar/stellar-sdk";
 import crypto from "crypto";
+import { stellarClient } from "./client";
 
 // Note: trustlineService import would create circular dependency
 // Trustline creation happens separately after wallet creation
@@ -56,20 +57,80 @@ export class WalletService {
   }
 
   /**
-   * Mock balance check for prototype
+   * Fetches real balances from Horizon
    */
   async getBalances(publicKey: string): Promise<any[]> {
-    return [
-      { asset_type: "native", balance: "10.0000000" },
-      { asset_code: "USDC", asset_issuer: "GBBD67V1..", balance: "100.00" },
-    ];
+    try {
+      const account = await stellarClient.horizon.loadAccount(publicKey);
+      return account.balances.map((b: any) => ({
+        asset_type: b.asset_type,
+        asset_code: b.asset_code,
+        asset_issuer: b.asset_issuer,
+        balance: b.balance,
+      }));
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return []; // Account not funded/created yet
+      }
+      throw error;
+    }
   }
 
   /**
-   * Mock funding check
+   * Checks if account exists on ledger
    */
   async isAccountFunded(publicKey: string): Promise<boolean> {
-    return true;
+    try {
+      await stellarClient.horizon.loadAccount(publicKey);
+      return true;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Fetches recent transactions for an account
+   */
+  async getTransactions(publicKey: string, limit = 10): Promise<any[]> {
+    try {
+      const txs = await stellarClient.horizon
+        .transactions()
+        .forAccount(publicKey)
+        .order("desc")
+        .limit(limit)
+        .call();
+      
+      return txs.records.map((r: any) => ({
+        id: r.id,
+        hash: r.hash,
+        created_at: r.created_at,
+        source_account: r.source_account,
+        fee_charged: r.fee_charged,
+        memo: r.memo,
+        successful: r.successful,
+      }));
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Funds an account using Friendbot (Testnet only)
+   */
+  async fundWithFriendbot(publicKey: string): Promise<boolean> {
+    try {
+      await stellarClient.horizon.friendbot(publicKey).call();
+      return true;
+    } catch (error) {
+      console.error("[Stellar] Friendbot funding failed:", error);
+      return false;
+    }
   }
 
   private encrypt(text: string): string {

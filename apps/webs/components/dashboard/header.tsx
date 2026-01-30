@@ -1,14 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { Section } from "@/app/page";
+import type { Section } from "@/lib/types";
 import { Bell, Search, Wallet, ExternalLink, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { UserButton } from "@clerk/nextjs";
 
 interface HeaderProps {
   activeSection: Section;
-  userRole?: "INVESTOR" | "INSTALLER" | null;
+  userRole?: "INVESTOR" | "INSTALLER" | "ADMIN" | null;
   walletAddress?: string | null;
 }
 
@@ -44,6 +44,23 @@ const installerSectionDescriptions: Record<string, string> = {
   settings: "Manage your account and preferences",
 };
 
+// Admin section titles
+const adminSectionTitles: Record<string, string> = {
+  "admin-stats": "Platform Overview",
+  "admin-projects": "Project Approvals",
+  "admin-kyc": "KYC Review Queue",
+  "admin-relayer": "Relayer Wallet Management",
+  settings: "Admin Settings",
+};
+
+const adminSectionDescriptions: Record<string, string> = {
+  "admin-stats": "Monitor platform-wide investment activity",
+  "admin-projects": "Review and approve pending solar projects",
+  "admin-kyc": "Manage user verification and compliance",
+  "admin-relayer": "Monitor and fund the admin relayer wallet",
+  settings: "Manage platform and account settings",
+};
+
 // Truncate wallet address for display
 function truncateAddress(address: string | null | undefined): string {
   if (!address) return "No wallet";
@@ -55,8 +72,17 @@ export function Header({ activeSection, userRole = "INVESTOR", walletAddress }: 
   const [searchFocused, setSearchFocused] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const sectionTitles = userRole === "INSTALLER" ? installerSectionTitles : investorSectionTitles;
-  const sectionDescriptions = userRole === "INSTALLER" ? installerSectionDescriptions : investorSectionDescriptions;
+  const sectionTitles = userRole === "ADMIN"
+    ? adminSectionTitles
+    : userRole === "INSTALLER"
+    ? installerSectionTitles
+    : investorSectionTitles;
+
+  const sectionDescriptions = userRole === "ADMIN"
+    ? adminSectionDescriptions
+    : userRole === "INSTALLER"
+    ? installerSectionDescriptions
+    : investorSectionDescriptions;
 
   const handleCopyAddress = async () => {
     if (walletAddress) {
@@ -101,21 +127,23 @@ export function Header({ activeSection, userRole = "INVESTOR", walletAddress }: 
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
         </button>
 
-        {/* Wallet button */}
-        <button 
-          onClick={handleCopyAddress}
-          className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-sm font-medium text-foreground transition-all duration-200 group"
-        >
-          <Wallet className="w-4 h-4 text-emerald-600" />
-          <span className="font-mono text-xs">{truncateAddress(walletAddress)}</span>
-          {walletAddress && (
-            copied ? (
-              <Check className="w-3.5 h-3.5 text-emerald-500" />
-            ) : (
-              <Copy className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-            )
-          )}
-        </button>
+        {/* Wallet button - Hide for Admins as they use the Relayer Wallet */}
+        {userRole !== "ADMIN" && (
+          <button 
+            onClick={handleCopyAddress}
+            className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-sm font-medium text-foreground transition-all duration-200 group"
+          >
+            <Wallet className="w-4 h-4 text-emerald-600" />
+            <span className="font-mono text-xs">{truncateAddress(walletAddress)}</span>
+            {walletAddress && (
+              copied ? (
+                <Check className="w-3.5 h-3.5 text-emerald-500" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              )
+            )}
+          </button>
+        )}
 
         {/* User button from Clerk */}
         <UserButton 

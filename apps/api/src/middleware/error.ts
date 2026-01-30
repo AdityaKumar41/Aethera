@@ -44,9 +44,8 @@ export function errorHandler(
   // Default server error
   res.status(500).json({
     success: false,
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : err.message,
+    error: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   });
 }
 

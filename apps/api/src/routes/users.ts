@@ -121,6 +121,59 @@ router.get('/wallet/balances', async (req: AuthenticatedRequest, res, next) => {
 });
 
 // ============================================
+// Get Wallet Transactions
+// ============================================
+
+router.get('/wallet/transactions', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.auth?.userId },
+      select: { stellarPubKey: true },
+    });
+
+    if (!user?.stellarPubKey) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const transactions = await walletService.getTransactions(user.stellarPubKey);
+    res.json({ success: true, data: transactions });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// Fund Wallet (Friendbot - Testnet)
+// ============================================
+
+router.post('/wallet/fund/friendbot', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.auth?.userId },
+      select: { stellarPubKey: true },
+    });
+
+    if (!user?.stellarPubKey) {
+      throw createApiError('Stellar wallet not initialized', 400);
+    }
+
+    const success = await walletService.fundWithFriendbot(user.stellarPubKey);
+    
+    if (!success) {
+      throw createApiError('Friendbot funding failed', 500);
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Account funded successfully' 
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
 // Submit KYC (Mock Implementation)
 // ============================================
 

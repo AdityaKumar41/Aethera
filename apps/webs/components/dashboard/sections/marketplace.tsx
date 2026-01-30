@@ -2,39 +2,36 @@
 
 import { useState } from "react";
 import { ProjectCard } from "@/components/dashboard/project-card";
+import { InvestModal } from "@/components/dashboard/invest-modal";
 import { Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useMarketplace, useKyc } from "@/hooks/use-dashboard-data";
-import { toast } from "sonner";
+import { useMarketplace } from "@/hooks/use-dashboard-data";
+import type { Project } from "@/lib/api";
 
 type FilterStatus = "all" | "funding" | "funded" | "producing";
 
 export function MarketplaceSection() {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-    const { projects: rawProjects, loading, error } = useMarketplace(1, 20, filterStatus);
-    const { status: kycStatus } = useKyc();
+    const { projects: rawProjects, loading, error, refetch } = useMarketplace(1, 20, filterStatus);
     const projects = rawProjects || [];
+    
+    // Investment modal state
+    const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+    const [isInvestModalOpen, setIsInvestModalOpen] = useState(false);
 
     const handleInvestClick = (projectId: string) => {
-        if (kycStatus?.status !== "VERIFIED") {
-            toast.error("KYC Verification Required", {
-                description: "You must complete your identity verification before you can invest in projects.",
-                action: {
-                    label: "Verify Now",
-                    onClick: () => {
-                        // This could redirect to the settings tab for KYC
-                        window.location.hash = "settings"; 
-                    }
-                }
-            });
-            return;
+        const project = projects.find(p => p.id === projectId);
+        if (project) {
+            setSelectedProject(project);
+            setIsInvestModalOpen(true);
         }
-        
-        // Open investment modal (to be implemented/integrated)
-        toast.info("Investment flow starting...", {
-            description: "Opening secure investment portal for project " + projectId
-        });
+    };
+
+    const handleInvestSuccess = () => {
+        refetch();
+        setIsInvestModalOpen(false);
+        setSelectedProject(null);
     };
 
     // Transform API data to match component expectations
@@ -188,6 +185,17 @@ export function MarketplaceSection() {
                     </p>
                 </div>
             )}
+
+            {/* Investment Modal */}
+            <InvestModal
+                project={selectedProject}
+                isOpen={isInvestModalOpen}
+                onClose={() => {
+                    setIsInvestModalOpen(false);
+                    setSelectedProject(null);
+                }}
+                onSuccess={handleInvestSuccess}
+            />
         </div>
     );
 }

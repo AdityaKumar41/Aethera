@@ -32,6 +32,9 @@ export {
 // Soroban Contract Service
 export { SorobanContractService, getSorobanService } from "./soroban";
 
+// Relayer Service (Admin gas sponsorship)
+export { RelayerService, getRelayerService, relayerService } from "./relayer";
+
 // Contract Registry
 export {
   getNetworkConfig as getRegistryConfig,
