@@ -22,6 +22,7 @@ import {
   Copy,
   Check,
   Zap,
+  Clock,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -172,10 +173,20 @@ export function Sidebar({
           {!collapsed && (
             <div className="flex items-center justify-between mt-2 px-1">
               <div className="flex items-center gap-1.5">
-                {isKycVerified ? (
+                {kycStatus === "VERIFIED" ? (
                   <>
                     <Shield className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-xs text-emerald-600 font-medium">KYC Verified</span>
+                    <span className="text-xs text-emerald-600 font-medium">Verified</span>
+                  </>
+                ) : kycStatus === "IN_REVIEW" ? (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-xs text-amber-600 font-medium">In Review</span>
+                  </>
+                ) : kycStatus === "REJECTED" ? (
+                  <>
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                    <span className="text-xs text-red-600 font-medium">Rejected</span>
                   </>
                 ) : (
                   <>

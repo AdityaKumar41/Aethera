@@ -3,6 +3,7 @@ import { Webhook } from 'svix';
 import crypto from 'crypto';
 import { prisma, UserRole } from '@aethera/database';
 import { WalletService } from '@aethera/stellar';
+import { getSumsubService } from '@aethera/kyc';
 
 const router = Router();
 const walletService = new WalletService();
@@ -161,6 +162,8 @@ router.post('/sumsub', async (req: Request, res: Response) => {
   console.log(`[Sumsub Webhook] Received event: ${type} for user: ${externalUserId}`);
 
   try {
+    const sumsubService = getSumsubService();
+
     // First check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id: externalUserId },
@@ -172,30 +175,26 @@ router.post('/sumsub', async (req: Request, res: Response) => {
       return res.status(200).json({ success: true, message: 'User not found, webhook acknowledged' });
     }
 
-    if (type === 'applicantReviewed') {
-      const isApproved = reviewResult?.reviewAnswer === 'GREEN';
-      const kycStatus = isApproved ? 'VERIFIED' : 'REJECTED';
+    // Map webhook to internal KYC status using the service logic
+    const kycStatus = sumsubService.mapWebhookToKycStatus(req.body);
+    
+    // Update data for database
+    const updateData: any = {
+      kycStatus,
+    };
 
-      await prisma.user.update({
-        where: { id: externalUserId },
-        data: {
-          kycStatus,
-          kycVerifiedAt: isApproved ? new Date() : undefined,
-        },
-      });
-
-      console.log(`[Sumsub Webhook] Updated KYC status for ${externalUserId} to ${kycStatus}`);
-    } else if (type === 'applicantPending' || type === 'applicantCreated') {
-      // Update to IN_REVIEW when applicant starts verification
-      await prisma.user.update({
-        where: { id: externalUserId },
-        data: {
-          kycStatus: 'IN_REVIEW',
-          kycSubmittedAt: new Date(),
-        },
-      });
-      console.log(`[Sumsub Webhook] Updated user ${externalUserId} to IN_REVIEW`);
+    if (kycStatus === 'VERIFIED') {
+      updateData.kycVerifiedAt = new Date();
+    } else if (kycStatus === 'IN_REVIEW' && !existingUser.kycSubmittedAt) {
+      updateData.kycSubmittedAt = new Date();
     }
+
+    await prisma.user.update({
+      where: { id: externalUserId },
+      data: updateData,
+    });
+
+    console.log(`[Sumsub Webhook] Updated KYC status for ${externalUserId} to ${kycStatus} (Event: ${type})`);
 
     return res.status(200).json({ success: true });
   } catch (error) {

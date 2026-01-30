@@ -149,6 +149,16 @@ router.post(
   requireRole("INSTALLER"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      // Check KYC status
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { kycStatus: true },
+      });
+
+      if (!user || user.kycStatus !== "VERIFIED") {
+        throw createApiError("KYC verification required before creating projects", 403, "KYC_REQUIRED");
+      }
+
       const data = createProjectSchema.parse(req.body);
 
       // Calculate total tokens
@@ -305,6 +315,16 @@ router.post(
   requireRole("INSTALLER"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      // Check KYC status
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { kycStatus: true },
+      });
+
+      if (!user || user.kycStatus !== "VERIFIED") {
+        throw createApiError("KYC verification required before submitting projects", 403, "KYC_REQUIRED");
+      }
+
       const project = await prisma.project.findFirst({
         where: {
           id: req.params.id,

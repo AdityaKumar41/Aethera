@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { useOnboardingStatus } from "@/hooks/use-onboarding";
+import { useKyc } from "@/hooks/use-dashboard-data";
 import { Loader2, Sun } from "lucide-react";
 import { useState } from "react";
 
@@ -38,8 +39,12 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isComplete, role, loading, walletAddress, kycStatus, user } = useOnboardingStatus();
+  const { isComplete, role, loading, walletAddress, user } = useOnboardingStatus();
+  const { status: liveKycStatus, refetch: refetchKyc } = useKyc();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Use live KYC status from hook if available, otherwise fallback to onboarding status
+  const currentKycStatus = liveKycStatus?.status || null;
 
   // Redirect to onboarding if not complete
   useEffect(() => {
@@ -99,7 +104,7 @@ export default function DashboardLayout({
         onCollapsedChange={setSidebarCollapsed}
         userRole={role as "INVESTOR" | "INSTALLER" | "ADMIN" | null}
         walletAddress={walletAddress}
-        kycStatus={kycStatus}
+        kycStatus={currentKycStatus}
         userName={user?.name}
       />
       <div

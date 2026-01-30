@@ -18,6 +18,7 @@ import type {
   CreateApplicantRequest,
   ApplicantStatusResponse,
   WebhookPayload,
+  WebhookEventType,
 } from "./types";
 
 export class SumsubService {
@@ -81,13 +82,21 @@ export class SumsubService {
   async createApplicant(
     externalUserId: string,
     levelName: KycLevel = KYC_LEVELS.BASIC,
-    email?: string,
-    phone?: string
+    userData?: {
+      email?: string;
+      phone?: string;
+      firstName?: string;
+      lastName?: string;
+    }
   ): Promise<SumsubApplicant> {
     const body: CreateApplicantRequest = {
       externalUserId,
-      email,
-      phone,
+      email: userData?.email,
+      phone: userData?.phone,
+      info: userData?.firstName || userData?.lastName ? {
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+      } : undefined,
     };
 
     try {
@@ -102,10 +111,8 @@ export class SumsubService {
         console.log(`Applicant ${externalUserId} already exists, fetching existing...`);
         
         // Try to extract applicant ID from error message if possible
-        // Sumsub error often contains: "Applicant with external user id '...' already exists: <ID>"
         const match = error.message.match(/already exists: ([a-z0-9]+)/i);
         if (match && match[1]) {
-          console.log(`Extracted applicant ID from 409 error: ${match[1]}`);
           return await this.getApplicant(match[1]);
         }
 
@@ -156,13 +163,19 @@ export class SumsubService {
   async generateAccessToken(
     externalUserId: string,
     levelName: KycLevel = KYC_LEVELS.BASIC,
+    userData?: {
+      email?: string;
+      phone?: string;
+      firstName?: string;
+      lastName?: string;
+    },
     ttlInSecs: number = 600
   ): Promise<AccessToken> {
     // First, ensure applicant exists
     let applicant = await this.getApplicantByExternalId(externalUserId);
 
     if (!applicant) {
-      applicant = await this.createApplicant(externalUserId, levelName);
+      applicant = await this.createApplicant(externalUserId, levelName, userData);
     }
 
     // Generate access token
@@ -258,7 +271,14 @@ export class SumsubService {
   ): "PENDING" | "IN_REVIEW" | "VERIFIED" | "REJECTED" {
     const { type, reviewResult } = webhook;
 
-    if (type === "applicantReviewed" && reviewResult) {
+    // Handle verification results (most critical)
+    if (
+      (type === "applicantReviewed" || 
+       type === "applicantWorkflowCompleted" || 
+       type === "applicantWorkflowFailed" || 
+       type === "applicantActionReviewed") && 
+      reviewResult
+    ) {
       switch (reviewResult.reviewAnswer) {
         case REVIEW_ANSWERS.GREEN:
           return "VERIFIED";
@@ -269,8 +289,36 @@ export class SumsubService {
       }
     }
 
-    if (type === "applicantPending" || type === "applicantOnHold") {
+    // Handle "In Progress" states
+    const inReviewTypes: WebhookEventType[] = [
+      "applicantPending",
+      "applicantOnHold",
+      "applicantAwaitingService",
+      "applicantActionPending",
+      "applicantActionOnHold",
+      "applicantPersonalInfoChanged",
+      "applicantLevelChanged",
+      "applicantTagsChanged"
+    ];
+
+    if (inReviewTypes.includes(type)) {
       return "IN_REVIEW";
+    }
+
+    // Handle "Reset" or "Pending User" states
+    const pendingTypes: WebhookEventType[] = [
+      "applicantCreated",
+      "applicantAwaitingUser",
+      "applicantReset",
+      "applicantDeleted",
+      "applicantDeactivated",
+      "applicantActivated",
+      "applicantStepsReset",
+      "applicantPersonalDataDeleted"
+    ];
+
+    if (pendingTypes.includes(type)) {
+      return "PENDING";
     }
 
     return "PENDING";

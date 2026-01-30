@@ -20,6 +20,7 @@ export function SumsubWidget({ onComplete, onError }: SumsubWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [widgetError, setWidgetError] = useState<string | null>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const { status, accessToken, loading, starting, error, startKyc, refetch } = useKyc();
 
   // Load Sumsub WebSDK script
@@ -74,17 +75,21 @@ export function SumsubWidget({ onComplete, onError }: SumsubWidgetProps) {
         })
         .on('idCheck.onApplicantSubmitted', () => {
           console.log('Applicant submitted');
-          refetch();
+          setIsSubmitted(true);
+          // Add a small delay before refetching to allow Sumsub backend to process
+          setTimeout(() => refetch(), 2000);
         })
         .on('idCheck.onApplicantResubmitted', () => {
           console.log('Applicant resubmitted');
-          refetch();
+          setIsSubmitted(true);
+          setTimeout(() => refetch(), 2000);
         })
         .on('idCheck.onApplicantStatusChanged', (payload: any) => {
           console.log('Status changed:', payload);
+          // If the status is green or red, we should refetch to update local DB
+          refetch();
           if (payload.reviewAnswer === 'GREEN') {
             onComplete?.();
-            refetch();
           }
         })
         .on('idCheck.onError', (error: any) => {
@@ -99,7 +104,22 @@ export function SumsubWidget({ onComplete, onError }: SumsubWidgetProps) {
       console.error('Failed to initialize Sumsub:', err);
       setWidgetError('Failed to initialize verification');
     }
-  }, [sdkLoaded, accessToken, startKyc, refetch, onComplete, onError]);
+  }, [sdkLoaded, accessToken, refetch, onComplete, onError]);
+
+  // Poll for status updates if in review or just submitted
+  useEffect(() => {
+    // If we're verified, stop polling
+    if (status?.status === 'VERIFIED') return;
+
+    // Start polling if in review or if we just clicked submit
+    if (!status || (status.status !== 'IN_REVIEW' && !isSubmitted)) return;
+
+    const interval = setInterval(() => {
+      refetch();
+    }, 5000); // Check every 5 seconds during transition/review
+
+    return () => clearInterval(interval);
+  }, [status, isSubmitted, refetch]);
 
   // Show status if already verified or in review
   if (!loading && status) {
@@ -128,23 +148,32 @@ export function SumsubWidget({ onComplete, onError }: SumsubWidgetProps) {
 
     if (status.status === 'IN_REVIEW') {
       return (
-        <div className="rounded-2xl p-6 bg-amber-500/10 border border-amber-500/20">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold">Verification Pending</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Your documents are being reviewed. This usually takes 1-2 business days.
-              </p>
-              {status.submittedAt && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Submitted on {new Date(status.submittedAt).toLocaleDateString()}
+        <div className="space-y-4">
+          <div className="rounded-2xl p-6 bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Verification Pending</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your documents are being reviewed. This usually takes 1-2 business days.
                 </p>
-              )}
+                {status.submittedAt && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Submitted on {new Date(status.submittedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
+          <button
+            onClick={() => refetch()}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-xl font-medium hover:bg-zinc-50 transition-colors"
+          >
+            <Loader2 className={cn("w-4 h-4", loading && "animate-spin")} />
+            Refresh Status
+          </button>
         </div>
       );
     }
@@ -248,6 +277,27 @@ export function SumsubWidget({ onComplete, onError }: SumsubWidgetProps) {
         <p className="mt-4 text-sm text-muted-foreground">
           {loading ? 'Loading verification status...' : 'Loading verification widget...'}
         </p>
+      </div>
+    );
+  }
+
+  // Show processing state if submitted but DB not yet updated
+  if (isSubmitted && status?.status === 'PENDING') {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-6">
+          <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+        </div>
+        <h3 className="text-lg font-semibold">Submission Received</h3>
+        <p className="mt-2 text-sm text-muted-foreground max-w-xs mx-auto">
+          We've received your documents and are syncing with the verification provider. This should only take a few moments.
+        </p>
+        <button
+          onClick={() => refetch()}
+          className="mt-8 px-6 py-2 border border-border rounded-xl text-sm font-medium hover:bg-zinc-50 transition-colors"
+        >
+          Refresh Now
+        </button>
       </div>
     );
   }

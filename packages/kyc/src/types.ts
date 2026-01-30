@@ -110,7 +110,16 @@ export type WebhookEventType =
   | "applicantActionPending"
   | "applicantActionReviewed"
   | "applicantActionOnHold"
-  | "applicantWorkflowCompleted";
+  | "applicantWorkflowCompleted"
+  | "applicantWorkflowFailed"
+  | "applicantAwaitingUser"
+  | "applicantAwaitingService"
+  | "applicantActivated"
+  | "applicantDeactivated"
+  | "applicantPersonalDataDeleted"
+  | "applicantTagsChanged"
+  | "applicantLevelChanged"
+  | "applicantStepsReset";
 
 export interface CreateApplicantRequest {
   externalUserId: string;

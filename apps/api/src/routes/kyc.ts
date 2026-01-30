@@ -62,9 +62,17 @@ router.post("/start", authenticate, async (req: AuthenticatedRequest, res: Respo
     const sumsubService = getSumsubService();
 
     // Generate access token for WebSDK
+    const [firstName, ...lastNameParts] = (user.name || "").split(" ");
+    const userData = {
+      firstName: firstName || "User",
+      lastName: lastNameParts.join(" ") || " ",
+      email: user.email,
+    };
+
     const accessToken = await sumsubService.generateAccessToken(
       user.id,
-      sumsubLevel
+      sumsubLevel,
+      userData
     );
 
     // Update user's KYC status to PENDING if not already started
