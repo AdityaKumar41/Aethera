@@ -24,6 +24,7 @@ import emergencyRoutes from "./routes/emergency.js";
 import monitoringRoutes from "./routes/monitoring.js";
 import webhookRoutes from "./routes/webhooks.js";
 import relayerRoutes from "./routes/relayer.js";
+import revenueRoutes from "./routes/revenue.js";
 // import auditRoutes from "./routes/audit.js"; // Removed as file doesn't exist
 
 // Import services
@@ -111,6 +112,8 @@ app.use("/api/investments", investmentRoutes);
 app.use("/api/yields", yieldRoutes);
 app.use("/api/oracle", oracleRoutes);
 app.use("/api/kyc", kycRoutes);
+app.use("/api/relayer", relayerRoutes);
+app.use("/api/revenue", revenueRoutes);
 // app.use("/api/audit", auditRoutes); // Removed
 
 app.use("/api/governance", governanceRoutes);

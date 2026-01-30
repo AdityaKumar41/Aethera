@@ -154,6 +154,167 @@ export class OracleService {
   }
 
   // ============================================
+  // IoT Device Management (New for ADA)
+  // ============================================
+
+  /**
+   * Register a new IoT device (ADA)
+   */
+  async registerDevice(input: {
+    projectId: string;
+    publicKey: string;
+    metadata?: any;
+  }): Promise<{ deviceId: string }> {
+    // 1. Check if project exists
+    const project = await prisma.project.findUnique({
+      where: { id: input.projectId },
+    });
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    // 2. Register or update device
+    const device = await prisma.ioTDevice.upsert({
+      where: { publicKey: input.publicKey },
+      update: {
+        projectId: input.projectId,
+        metadata: input.metadata,
+        status: "ACTIVE",
+      },
+      create: {
+        projectId: input.projectId,
+        publicKey: input.publicKey,
+        metadata: input.metadata,
+      },
+    });
+
+    return { deviceId: device.id };
+  }
+
+  /**
+   * Ingest signed telemetry from an IoT device
+   */
+  async ingestTelemetry(input: {
+    payload: string; // JSON string
+    signature: string; // Hex encoded Ed25519 signature
+    publicKey: string; // Device public key
+  }): Promise<{ success: boolean; dataId?: string; error?: string }> {
+    // 1. Find device
+    const device = await prisma.ioTDevice.findUnique({
+      where: { publicKey: input.publicKey },
+    });
+
+    if (!device || device.status !== "ACTIVE") {
+      return { success: false, error: "Device not registered or inactive" };
+    }
+
+    // 2. Verify signature
+    const isValid = this.verifyDeviceSignature(input.payload, input.signature, input.publicKey);
+    if (!isValid) {
+      return { success: false, error: "Invalid signature" };
+    }
+
+    // 3. Parse payload
+    const data = JSON.parse(input.payload);
+    const energyKwh = data.wh / 1000; // Convert Wh to kWh
+
+    // 4. Calculate impact
+    const carbonCredits = impactService.calculateCarbonCredits(energyKwh);
+
+    // 5. Store data
+    const productionData = await prisma.productionData.create({
+      data: {
+        projectId: device.projectId,
+        iotDeviceId: device.id,
+        energyProduced: energyKwh,
+        carbonCredits,
+        recordedAt: new Date(data.timestamp),
+        source: "IOT_DEVICE",
+        signature: input.signature,
+        signedPayload: input.payload,
+        signatureValid: true,
+      },
+    });
+
+    // 6. Update device and project
+    await prisma.ioTDevice.update({
+      where: { id: device.id },
+      data: { lastSeenAt: new Date() },
+    });
+
+    await prisma.project.update({
+      where: { id: device.projectId },
+      data: {
+        totalEnergyProduced: { increment: energyKwh },
+        carbonCredits: { increment: carbonCredits },
+        lastProductionUpdate: new Date(),
+      },
+    });
+
+    // 7. Auto-anchor to blockchain (background)
+    this.anchorToBlockchain(productionData.id, device.projectId, energyKwh, input.signature).catch(
+      (err) => console.error("Background anchoring failed:", err)
+    );
+
+    return { success: true, dataId: productionData.id };
+  }
+
+  /**
+   * Reusable anchoring logic
+   */
+  private async anchorToBlockchain(
+    dataId: string,
+    projectId: string,
+    energyKwh: number,
+    signature: string
+  ) {
+    try {
+      const contracts = getContractAddresses();
+      if (!contracts.oracle) return;
+
+      const adminSecret = process.env.STAT_RELAYER_SECRET;
+      if (!adminSecret) return;
+
+      const adminKeypair = Keypair.fromSecret(adminSecret);
+      const anchorResult = await contractService.commitProduction(
+        contracts.oracle,
+        adminKeypair,
+        projectId,
+        Math.floor(Date.now() / 1000), // Current time for simplicity
+        Math.floor(Date.now() / 1000),
+        BigInt(Math.floor(energyKwh * 100)),
+        signature
+      );
+
+      if (anchorResult.success) {
+        await prisma.productionData.update({
+          where: { id: dataId },
+          data: {
+            onChainCommitTx: anchorResult.txHash,
+            onChainCommitAt: new Date(),
+          },
+        });
+      }
+    } catch (err) {
+      console.error(`Failed to anchor production data ${dataId}:`, err);
+    }
+  }
+
+  /**
+   * Specialized verification for Stellar-style Ed25519 (hex signatures)
+   */
+  private verifyDeviceSignature(payload: string, signatureHex: string, publicKey: string): boolean {
+    try {
+      const keypair = Keypair.fromPublicKey(publicKey);
+      return keypair.verify(Buffer.from(payload), Buffer.from(signatureHex, "hex"));
+    } catch (error) {
+      console.error("Device signature verification failed:", error);
+      return false;
+    }
+  }
+
+  // ============================================
   // Signed Data Submission
   // ============================================
 

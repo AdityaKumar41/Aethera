@@ -341,6 +341,27 @@ export class ContractService {
 
     return await this.invokeContract(contractId, 'commit_production', args, signerKeypair);
   }
+
+  /**
+   * Facilitate token buyback (Market/Escrow contract)
+   */
+  async buybackTokens(
+    contractId: string,
+    adminKeypair: StellarSdk.Keypair,
+    projectId: string,
+    investorPublicKey: string,
+    amount: bigint,
+    pricePerToken: bigint
+  ): Promise<ContractInvocationResult> {
+    const args = [
+      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
+      StellarSdk.nativeToScVal(investorPublicKey, { type: 'address' }),
+      StellarSdk.nativeToScVal(amount, { type: 'i128' }),
+      StellarSdk.nativeToScVal(pricePerToken, { type: 'i128' }),
+    ];
+
+    return await this.invokeContract(contractId, 'buyback', args, adminKeypair);
+  }
 }
 
 // Export singleton

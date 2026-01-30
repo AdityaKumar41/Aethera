@@ -18,6 +18,47 @@ import { oracleService } from "../services/oracleService.js";
 const router = Router();
 
 // ============================================
+// IoT Device Management (Public/Device)
+// ============================================
+
+const registerDeviceSchema = z.object({
+  projectId: z.string(),
+  publicKey: z.string(),
+  metadata: z.record(z.any()).optional(),
+});
+
+router.post("/devices/register", async (req, res, next) => {
+  try {
+    const data = registerDeviceSchema.parse(req.body);
+    const result = await oracleService.registerDevice(data);
+    res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const ingestTelemetrySchema = z.object({
+  payload: z.string(),
+  signature: z.string(),
+  publicKey: z.string(),
+});
+
+router.post("/ingest", async (req, res, next) => {
+  try {
+    const data = ingestTelemetrySchema.parse(req.body);
+    const result = await oracleService.ingestTelemetry(data);
+    
+    if (!result.success) {
+      throw createApiError(result.error || "Ingestion failed", 400);
+    }
+    
+    res.status(201).json({ success: true, dataId: result.dataId });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
 // Oracle Provider Registration (Public)
 // ============================================
 

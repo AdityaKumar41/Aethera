@@ -411,6 +411,69 @@ export class InvestmentService {
 
     return true;
   }
+
+  /**
+   * Process a token buyback (Model B/C of Fund Flow)
+   * Investors can sell tokens back to the platform using collected revenue.
+   */
+  async processBuyback(params: {
+    investorId: string;
+    projectId: string;
+    tokenAmount: number;
+  }) {
+    // 1. Get investor and project
+    const investor = await prisma.user.findUnique({
+      where: { id: params.investorId },
+      select: { stellarPubKey: true, kycStatus: true, stellarSecretEncrypted: true },
+    });
+
+    const project = await prisma.project.findUnique({
+      where: { id: params.projectId },
+      select: { pricePerToken: true, tokenContractId: true, status: true },
+    });
+
+    if (!investor || !project) throw new Error("Investor or Project not found");
+    if (investor.kycStatus !== "VERIFIED") throw new Error("KYC verification required for buyback");
+    if (!project.tokenContractId) throw new Error("Project token contract not initialized");
+
+    // 2. Verify on-chain balance
+    const balanceInfo = await contractService.getTokenBalance(
+      project.tokenContractId,
+      investor.stellarPubKey!
+    );
+
+    if (!balanceInfo || balanceInfo.balance < BigInt(params.tokenAmount)) {
+      throw new Error(`Insufficient token balance for buyback. Available: ${balanceInfo?.balance || 0}`);
+    }
+
+    // 3. Perform on-chain buyback
+    const relayerSecret = process.env.STAT_RELAYER_SECRET;
+    if (!relayerSecret) throw new Error("Relayer secret not configured");
+    const relayerKeypair = Keypair.fromSecret(relayerSecret);
+
+    const pricePerTokenScaled = BigInt(Math.round(Number(project.pricePerToken) * 10_000_000));
+    const tokenAmountBigInt = BigInt(params.tokenAmount);
+
+    const result = await contractService.buybackTokens(
+      this.contracts.treasury,
+      relayerKeypair,
+      params.projectId,
+      investor.stellarPubKey!,
+      tokenAmountBigInt,
+      pricePerTokenScaled
+    );
+
+    if (result.success) {
+      // 4. Update project stats (decrease tokens held by investors, effectively)
+      // Note: In some models we burn, in others platform holds. 
+      // For now we just log it as a successful financial event.
+      console.log(`♻️ Buyback successful for project ${params.projectId}. Investor: ${investor.stellarPubKey}. Amount: ${params.tokenAmount}`);
+      
+      return { success: true, txHash: result.txHash };
+    } else {
+      throw new Error(result.error || "On-chain buyback failed");
+    }
+  }
 }
 
 // Singleton

@@ -70,6 +70,7 @@ model Project {
   productionData            ProductionData[]
   installer                 User                @relation(fields: [installerId], references: [id])
   yieldDistributions        YieldDistribution[]
+  iotDevices                IoTDevice[]
 
   @@index([installerId])
   @@index([status])
@@ -122,12 +123,15 @@ model ProductionData {
   carbonCredits    Decimal?        @db.Decimal(18, 4)
   onChainCommitAt  DateTime?
   onChainCommitTx  String?         @unique
+  iotDeviceId      String?
+  iotDevice        IoTDevice?      @relation(fields: [iotDeviceId], references: [id])
   oracleProvider   OracleProvider? @relation(fields: [oracleProviderId], references: [id])
   project          Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([recordedAt])
   @@index([oracleProviderId])
+  @@index([iotDeviceId])
   @@index([disputed])
 }
 
@@ -295,4 +299,26 @@ enum DisputeStatus {
   RESOLVED_VALID
   RESOLVED_INVALID
   ESCALATED
+}
+
+model IoTDevice {
+  id             String           @id @default(cuid())
+  projectId      String
+  publicKey      String           @unique
+  status         DeviceStatus     @default(ACTIVE)
+  lastSeenAt     DateTime?
+  metadata       Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  project        Project          @relation(fields: [projectId], references: [id])
+  productionData ProductionData[]
+
+  @@index([projectId])
+  @@index([publicKey])
+}
+
+enum DeviceStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
