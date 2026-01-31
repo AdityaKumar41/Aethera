@@ -141,8 +141,10 @@ export const adminApi = {
   approveKYC: (userId: string) => apiRequest<any>(`/api/admin/kyc/${userId}/approve`, { method: 'POST' }),
   getStats: () => apiRequest<any>('/api/admin/dashboard'),
   getPendingProjects: () => apiRequest<Project[]>('/api/admin/projects/pending'),
+  getFundedProjects: () => apiRequest<Project[]>('/api/admin/projects/funded'),
   approveProject: (id: string) => apiRequest<any>(`/api/admin/projects/${id}/approve`, { method: 'POST' }),
   rejectProject: (id: string, reason: string) => apiRequest<any>(`/api/admin/projects/${id}/reject`, { method: 'POST', body: { reason } }),
+  activateProject: (id: string) => apiRequest<any>(`/api/admin/projects/${id}/activate`, { method: 'POST' }),
   verifyMilestone: (id: string) => apiRequest<any>(`/api/milestones/${id}/verify`, { method: 'POST' }),
   rejectMilestone: (id: string, reason: string) => apiRequest<any>(`/api/milestones/${id}/reject`, { method: 'POST', body: { reason } }),
 };

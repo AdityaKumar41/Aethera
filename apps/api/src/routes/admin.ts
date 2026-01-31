@@ -109,184 +109,31 @@ router.get("/projects/pending", async (req, res, next) => {
 });
 
 // ============================================
-// Approve Project
+// Projects Ready for Activation (Funded)
 // ============================================
 
-router.post(
-  "/projects/:id/approve",
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const project = await prisma.project.findUnique({
-        where: { id: req.params.id },
-        include: { installer: true },
-      });
-
-      if (!project) {
-        throw createApiError("Project not found", 404);
-      }
-
-      if (project.status !== "PENDING_APPROVAL") {
-        throw createApiError("Project is not pending approval", 400);
-      }
-
-      // Validate state transition
-      try {
-        ProjectStateMachine.validate("PENDING_APPROVAL", "APPROVED", project, {
-          adminId: req.auth?.userId,
-        });
-      } catch (error: any) {
-        throw createApiError(error.message, 400, "INVALID_TRANSITION");
-      }
-
-      // Transition to APPROVED
-      await prisma.project.update({
-        where: { id: req.params.id },
-        data: {
-          status: "APPROVED",
-          approvedAt: new Date(),
-          approvedBy: req.auth?.userId,
+router.get("/projects/funded", async (req, res, next) => {
+  try {
+    const projects = await prisma.project.findMany({
+      where: { status: "FUNDED" },
+      include: {
+        installer: {
+          select: { id: true, name: true, email: true, company: true },
         },
-      });
-
-      // Deploy Soroban contract
-      const { contractDeploymentService, getContractAddresses, walletService } = await import("@aethera/stellar");
-      const { Keypair } = await import("@stellar/stellar-sdk");
-      
-      const encryptedSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
-      if (!encryptedSecret) throw new Error("Admin relayer secret not configured");
-      
-      const adminSecret = walletService.decryptSecret(encryptedSecret);
-      const adminKeypair = Keypair.fromSecret(adminSecret);
-
-      const contracts = getContractAddresses();
-
-      console.log(`[Admin] Approving project ${project.id}. Deploying asset token...`);
-
-      const deploymentResult = await contractDeploymentService.deployAssetToken(
-        adminKeypair, 
-        {
-          projectId: project.id,
-          name: project.name,
-          symbol: project.tokenSymbol || `SOL${project.name.substring(0, 3).toUpperCase()}`,
-          capacityKw: project.capacity,
-          expectedYieldBps: Math.round(project.expectedYield * 100),
-          totalSupply: BigInt(Math.round((project.totalTokens || 0) * 10_000_000)), // Apply 10^7 decimals
+        _count: {
+          select: { iotDevices: true },
         },
-        contracts.treasury // Set Treasury as the admin for minting authority
-      );
+      },
+      orderBy: { fundingRaised: "desc" },
+    });
 
-      console.log(`[Admin] Token deployed: ${deploymentResult.contractId}. Registering with Treasury...`);
-
-      // Create escrow in Treasury
-      await contractDeploymentService.createProjectEscrow(
-        contracts.treasury,
-        adminKeypair,
-        project.id,
-        deploymentResult.contractId,
-        project.installer?.stellarPubKey || "",
-        BigInt(Math.round(Number(project.fundingTarget) * 10_000_000)), // USDC 7 decimals
-        250, // 2.5% platform fee
-        BigInt(Math.round(Number(project.pricePerToken) * 10_000_000)) // price per token
-      );
-
-      console.log(`[Admin] Project registered with Treasury.`);
-
-      // After successful deployment, transition to FUNDING and store contract ID
-      const updated = await prisma.project.update({
-        where: { id: req.params.id },
-        data: { 
-          status: "FUNDING",
-          tokenContractId: deploymentResult.contractId,
-        },
-      });
-
-      // Log the state transition
-      await AuditLogger.logProjectTransition(
-        req.params.id,
-        "PENDING_APPROVAL",
-        "FUNDING",
-        req.auth?.userId!,
-        { 
-          adminAction: "approve", 
-          approvedAt: new Date(),
-          contractId: deploymentResult.contractId,
-          txHash: deploymentResult.deploymentTxHash
-        },
-      );
-
-      res.json({
-        success: true,
-        message: "Project approved, contract deployed, and opened for funding",
-        data: updated,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
-
-// ============================================
-// Reject Project
-// ============================================
-
-const rejectSchema = z.object({
-  reason: z.string().min(10),
+    res.json({ success: true, data: projects });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.post(
-  "/projects/:id/reject",
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const { reason } = rejectSchema.parse(req.body);
-
-      const project = await prisma.project.findUnique({
-        where: { id: req.params.id },
-      });
-
-      if (!project) {
-        throw createApiError("Project not found", 404);
-      }
-
-      if (project.status !== "PENDING_APPROVAL") {
-        throw createApiError("Project is not pending approval", 400);
-      }
-
-      // Validate state transition
-      try {
-        ProjectStateMachine.validate("PENDING_APPROVAL", "REJECTED", project, {
-          rejectionReason: reason,
-        });
-      } catch (error: any) {
-        throw createApiError(error.message, 400, "INVALID_TRANSITION");
-      }
-
-      const updated = await prisma.project.update({
-        where: { id: req.params.id },
-        data: {
-          status: "REJECTED",
-          rejectionReason: reason,
-        },
-      });
-
-      // Log the state transition
-      await AuditLogger.logProjectTransition(
-        req.params.id,
-        "PENDING_APPROVAL",
-        "REJECTED",
-        req.auth?.userId!,
-        { adminAction: "reject", reason, rejectedAt: new Date() },
-      );
-
-      res.json({
-        success: true,
-        message: "Project rejected",
-        data: updated,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+// ... (skip existing code) ...
 
 // ============================================
 // Activate Project (Capital Release)
@@ -298,6 +145,9 @@ router.post(
     try {
       const project = await prisma.project.findUnique({
         where: { id: req.params.id },
+        include: {
+          iotDevices: true,
+        },
       });
 
       if (!project) {
@@ -307,8 +157,14 @@ router.post(
       if (project.status !== "FUNDED") {
         throw createApiError("Project is not fully funded yet", 400);
       }
+      
+      // Enforce IoT connection before activation
+      if (project.iotDevices.length === 0) {
+        throw createApiError("Cannot activate project: No IoT devices connected. Installer must register a device first.", 400);
+      }
 
       // 1. Trigger on-chain capital release
+      // ... (rest of function)
       const { contractService, getContractAddresses, walletService } = await import("@aethera/stellar");
       const { Keypair } = await import("@stellar/stellar-sdk");
       

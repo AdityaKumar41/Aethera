@@ -22,6 +22,21 @@ export const authenticate = async (
   try {
     const auth = getAuth(req);
     
+    // Allow mock auth in development
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      const mockUserId = req.headers['x-mock-auth-user-id'] as string;
+      if (mockUserId) {
+        const user = await prisma.user.findUnique({
+          where: { id: mockUserId },
+          select: { id: true, role: true },
+        });
+        if (user) {
+           req.auth = { userId: user.id, role: user.role };
+           return next();
+        }
+      }
+    }
+
     if (!auth || !auth.userId) {
       throw createApiError('Unauthorized', 401, 'UNAUTHORIZED');
     }

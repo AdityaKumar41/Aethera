@@ -17,10 +17,13 @@ import {
   Clock,
   Loader2,
   ExternalLink,
+  AlertTriangle,
+  SignalLow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { projectApi, type Project } from "@/lib/api";
 import { MilestoneTracker } from "./milestone-tracker";
+import { IoTDeviceManager } from "./iot-device-manager";
 
 interface ProjectDetailsSectionProps {
   projectId: string;
@@ -34,6 +37,7 @@ const statusConfig = {
   REJECTED: { label: "Rejected", color: "bg-red-500", icon: ShieldCheck },
   FUNDING: { label: "Funding", color: "bg-purple-500", icon: DollarSign },
   FUNDED: { label: "Funded", color: "bg-emerald-500", icon: CheckCircle2 },
+  ACTIVE_PENDING_DATA: { label: "Waiting for Data", color: "bg-emerald-600", icon: SignalLow },
   ACTIVE: { label: "Active", color: "bg-green-500", icon: Zap },
   COMPLETED: { label: "Completed", color: "bg-zinc-600", icon: CheckCircle2 },
 };
@@ -97,6 +101,24 @@ export function ProjectDetailsSection({ projectId, onBack }: ProjectDetailsSecti
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Alert for Pending Data or Activation */}
+      {(project.status === 'ACTIVE_PENDING_DATA' || project.status === 'FUNDED') && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-bold text-amber-800">
+               {project.status === 'FUNDED' ? 'Action Required: Connect IoT Device to Activate' : 'Action Required: Connect IoT Device'}
+            </h4>
+            <p className="text-sm text-amber-700 mt-1">
+              {project.status === 'FUNDED' 
+                ? "Your project is fully funded. Please connect your IoT device to enable final activation and capital release."
+                : "Your project is active, but we haven't received any production data yet. Please connect your IoT device to start tracking energy generation and earning yield."
+              }
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Header */}
       <div className="flex items-center justify-between">
         <button
@@ -162,6 +184,20 @@ export function ProjectDetailsSection({ projectId, onBack }: ProjectDetailsSecti
               </div>
             </div>
           </div>
+
+          {/* IoT Manager Section */}
+          {(project.status === 'ACTIVE' || project.status === 'ACTIVE_PENDING_DATA' || project.status === 'FUNDED') && (
+             <div className="bg-card border border-border rounded-3xl p-8">
+               <div className="mb-6">
+                 <h3 className="text-lg font-bold flex items-center gap-2">
+                   <Zap className="w-5 h-5 text-solar-orange" />
+                   Device Management
+                 </h3>
+                 <p className="text-sm text-muted-foreground">Manage connected IoT devices for real-time energy tracking.</p>
+               </div>
+               <IoTDeviceManager projectId={project.id} />
+             </div>
+          )}
 
           {/* Milestone Tracker Section */}
           {project.fundingModel === 'MILESTONE_BASED' && (
