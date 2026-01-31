@@ -13,6 +13,7 @@ import {
   SorobanContractService,
   getSorobanService,
   contractService,
+  getRelayerService,
 } from "@aethera/stellar";
 import {
   Keypair,
@@ -252,12 +253,33 @@ export class InvestmentService {
       .setTimeout(300)
       .build();
 
-    // Prepare and sign
+    // Prepare and sign the inner transaction
     const preparedTx = await server.prepareTransaction(tx);
     preparedTx.sign(investorKeypair);
 
-    // Submit
-    const result = await server.sendTransaction(preparedTx);
+    // Get Relayer for gas sponsorship (Fee Bump)
+    const relayer = getRelayerService();
+    await relayer.initialize();
+    
+    let finalTx: any = preparedTx;
+    let submissionMethod = (t: any) => server.sendTransaction(t);
+
+    if (await relayer.isReady()) {
+        console.log(`[Relayer] Sponsoring transaction for investor: ${investor.stellarPubKey}`);
+        try {
+            // Fee bump the transaction - Relayer pays the gas
+            finalTx = await relayer.sponsorTransaction(preparedTx);
+            // Fee bump transactions can also be sent via Soroban RPC if it wraps a Soroban tx
+            // or via Horizon if it's a standard one. sendTransaction is safer for Soroban.
+        } catch (sponsorError) {
+            console.warn("[Relayer] Sponsorship failed, falling back to user-paid fee:", sponsorError);
+        }
+    } else {
+        console.warn("[Relayer] Relayer not ready or insufficient funds. User must pay fees.");
+    }
+
+    // Submit the (possibly sponsored) transaction
+    const result = await submissionMethod(finalTx);
     
     if (result.status === "PENDING") {
       // Wait for confirmation (will be handled by monitor)

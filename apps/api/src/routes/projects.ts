@@ -141,6 +141,7 @@ const createProjectSchema = z.object({
   fundingTarget: z.number().min(MIN_FUNDING_TARGET).max(MAX_FUNDING_TARGET),
   pricePerToken: z.number().min(1).max(10000),
   estimatedCompletionDate: z.string().datetime().optional(),
+  fundingModel: z.enum(["FULL_UPFRONT", "MILESTONE_BASED"]).optional(),
 });
 
 router.post(
@@ -200,11 +201,38 @@ router.post(
           tokensRemaining: totalTokens,
           tokenSymbol,
           status: "PENDING_APPROVAL",
+          fundingModel: data.fundingModel || "FULL_UPFRONT",
           estimatedCompletionDate: data.estimatedCompletionDate
             ? new Date(data.estimatedCompletionDate)
             : null,
         },
       });
+
+      // If milestone-based, create default milestones
+      if (data.fundingModel === "MILESTONE_BASED") {
+        const defaultMilestones = [
+          { name: "Equipment Procurement", description: "Panels, inverter purchased", order: 1, releasePercentage: 25, verificationMethod: "DOCUMENT" as const },
+          { name: "Site Installation", description: "Mechanical and electrical assembly", order: 2, releasePercentage: 35, verificationMethod: "PHOTO" as const },
+          { name: "Grid Connection", description: "Utility approval and physical connection", order: 3, releasePercentage: 20, verificationMethod: "DOCUMENT" as const },
+          { name: "Commissioning", description: "System power on and performance testing", order: 4, releasePercentage: 10, verificationMethod: "IOT" as const },
+          { name: "Operational Start", description: "Final handover and yield start", order: 5, releasePercentage: 10, verificationMethod: "ORACLE" as const },
+        ];
+
+        for (const m of defaultMilestones) {
+          await prisma.projectMilestone.create({
+            data: {
+              projectId: project.id,
+              name: m.name,
+              description: m.description,
+              order: m.order,
+              releasePercentage: m.releasePercentage,
+              releaseAmount: (project.fundingTarget.toNumber() * m.releasePercentage) / 100,
+              verificationMethod: m.verificationMethod,
+              status: "PENDING",
+            },
+          });
+        }
+      }
 
       // Log the state transition
       await AuditLogger.logProjectTransition(

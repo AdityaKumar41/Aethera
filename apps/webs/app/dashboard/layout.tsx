@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { useOnboardingStatus } from "@/hooks/use-onboarding";
 import { useKyc } from "@/hooks/use-dashboard-data";
-import { Loader2, Sun } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 // Map URL paths to section names for header
@@ -40,7 +40,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { isComplete, role, loading, walletAddress, user, kycStatus: initialKycStatus } = useOnboardingStatus();
-  const { status: liveKycStatus, refetch: refetchKyc } = useKyc();
+  const { status: liveKycStatus } = useKyc();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Use live KYC status from hook if available, otherwise fallback to initial status from onboarding
@@ -58,7 +58,6 @@ export default function DashboardLayout({
       if (activeSection) {
         const allowedSections = roleAllowedSections[role] || [];
         if (!allowedSections.includes(activeSection)) {
-          // User is trying to access a restricted section, redirect to their home
           const defaultRedirect = role === "ADMIN" 
             ? "/dashboard/admin-stats" 
             : role === "INSTALLER" 
@@ -75,8 +74,7 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 relative overflow-hidden">
-        {/* Ambient background glows */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-orange-200/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-orange-100/20 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] bg-emerald-100/20 rounded-full blur-[100px] pointer-events-none" />
         
         <div className="relative z-10 flex flex-col items-center">
@@ -88,7 +86,6 @@ export default function DashboardLayout({
                 className="w-full h-full object-contain filter drop-shadow-2xl"
               />
             </div>
-            {/* Soft outer glow */}
             <div className="absolute inset-0 rounded-full bg-orange-500/10 blur-3xl -z-10 animate-pulse" />
           </div>
           
@@ -105,7 +102,6 @@ export default function DashboardLayout({
     );
   }
 
-  // Don't render while redirecting or checking permissions
   const activeSection = pathToSection[pathname];
   const allowedSections = role ? roleAllowedSections[role] : [];
   if (!isComplete || (activeSection && !allowedSections.includes(activeSection))) {
@@ -118,7 +114,6 @@ export default function DashboardLayout({
     <div className="flex min-h-screen bg-white">
       <Sidebar
         activeSection={sectionName as any}
-        onSectionChange={() => {}} // Now using links instead
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
         userRole={role as "INVESTOR" | "INSTALLER" | "ADMIN" | null}
@@ -137,7 +132,7 @@ export default function DashboardLayout({
           walletAddress={walletAddress}
         />
         <main className="flex-1 p-6 overflow-auto bg-zinc-50/50">
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-[1600px] mx-auto">
             {children}
           </div>
         </main>

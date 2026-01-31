@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { projectApi, type Project } from "@/lib/api";
+import { MilestoneTracker } from "./milestone-tracker";
 
 interface ProjectDetailsSectionProps {
   projectId: string;
@@ -161,6 +162,24 @@ export function ProjectDetailsSection({ projectId, onBack }: ProjectDetailsSecti
               </div>
             </div>
           </div>
+
+          {/* Milestone Tracker Section */}
+          {project.fundingModel === 'MILESTONE_BASED' && (
+            <div className="bg-card border border-border rounded-3xl p-8">
+              <MilestoneTracker 
+                projectId={project.id} 
+                onUpdate={() => {
+                  const fetchProject = async () => {
+                    const response = await projectApi.getProject(projectId);
+                    if (response.success && response.data) {
+                      setProject(response.data);
+                    }
+                  };
+                  fetchProject();
+                }}
+              />
+            </div>
+          )}
 
           <div className="bg-card border border-border rounded-3xl p-8">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">

@@ -1,4 +1,4 @@
-import { Keypair } from "@stellar/stellar-sdk";
+import { Keypair, Operation, TransactionBuilder, BASE_FEE, Asset } from "@stellar/stellar-sdk";
 import crypto from "crypto";
 import { stellarClient } from "./client";
 
@@ -130,6 +130,89 @@ export class WalletService {
     } catch (error) {
       console.error("[Stellar] Friendbot funding failed:", error);
       return false;
+    }
+  }
+
+  /**
+   * Fetches pending claimable balances for an account
+   */
+  async getClaimableBalances(publicKey: string): Promise<any[]> {
+    try {
+      const response = await stellarClient.horizon
+        .claimableBalances()
+        .claimant(publicKey)
+        .call();
+      
+      return response.records.map((cb: any) => ({
+        id: cb.id,
+        asset: cb.asset,
+        amount: cb.amount,
+        sponsor: cb.sponsor,
+        last_modified_ledger: cb.last_modified_ledger,
+      }));
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Claims specific claimable balances
+   */
+  async claimBalances(
+    encryptedSecret: string,
+    balanceIds: string[]
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    try {
+      const secret = this.decryptSecret(encryptedSecret);
+      const keypair = Keypair.fromSecret(secret);
+      const publicKey = keypair.publicKey();
+      
+      const account = await stellarClient.horizon.loadAccount(publicKey);
+      const txBuilder = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: stellarClient.getNetworkPassphrase(),
+      });
+
+      // Fetch all balances to see which trustlines are needed
+      const pendingBalances = await stellarClient.horizon
+        .claimableBalances()
+        .claimant(publicKey)
+        .call();
+
+      for (const balanceId of balanceIds) {
+        const balance = pendingBalances.records.find((b: any) => b.id === balanceId);
+        if (!balance) continue;
+
+        // Ensure trustline exists if not native
+        const assetParts = balance.asset.split(":");
+        if (assetParts.length === 2) {
+          const asset = new Asset(assetParts[0], assetParts[1]);
+          const hasTrustline = account.balances.some((b: any) => 
+            b.asset_code === asset.getCode() && b.asset_issuer === asset.getIssuer()
+          );
+
+          if (!hasTrustline) {
+            txBuilder.addOperation(Operation.changeTrust({ asset }));
+          }
+        }
+
+        txBuilder.addOperation(Operation.claimClaimableBalance({ balanceId }));
+      }
+
+      const transaction = txBuilder.setTimeout(180).build();
+      transaction.sign(keypair);
+
+      const result = await stellarClient.horizon.submitTransaction(transaction);
+      return { success: true, txHash: result.hash };
+    } catch (error: any) {
+      console.error("[Stellar] Claiming failed:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to claim balances",
+      };
     }
   }
 

@@ -68,6 +68,10 @@ model Project {
   currentYieldRate          Float?
   lastProductionUpdate      DateTime?
   carbonCredits             Decimal?            @db.Decimal(18, 4)
+  fundingModel              FundingModel        @default(FULL_UPFRONT)
+  totalEscrowedAmount       Decimal             @default(0) @db.Decimal(18, 2)
+  totalReleasedAmount       Decimal             @default(0) @db.Decimal(18, 2)
+  milestones                ProjectMilestone[]
   investments               Investment[]
   productionData            ProductionData[]
   installer                 User                @relation(fields: [installerId], references: [id])
@@ -357,4 +361,47 @@ enum TransferStatus {
   COMPLETED
   REJECTED
   EXPIRED
+}
+
+model ProjectMilestone {
+  id                String             @id @default(cuid())
+  projectId         String
+  name              String
+  description       String
+  order             Int
+  releasePercentage Float              // Percentage of total funds to release
+  releaseAmount     Decimal            @db.Decimal(18, 2)
+  status            MilestoneStatus    @default(PENDING)
+  verificationMethod VerificationMethod
+  proofDocuments    Json?              // Array of URLs
+  submittedAt       DateTime?
+  verifiedAt        DateTime?
+  releasedAt        DateTime?
+  verificationTxHash String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+enum MilestoneStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
+  RELEASED
+}
+
+enum VerificationMethod {
+  DOCUMENT
+  PHOTO
+  IOT
+  ORACLE
+}
+
+enum FundingModel {
+  FULL_UPFRONT
+  MILESTONE_BASED
 }

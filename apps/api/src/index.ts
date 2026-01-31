@@ -26,6 +26,7 @@ import webhookRoutes from "./routes/webhooks.js";
 import relayerRoutes from "./routes/relayer.js";
 import revenueRoutes from "./routes/revenue.js";
 import tokenTransferRoutes from "./routes/token-transfers.js";
+import milestoneRoutes from "./routes/milestones.js";
 // import auditRoutes from "./routes/audit.js"; // Removed as file doesn't exist
 
 // Import services
@@ -107,7 +108,8 @@ app.get("/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/projects", projectRoutes); // Kept this route as it was not explicitly removed by the diff
+app.use("/api/projects", projectRoutes);
+app.use("/api/milestones", milestoneRoutes);
 app.use("/api/stellar", stellarRoutes); // Kept this route as it was not explicitly removed by the diff
 // Relayer routes come before generic admin routes to avoid path conflicts
 app.use("/api/admin/relayer", relayerRoutes);

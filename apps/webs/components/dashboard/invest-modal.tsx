@@ -1,20 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { useState, useEffect, useMemo } from "react";
 import {
   X,
-  Loader2,
+  Plus,
+  Minus,
+  ArrowRight,
+  ShieldCheck,
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
+  Loader2,
   Wallet,
-  TrendingUp,
-  MapPin,
-  Zap,
-  Shield,
+  Coins,
+  ArrowUpRight,
+  Sun,
 } from "lucide-react";
-import { useInvestment } from "@/hooks/use-investment";
-import { useKyc, useWalletBalances } from "@/hooks/use-dashboard-data";
+import { cn } from "@/lib/utils";
+import {
+  useWalletBalances,
+  useKyc,
+  useInvestmentSettlement,
+} from "@/hooks/use-dashboard-data";
 import { toast } from "sonner";
 import type { Project } from "@/lib/api";
 
@@ -25,426 +31,520 @@ interface InvestModalProps {
   onSuccess?: () => void;
 }
 
+type Step = "input" | "confirm" | "processing" | "success" | "error";
+
 export function InvestModal({
   project,
   isOpen,
   onClose,
   onSuccess,
 }: InvestModalProps) {
-  const [tokenAmount, setTokenAmount] = useState<number>(1);
-  const [step, setStep] = useState<
-    "input" | "confirm" | "processing" | "success" | "error"
-  >("input");
+  const [amount, setAmount] = useState(1);
+  const [step, setStep] = useState<Step>("input");
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
-    invest,
-    status: investStatus,
-    loading: investing,
-    confirming,
-    error: investError,
-  } = useInvestment();
-  const { status: kycStatus, loading: kycLoading } = useKyc();
-  const { balances, loading: balancesLoading } = useWalletBalances();
+    balances,
+    loading: balancesLoading,
+    refetch: refetchBalances,
+  } = useWalletBalances();
+  const claimableBalances = balances?.claimableBalances;
+  const { status: kycStatus } = useKyc();
+  const { settle, loading: settling } = useInvestmentSettlement();
 
-  // Reset state when modal opens/closes
+  // Reset state when opened/closed
   useEffect(() => {
     if (isOpen) {
-      setTokenAmount(1);
       setStep("input");
+      setAmount(1);
+      setTxHash(null);
+      setErrorMessage(null);
+      refetchBalances();
+      // Lock body scroll
+      document.body.style.overflow = "hidden";
+    } else {
+      // Restore body scroll
+      document.body.style.overflow = "unset";
     }
-  }, [isOpen]);
 
-  // Handle investment status changes
-  useEffect(() => {
-    if (investStatus === "confirmed") {
-      setStep("success");
-    } else if (investStatus === "failed") {
-      setStep("error");
-    } else if (investStatus === "confirming" && step !== "processing") {
-      // Show processing state when waiting for blockchain confirmation
-      setStep("processing");
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, refetchBalances]);
+
+  // USDC balance detection fix
+  // We need to look for an asset that is either native "USDC" or our mock USDC asset
+  const usdcBalance = useMemo(() => {
+    if (!balances || !balances.balances) return 0;
+
+    // Look for USDC-like assets
+    const usdcAsset = balances.balances.find((b) => {
+      const code = b.asset || "XLM";
+      return code.toUpperCase() === "USDC";
+    });
+
+    // If not found by code, we might need a fallback
+    // For now, if we don't find USDC, we'll try to find any non-XLM asset as a proxy for testing
+    if (!usdcAsset) {
+      const fallback = balances.balances.find((b) => b.asset !== "XLM");
+      return fallback ? Number(fallback.balance) : 0;
     }
-  }, [investStatus, step]);
+
+    return Number(usdcAsset.balance);
+  }, [balances]);
+
+  // Check if USDC is pending in claimable balances
+  const pendingUsdc = useMemo(() => {
+    if (!claimableBalances) return 0;
+    return claimableBalances
+      .filter((b: any) => b.asset.split(":")[0].toUpperCase() === "USDC")
+      .reduce((acc: number, curr: any) => acc + Number(curr.amount), 0);
+  }, [claimableBalances]);
+
+  const totalInvestment = amount * (Number(project?.pricePerToken) || 100);
+  const hasEnoughBalance = usdcBalance >= totalInvestment;
+
+  // KYC is required for all investments
+  const canInvest = kycStatus?.verificationStatus === "APPROVED";
+
+  const handleInvest = async () => {
+    if (!project) return;
+    setStep("processing");
+
+    setErrorMessage(null);
+    try {
+      const result = await settle(project.id, amount);
+      if (result.success) {
+        setTxHash(result.txHash);
+        setStep("success");
+        onSuccess?.();
+      } else {
+        setErrorMessage(
+          result.error || "The on-chain transaction could not be completed.",
+        );
+        setStep("error");
+      }
+    } catch (err: any) {
+      console.error("Investment error:", err);
+      setErrorMessage(
+        err.message || "An unexpected error occurred during settlement.",
+      );
+      setStep("error");
+    }
+  };
 
   if (!isOpen || !project) return null;
 
-  // Convert pricePerToken to number (it may come as Decimal/string from API)
-  const pricePerToken =
-    typeof project.pricePerToken === "number"
-      ? project.pricePerToken
-      : Number(project.pricePerToken) || 100;
-  const totalCost = tokenAmount * pricePerToken;
-  const maxTokens = project.tokensRemaining || 0;
-  const isKycVerified = kycStatus?.status === "VERIFIED";
-
-  // Find USDC balance (with null safety)
-  const usdcBalance = balances?.balances?.find(
-    (b) => b?.asset?.includes?.("USDC") || b?.asset === "USDC",
-  );
-  const availableUSDC = usdcBalance
-    ? parseFloat(usdcBalance.balance || "0")
-    : 0;
-  const hasEnoughBalance = availableUSDC >= totalCost;
-
-  const handleSubmit = async () => {
-    if (!isKycVerified) {
-      toast.error("KYC verification required", {
-        description:
-          "Please complete your identity verification before investing.",
-      });
-      return;
-    }
-
-    if (!hasEnoughBalance) {
-      toast.error("Insufficient USDC balance", {
-        description: `You need ${totalCost.toFixed(2)} USDC but only have ${availableUSDC.toFixed(2)} USDC.`,
-      });
-      return;
-    }
-
-    setStep("confirm");
-  };
-
-  const handleConfirm = async () => {
-    setStep("processing");
-
-    const result = await invest({
-      projectId: project.id,
-      amount: totalCost,
-    });
-
-    if (result.success) {
-      toast.success("Investment submitted!", {
-        description: "Your transaction is being processed on the blockchain.",
-      });
-      // Don't close yet - wait for confirmation or let user close
-    } else {
-      toast.error("Investment failed", {
-        description: result.error || "Please try again.",
-      });
-      setStep("error");
-    }
-  };
-
-  const handleClose = () => {
-    if (step === "success" && onSuccess) {
-      onSuccess();
-    }
-    onClose();
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={step !== "processing" ? handleClose : undefined}
+        className="absolute inset-0 bg-white/60 backdrop-blur-md animate-in fade-in duration-300"
+        onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-200">
-        {/* Header */}
-        <div className="relative p-6 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500">
-          <button
-            onClick={handleClose}
-            disabled={step === "processing"}
-            className="absolute top-4 right-4 p-1 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-          <h2 className="text-xl font-bold text-white mb-1">
-            Invest in Project
-          </h2>
-          <p className="text-white/80 text-sm">{project.name}</p>
-        </div>
+      <div className="relative w-full max-w-lg bg-white border border-zinc-200 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] overflow-hidden animate-in zoom-in-95 fade-in duration-300 max-h-[85vh] flex flex-col">
+        {/* Header Ribbon */}
+        <div className="absolute top-0 inset-x-0 h-1.5 bg-linear-to-r from-orange-400 via-orange-500 to-amber-400" />
 
-        {/* Step: Input */}
-        {step === "input" && (
-          <div className="p-6 space-y-5">
-            {/* Project Quick Info */}
-            <div className="flex items-center gap-4 p-4 bg-zinc-50 rounded-xl">
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <MapPin className="w-3.5 h-3.5" />
-                  {project.location}
+        <button
+          onClick={onClose}
+          className="absolute top-6 right-6 p-2 rounded-full hover:bg-zinc-100 text-zinc-400 transition-colors z-20"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="p-8 overflow-y-auto flex-1">
+          {step === "input" && (
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-0.5 rounded-md bg-orange-100 text-[10px] font-black text-orange-600 uppercase tracking-widest">
+                    New Opportunity
+                  </span>
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                    <ShieldCheck className="w-3 h-3" />
+                    Verified
+                  </span>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp className="w-4 h-4 text-emerald-500" />
-                    <span className="font-medium text-emerald-600">
-                      {project.expectedYield}% APY
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Zap className="w-4 h-4 text-amber-500" />
-                    <span className="text-sm">{project.capacity} kW</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* KYC Status */}
-            {!kycLoading && !isKycVerified && (
-              <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700">
-                <AlertCircle className="w-5 h-5 shrink-0" />
-                <div className="flex-1">
-                  <p className="font-medium text-sm">KYC Required</p>
-                  <p className="text-xs">
-                    Complete verification in Settings before investing.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Token Amount Input */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Number of Tokens</label>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setTokenAmount(Math.max(1, tokenAmount - 1))}
-                  className="w-10 h-10 rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors font-bold"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxTokens}
-                  value={tokenAmount}
-                  onChange={(e) =>
-                    setTokenAmount(
-                      Math.min(
-                        maxTokens,
-                        Math.max(1, parseInt(e.target.value) || 1),
-                      ),
-                    )
-                  }
-                  className="flex-1 h-10 text-center text-lg font-semibold rounded-lg border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                />
-                <button
-                  onClick={() =>
-                    setTokenAmount(Math.min(maxTokens, tokenAmount + 1))
-                  }
-                  className="w-10 h-10 rounded-lg bg-zinc-100 hover:bg-zinc-200 transition-colors font-bold"
-                >
-                  +
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground text-right">
-                {maxTokens.toLocaleString()} tokens available • ${pricePerToken}{" "}
-                per token
-              </p>
-            </div>
-
-            {/* Quick Amounts */}
-            <div className="flex gap-2">
-              {[1, 5, 10, 25].map((amount) => (
-                <button
-                  key={amount}
-                  onClick={() => setTokenAmount(Math.min(maxTokens, amount))}
-                  className={cn(
-                    "flex-1 py-2 rounded-lg text-sm font-medium transition-colors",
-                    tokenAmount === amount
-                      ? "bg-foreground text-background"
-                      : "bg-zinc-100 hover:bg-zinc-200",
-                  )}
-                >
-                  {amount}
-                </button>
-              ))}
-            </div>
-
-            {/* Cost Summary */}
-            <div className="p-4 bg-zinc-50 rounded-xl space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Token Price</span>
-                <span>${pricePerToken.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Quantity</span>
-                <span>× {tokenAmount}</span>
-              </div>
-              <div className="border-t border-zinc-200 pt-2 flex items-center justify-between font-semibold">
-                <span>Total Cost</span>
-                <span className="text-lg">${totalCost.toFixed(2)} USDC</span>
-              </div>
-            </div>
-
-            {/* Wallet Balance */}
-            <div
-              className={cn(
-                "flex items-center gap-3 p-3 rounded-xl",
-                hasEnoughBalance
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-red-50 text-red-700",
-              )}
-            >
-              <Wallet className="w-5 h-5 shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  {balancesLoading
-                    ? "Loading balance..."
-                    : `${availableUSDC.toFixed(2)} USDC available`}
+                <h2 className="text-3xl font-black text-zinc-900 tracking-tight leading-none">
+                  Invest in{" "}
+                  <span className="text-orange-500 font-black italic">
+                    {project.name}
+                  </span>
+                </h2>
+                <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mt-2">
+                  {project.location} • {project.expectedYield}% APY • $
+                  {project.pricePerToken}/token
                 </p>
-                {!hasEnoughBalance && !balancesLoading && (
-                  <p className="text-xs">
-                    Insufficient balance for this investment
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-1">
+                    Select Tokens
                   </p>
-                )}
-              </div>
-            </div>
+                  <div className="flex items-center gap-4 bg-zinc-50 p-2 border border-zinc-100 rounded-3xl">
+                    <button
+                      onClick={() => setAmount(Math.max(1, amount - 1))}
+                      className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 transition-all shadow-sm active:scale-90"
+                    >
+                      <Minus className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1 text-center font-black text-2xl text-zinc-900">
+                      {amount}
+                    </div>
+                    <button
+                      onClick={() => setAmount(amount + 1)}
+                      className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 transition-all shadow-sm active:scale-90"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
 
-            {/* Submit Button */}
-            <button
-              onClick={handleSubmit}
-              disabled={!isKycVerified || !hasEnoughBalance || balancesLoading}
-              className={cn(
-                "w-full py-3 rounded-xl font-semibold transition-all",
-                isKycVerified && hasEnoughBalance
-                  ? "bg-foreground text-background hover:opacity-90"
-                  : "bg-zinc-200 text-zinc-500 cursor-not-allowed",
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 5, 10, 50].map((val) => (
+                      <button
+                        key={val}
+                        onClick={() => setAmount(val)}
+                        className={cn(
+                          "py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                          amount === val
+                            ? "bg-zinc-900 border-zinc-900 text-white"
+                            : "bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300",
+                        )}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="p-6 rounded-3xl bg-zinc-900 text-white space-y-2 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 blur-3xl rounded-full -mr-12 -mt-12 group-hover:bg-white/20 transition-all" />
+                    <p className="text-[9px] font-black text-white/50 uppercase tracking-[0.2em] relative z-10">
+                      Total Investment
+                    </p>
+                    <div className="flex items-baseline gap-2 relative z-10">
+                      <span className="text-4xl font-black">
+                        ${totalInvestment.toLocaleString()}
+                      </span>
+                      <span className="text-sm font-bold text-white/40 uppercase">
+                        USDC
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "p-5 rounded-3xl border space-y-3 transition-all",
+                      hasEnoughBalance
+                        ? "bg-zinc-50 border-zinc-100"
+                        : "bg-red-50 border-red-100",
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wallet
+                          className={cn(
+                            "w-4 h-4",
+                            hasEnoughBalance
+                              ? "text-emerald-500"
+                              : "text-red-500",
+                          )}
+                        />
+                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+                          Available Balance
+                        </span>
+                      </div>
+                      {!hasEnoughBalance && (
+                        <span className="text-[8px] font-black text-red-600 bg-red-100 px-2 py-0.5 rounded-md uppercase tracking-tighter">
+                          Insufficient
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={cn(
+                        "text-xl font-black leading-none",
+                        hasEnoughBalance ? "text-zinc-900" : "text-red-700",
+                      )}
+                    >
+                      {balancesLoading
+                        ? "..."
+                        : `${usdcBalance.toLocaleString()} USDC`}
+                    </p>
+                    {!hasEnoughBalance && pendingUsdc > 0 && (
+                      <div className="flex items-center gap-2 p-2 bg-orange-100/50 rounded-xl border border-orange-200">
+                        <AlertCircle className="w-3.5 h-3.5 text-orange-600" />
+                        <p className="text-[9px] font-bold text-orange-700 leading-tight">
+                          You have {pendingUsdc} USDC pending in your wallet.
+                          Claim them to proceed.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-zinc-50 border border-zinc-100 rounded-3xl p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
+                    Asset Details
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-zinc-500">
+                        Price per Token
+                      </span>
+                      <span className="text-sm font-black text-zinc-900">
+                        ${project.pricePerToken}
+                      </span>
+                    </div>
+                    <div className="w-px h-6 bg-zinc-200" />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-zinc-500">
+                        Asset Symbol
+                      </span>
+                      <span className="text-sm font-black text-orange-600">
+                        {project.tokenSymbol}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <Coins className="w-8 h-8 text-zinc-200" />
+              </div>
+
+              <button
+                disabled={!hasEnoughBalance || !canInvest}
+                onClick={() => setStep("confirm")}
+                className={cn(
+                  "w-full h-16 rounded-2xl flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] text-sm transition-all shadow-xl active:scale-95",
+                  hasEnoughBalance && canInvest
+                    ? "bg-zinc-900 text-white hover:bg-orange-600 shadow-orange-500/10"
+                    : "bg-zinc-100 text-zinc-300 border border-zinc-200 cursor-not-allowed",
+                )}
+              >
+                Continue to Payment
+                <ArrowRight className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center justify-center gap-8 pt-2 opacity-50">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-zinc-500" />
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                    Secure Settlement
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-zinc-500" />
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                    Verifiable On-Chain
+                  </span>
+                </div>
+              </div>
+
+              {!canInvest && (
+                <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-2xl">
+                  <p className="text-xs font-bold text-orange-900 mb-2">
+                    KYC Verification Required
+                  </p>
+                  <p className="text-[10px] text-orange-700 leading-relaxed">
+                    Please complete KYC verification in Settings to invest in
+                    solar projects.
+                  </p>
+                </div>
               )}
-            >
-              Continue to Review
-            </button>
-          </div>
-        )}
-
-        {/* Step: Confirm */}
-        {step === "confirm" && (
-          <div className="p-6 space-y-5">
-            <div className="text-center py-4">
-              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-amber-600" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Confirm Investment</h3>
-              <p className="text-muted-foreground text-sm">
-                You are about to invest in {project.name}
-              </p>
             </div>
+          )}
 
-            <div className="p-4 bg-zinc-50 rounded-xl space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Project</span>
-                <span className="font-medium">{project.name}</span>
+          {step === "confirm" && (
+            <div className="space-y-8 py-4 animate-in slide-in-from-right-8 fade-in duration-500">
+              <div className="text-center space-y-2">
+                <h3 className="text-2xl font-black text-zinc-900 italic tracking-tight uppercase">
+                  Confirm Order
+                </h3>
+                <p className="text-zinc-500 text-sm font-medium">
+                  Please review your purchase details below.
+                </p>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tokens</span>
-                <span className="font-medium">
-                  {tokenAmount} {project.tokenSymbol}
+
+              <div className="bg-zinc-50 border border-zinc-100 rounded-3xl p-6 space-y-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-bold text-zinc-500 uppercase tracking-widest text-xs">
+                    Project
+                  </span>
+                  <span className="font-black text-zinc-900">
+                    {project.name}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-bold text-zinc-500 uppercase tracking-widest text-xs">
+                    Quantity
+                  </span>
+                  <span className="font-black text-zinc-900">
+                    {amount} Tokens
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-bold text-zinc-500 uppercase tracking-widest text-xs">
+                    Unit Cost
+                  </span>
+                  <span className="font-black text-zinc-900">
+                    ${project.pricePerToken} USDC
+                  </span>
+                </div>
+                <div className="h-px bg-zinc-200 my-2" />
+                <div className="flex justify-between items-center">
+                  <span className="font-black text-zinc-900 uppercase tracking-[0.2em] text-xs">
+                    Total Amount
+                  </span>
+                  <span className="text-2xl font-black text-orange-600">
+                    ${totalInvestment.toLocaleString()} USDC
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleInvest}
+                  disabled={settling}
+                  className="w-full h-16 rounded-2xl bg-zinc-900 text-white font-black uppercase tracking-[0.2em] text-sm hover:bg-orange-600 transition-all active:scale-95 shadow-xl shadow-orange-500/10 flex items-center justify-center gap-3"
+                >
+                  {settling ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    "Verify & Settle Purchase"
+                  )}
+                </button>
+                <button
+                  onClick={() => setStep("input")}
+                  className="w-full py-4 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] hover:text-zinc-900 transition-colors"
+                >
+                  Hold on, I need to change something
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === "processing" && (
+            <div className="py-20 flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full border-4 border-zinc-50 border-t-orange-500 animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <ShieldCheck className="w-8 h-8 text-orange-500 animate-pulse" />
+                </div>
+              </div>
+              <div className="text-center space-y-3">
+                <h3 className="text-xl font-black text-zinc-900 uppercase tracking-tight italic">
+                  Relaying Transaction
+                </h3>
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest max-w-xs leading-relaxed">
+                  Connecting to the Stellar Ledger to finalize your asset
+                  acquisition and mint tokens.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-zinc-50 border border-zinc-100 rounded-2xl w-full">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest italic">
+                  Consensus Reaching...
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Expected Yield</span>
-                <span className="font-medium text-emerald-600">
-                  {project.expectedYield}% APY
-                </span>
-              </div>
-              <div className="border-t border-zinc-200 pt-3 flex justify-between font-semibold">
-                <span>Total Investment</span>
-                <span>${totalCost.toFixed(2)} USDC</span>
-              </div>
             </div>
+          )}
 
-            <p className="text-xs text-muted-foreground text-center">
-              By confirming, you agree to the investment terms. This transaction
-              will be processed on the Stellar blockchain.
-            </p>
+          {step === "success" && (
+            <div className="py-12 space-y-8 animate-in zoom-in-95 fade-in duration-700">
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-500/20">
+                    <CheckCircle2 className="w-12 h-12 text-white" />
+                  </div>
+                  <div className="absolute -top-4 -right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center border border-zinc-100 shadow-lg">
+                    <Sun className="w-6 h-6 text-orange-500 animate-spin-slow" />
+                  </div>
+                </div>
+              </div>
 
-            <div className="flex gap-3">
+              <div className="text-center space-y-3">
+                <h3 className="text-3xl font-black text-zinc-900 tracking-tight italic uppercase">
+                  Asset Acquired!
+                </h3>
+                <p className="text-zinc-500 text-sm font-medium max-w-sm mx-auto leading-relaxed">
+                  Success! {amount} tokens of <strong>{project.name}</strong>{" "}
+                  have been settled and are now in your vault.
+                </p>
+              </div>
+
+              <div className="bg-zinc-50 border border-zinc-100 rounded-3xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                    Transaction Hash
+                  </span>
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-[10px] font-black text-orange-600 hover:text-orange-700 underline underline-offset-4"
+                  >
+                    View Explorer
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+                <div className="w-full p-3 bg-white border border-zinc-100 rounded-xl font-mono text-[10px] text-zinc-400 truncate">
+                  {txHash}
+                </div>
+              </div>
+
               <button
-                onClick={() => setStep("input")}
-                className="flex-1 py-3 rounded-xl font-medium bg-zinc-100 hover:bg-zinc-200 transition-colors"
+                onClick={onClose}
+                className="w-full h-16 rounded-2xl bg-zinc-900 text-white font-black uppercase tracking-[0.2em] text-sm hover:bg-emerald-600 transition-all active:scale-95 shadow-xl shadow-emerald-500/10"
               >
-                Back
+                Return to Portfolio
               </button>
-              <button
-                onClick={handleConfirm}
-                disabled={investing}
-                className="flex-1 py-3 rounded-xl font-semibold bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {investing ? (
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                ) : (
-                  "Confirm & Invest"
+            </div>
+          )}
+
+          {step === "error" && (
+            <div className="py-12 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in duration-500">
+              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-10 h-10 text-red-600" />
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-2xl font-black text-zinc-900 uppercase italic tracking-tight">
+                  Transaction Failed
+                </h3>
+                <p className="text-zinc-500 text-sm font-medium leading-relaxed max-w-xs mx-auto">
+                  {errorMessage ||
+                    "The network rejected the settlement or the connection was lost. Ensure your wallet is correctly linked."}
+                </p>
+                {errorMessage?.toLowerCase().includes("trustline") && (
+                  <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-2xl space-y-2">
+                    <p className="text-xs font-bold text-orange-900">
+                      USDC Trustline Required
+                    </p>
+                    <p className="text-[10px] text-orange-700 leading-relaxed">
+                      Please enable USDC in your wallet settings to invest in
+                      solar projects.
+                    </p>
+                  </div>
                 )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step: Processing */}
-        {step === "processing" && (
-          <div className="p-6 py-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-6">
-              <Loader2 className="w-10 h-10 text-amber-600 animate-spin" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">
-              {confirming
-                ? "Confirming on Blockchain"
-                : "Processing Investment"}
-            </h3>
-            <p className="text-muted-foreground text-sm mb-4">
-              {confirming
-                ? "Waiting for blockchain confirmation..."
-                : "Submitting your transaction to the Stellar network..."}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {confirming
-                ? "This usually takes 5-10 seconds. Your tokens will be minted automatically after confirmation."
-                : "Please wait while we process your investment..."}
-            </p>
-          </div>
-        )}
-
-        {/* Step: Success */}
-        {step === "success" && (
-          <div className="p-6 py-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-10 h-10 text-emerald-600" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">
-              Investment Successful!
-            </h3>
-            <p className="text-muted-foreground text-sm mb-6">
-              You now own {tokenAmount} {project.tokenSymbol} tokens in{" "}
-              {project.name}.
-            </p>
-            <button
-              onClick={handleClose}
-              className="w-full py-3 rounded-xl font-semibold bg-foreground text-background hover:opacity-90 transition-opacity"
-            >
-              Done
-            </button>
-          </div>
-        )}
-
-        {/* Step: Error */}
-        {step === "error" && (
-          <div className="p-6 py-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-6">
-              <AlertCircle className="w-10 h-10 text-red-600" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Investment Failed</h3>
-            <p className="text-muted-foreground text-sm mb-6">
-              {investError || "Something went wrong. Please try again."}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleClose}
-                className="flex-1 py-3 rounded-xl font-medium bg-zinc-100 hover:bg-zinc-200 transition-colors"
-              >
-                Close
-              </button>
+                {!errorMessage?.includes("XLM") &&
+                  !errorMessage?.toLowerCase().includes("trustline") && (
+                    <p className="text-[10px] text-zinc-400 font-bold uppercase mt-4">
+                      Note: Gas Fees are sponsored by Aethera Relayer
+                    </p>
+                  )}
+              </div>
               <button
                 onClick={() => setStep("input")}
-                className="flex-1 py-3 rounded-xl font-semibold bg-foreground text-background hover:opacity-90 transition-opacity"
+                className="w-full h-14 rounded-2xl bg-zinc-900 text-white font-black uppercase tracking-widest text-xs hover:bg-orange-600 transition-all active:scale-95"
               >
-                Try Again
+                Review Settings & Retry
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

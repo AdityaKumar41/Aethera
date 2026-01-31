@@ -134,6 +134,14 @@ export const adminApi = {
   getPendingProjects: () => apiRequest<Project[]>('/api/admin/projects/pending'),
   approveProject: (id: string) => apiRequest<any>(`/api/admin/projects/${id}/approve`, { method: 'POST' }),
   rejectProject: (id: string, reason: string) => apiRequest<any>(`/api/admin/projects/${id}/reject`, { method: 'POST', body: { reason } }),
+  verifyMilestone: (id: string) => apiRequest<any>(`/api/milestones/${id}/verify`, { method: 'POST' }),
+  rejectMilestone: (id: string, reason: string) => apiRequest<any>(`/api/milestones/${id}/reject`, { method: 'POST', body: { reason } }),
+};
+
+export const milestoneApi = {
+  getProjectMilestones: (projectId: string) => apiRequest<ProjectMilestone[]>(`/api/milestones/project/${projectId}`),
+  submitProof: (id: string, proofDocuments: any) =>
+    apiRequest<ProjectMilestone>(`/api/milestones/${id}/submit`, { method: 'POST', body: { proofDocuments } }),
 };
 
 // Investment endpoints
@@ -194,6 +202,12 @@ export interface WalletBalances {
     asset: string;
     balance: string;
   }>;
+  claimableBalances: Array<{
+    id: string;
+    asset: string;
+    amount: string;
+    sponsor: string;
+  }>;
   funded: boolean;
 }
 
@@ -247,7 +261,29 @@ export interface Project {
   investorCount?: number;
   fundingPercentage?: number;
   totalEnergyProduced?: number;
+  fundingModel?: 'FULL_UPFRONT' | 'MILESTONE_BASED';
+  totalEscrowedAmount?: number;
+  totalReleasedAmount?: number;
+  milestones?: ProjectMilestone[];
   createdAt?: string;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  order: number;
+  releasePercentage: number;
+  releaseAmount: number;
+  status: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED' | 'RELEASED';
+  verificationMethod: 'DOCUMENT' | 'PHOTO' | 'IOT' | 'ORACLE';
+  proofDocuments?: any;
+  submittedAt?: string;
+  verifiedAt?: string;
+  releasedAt?: string;
+  verificationTxHash?: string;
+  createdAt: string;
 }
 
 export interface Investment {
@@ -293,3 +329,4 @@ export interface Pagination {
   total: number;
   totalPages: number;
 }
+

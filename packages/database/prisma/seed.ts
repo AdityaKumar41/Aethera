@@ -136,6 +136,25 @@ async function main() {
       status: 'ACTIVE' as const,
       startDate: new Date('2024-06-01'),
     },
+    {
+      name: 'Milestone Demo Project',
+      description: 'A demonstration project for milestone-based funding. Funds are released in 5 stages: Equipment, Installation, Grid Connection, Commissioning, and Operational Start.',
+      location: 'Antigravity City',
+      country: 'Metaverse',
+      capacity: 1000,
+      panelType: 'Premium Efficiency',
+      inverterType: 'Smart Inverter Pro',
+      estimatedAnnualProduction: 1500000,
+      expectedYield: 15.0,
+      fundingTarget: 500000,
+      fundingRaised: 0,
+      pricePerToken: 100,
+      totalTokens: 5000,
+      tokensRemaining: 5000,
+      tokenSymbol: 'MLSTN001',
+      status: 'APPROVED' as const,
+      fundingModel: 'MILESTONE_BASED' as const,
+    },
   ];
 
   // Create projects
@@ -149,7 +168,7 @@ async function main() {
       continue;
     }
 
-    await prisma.project.create({
+    const project = await prisma.project.create({
       data: {
         installerId: installer.id,
         ...projectData,
@@ -157,6 +176,29 @@ async function main() {
     });
 
     console.log(`Created: ${projectData.name}`);
+
+    // If it's the milestone project, add milestones
+    if (projectData.tokenSymbol === 'MLSTN001') {
+      console.log('Adding milestones to MLSTN001...');
+      const milestones = [
+        { name: 'Equipment Procurement', description: 'Panels, inverter purchased', order: 1, releasePercentage: 25, verificationMethod: 'DOCUMENT' as const },
+        { name: 'Site Installation', description: 'Physical installation completed', order: 2, releasePercentage: 25, verificationMethod: 'PHOTO' as const },
+        { name: 'Grid Connection', description: 'Connected to grid / PPA live', order: 3, releasePercentage: 20, verificationMethod: 'ORACLE' as const },
+        { name: 'Commissioning', description: 'Energy production verified', order: 4, releasePercentage: 15, verificationMethod: 'IOT' as const },
+        { name: 'Operational Start', description: 'Eligible for yield distribution', order: 5, releasePercentage: 15, verificationMethod: 'DOCUMENT' as const },
+      ];
+
+      for (const m of milestones) {
+        await prisma.projectMilestone.create({
+          data: {
+            projectId: project.id,
+            releaseAmount: (project.fundingTarget.toNumber() * m.releasePercentage) / 100,
+            ...m,
+          }
+        });
+      }
+      console.log('✅ Added 5 milestones');
+    }
   }
 
   console.log('');

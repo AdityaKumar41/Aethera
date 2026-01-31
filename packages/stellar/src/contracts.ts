@@ -5,6 +5,7 @@
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { StellarClient } from './client';
 import { type NetworkType } from './config';
+import { getRelayerService } from './relayer';
 
 export interface ContractInvocationResult {
   success: boolean;
@@ -114,8 +115,21 @@ export class ContractService {
       // Sign the transaction
       preparedTx.sign(signerKeypair);
 
+      // Gas Sponsorship (Fee Bump)
+      let finalTx: any = preparedTx;
+      const relayer = getRelayerService();
+      await relayer.initialize();
+
+      if (await relayer.isReady()) {
+        try {
+          finalTx = await relayer.sponsorTransaction(preparedTx);
+        } catch (sponsorError) {
+          console.warn('[Relayer] Sponsorship failed, falling back to user fee:', sponsorError);
+        }
+      }
+
       // Submit the transaction
-      const sendResponse = await this.rpcServer.sendTransaction(preparedTx);
+      const sendResponse = await this.rpcServer.sendTransaction(finalTx);
 
       if (sendResponse.status === 'ERROR') {
         return {

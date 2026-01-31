@@ -120,16 +120,57 @@ router.get('/wallet/balances', async (req: AuthenticatedRequest, res, next) => {
       return;
     }
 
-    const balances = await walletService.getBalances(user.stellarPubKey);
-    const funded = await walletService.isAccountFunded(user.stellarPubKey);
+    const [balances, claimableBalances, funded] = await Promise.all([
+      walletService.getBalances(user.stellarPubKey),
+      walletService.getClaimableBalances(user.stellarPubKey),
+      walletService.isAccountFunded(user.stellarPubKey),
+    ]);
 
     res.json({
       success: true,
       data: {
         publicKey: user.stellarPubKey,
         balances,
+        claimableBalances,
         funded,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// Claim Wallet Balances
+// ============================================
+
+router.post('/wallet/claim', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const { balanceIds } = req.body;
+    
+    if (!balanceIds || !Array.isArray(balanceIds) || balanceIds.length === 0) {
+      throw createApiError('balanceIds array is required', 400);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.auth?.userId },
+      select: { stellarSecretEncrypted: true },
+    });
+
+    if (!user?.stellarSecretEncrypted) {
+      throw createApiError('Custodial wallet not configured or secret missing. Use the command line script with your secret.', 400);
+    }
+
+    const result = await walletService.claimBalances(user.stellarSecretEncrypted, balanceIds);
+
+    if (!result.success) {
+      throw createApiError(result.error || 'Failed to claim balances', 500);
+    }
+
+    res.json({
+      success: true,
+      message: 'Balances claimed successfully',
+      txHash: result.txHash,
     });
   } catch (error) {
     next(error);

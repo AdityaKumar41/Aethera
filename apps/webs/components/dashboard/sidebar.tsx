@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Wallet,
   Shield,
-  Home,
   Plus,
   FolderOpen,
   DollarSign,
@@ -24,10 +23,10 @@ import {
   Zap,
   Clock,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useKyc } from "@/hooks/use-dashboard-data";
+import { toast } from "sonner";
 
-// Investor navigation items with routes
 const investorNavItems = [
   { id: "portfolio", label: "Portfolio", icon: Sun, href: "/dashboard/portfolio" },
   { id: "marketplace", label: "Marketplace", icon: Store, href: "/dashboard/marketplace" },
@@ -36,7 +35,6 @@ const investorNavItems = [
   { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
 
-// Installer navigation items with routes
 const installerNavItems = [
   { id: "my-projects", label: "My Projects", icon: FolderOpen, href: "/dashboard/my-projects" },
   { id: "new-project", label: "Submit Project", icon: Plus, href: "/dashboard/new-project" },
@@ -45,7 +43,6 @@ const installerNavItems = [
   { id: "settings", label: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
 
-// Admin navigation items with routes
 const adminNavItems = [
   { id: "admin-stats", label: "Overview", icon: Sun, href: "/dashboard/admin-stats" },
   { id: "admin-projects", label: "Project Approvals", icon: Building2, href: "/dashboard/admin-projects" },
@@ -65,7 +62,6 @@ interface SidebarProps {
   userName?: string | null;
 }
 
-// Truncate wallet address for display
 function truncateAddress(address: string | null | undefined): string {
   if (!address) return "Not connected";
   if (address.length < 12) return address;
@@ -78,7 +74,6 @@ export function Sidebar({
   userRole = "INVESTOR",
   walletAddress,
   kycStatus,
-  userName,
 }: SidebarProps) {
   const { status: liveKycStatus } = useKyc();
   const pathname = usePathname();
@@ -88,36 +83,26 @@ export function Sidebar({
   if (userRole === "INSTALLER") navItems = installerNavItems;
   if (userRole === "ADMIN") navItems = adminNavItems;
 
-  // Derive the current status: live hook data takes precedence over the layout prop
   const displayKycStatus = liveKycStatus?.status || kycStatus;
-
-  useEffect(() => {
-     console.log('[Sidebar] KYC Status Sync:', { 
-       prop: kycStatus, 
-       live: liveKycStatus?.status, 
-       final: displayKycStatus 
-     });
-  }, [kycStatus, liveKycStatus, displayKycStatus]);
 
   const handleCopyAddress = async () => {
     if (walletAddress) {
       await navigator.clipboard.writeText(walletAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      toast.success("Address copied");
     }
   };
-
-  const isKycVerified = displayKycStatus === "VERIFIED";
 
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-out flex flex-col",
+        "fixed left-0 top-0 z-40 h-screen bg-white border-r border-zinc-200 transition-all duration-300 ease-out flex flex-col",
         collapsed ? "w-[72px]" : "w-[260px]"
       )}
     >
       {/* Logo Area */}
-      <div className="h-16 flex items-center px-4 border-b border-sidebar-border relative">
+      <div className="h-16 flex items-center px-4 border-b border-zinc-200 relative">
         <Link href="/dashboard/portfolio" className="flex items-center">
           <div className={cn(
             "flex items-center justify-center transition-all duration-300",
@@ -131,51 +116,44 @@ export function Sidebar({
           </div>
         </Link>
         
-        {/* Collapse Toggle - Top Right */}
         <button
           onClick={() => onCollapsedChange(!collapsed)}
           className={cn(
-            "absolute -right-3 top-6 w-6 h-6 bg-white border border-sidebar-border rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground shadow-sm z-50 transition-all duration-300 hover:scale-110",
+            "absolute -right-3 top-6 w-6 h-6 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground shadow-sm z-50 transition-all duration-300 hover:scale-110",
             collapsed && "right-[-12px]"
           )}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
       </div>
 
-      {/* User & Wallet Info - Hide personal wallet for Admin */}
+      {/* User & Wallet Info */}
       {userRole !== "ADMIN" && (
         <div className={cn(
-          "px-3 py-3 border-b border-sidebar-border",
+          "px-3 py-3 border-b border-zinc-200",
           collapsed && "px-2"
         )}>
           {/* Wallet Card */}
           <div className={cn(
-            "flex items-center gap-2 px-3 py-2.5 rounded-lg bg-sidebar-accent/50",
+            "flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-50",
             collapsed && "justify-center px-2"
           )}>
-            <div className="w-8 h-8 rounded-lg gradient-energy flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0 shadow-sm">
               <Wallet className="w-4 h-4 text-white" />
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Stellar Wallet</p>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Stellar Wallet</p>
                 <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium text-foreground truncate">
+                  <p className="text-xs font-semibold text-zinc-900 truncate">
                     {truncateAddress(walletAddress)}
                   </p>
                   {walletAddress && (
                     <button
                       onClick={handleCopyAddress}
-                      className="p-0.5 rounded hover:bg-zinc-200 transition-colors"
-                      title="Copy address"
+                      className="p-1 rounded hover:bg-zinc-200 transition-colors"
                     >
-                      {copied ? (
-                        <Check className="w-3 h-3 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3 h-3 text-muted-foreground" />
-                      )}
+                      {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3 text-zinc-400" />}
                     </button>
                   )}
                 </div>
@@ -183,77 +161,34 @@ export function Sidebar({
             )}
           </div>
 
-          {/* KYC & Role Status */}
           {!collapsed && (
             <div className="flex items-center justify-between mt-2 px-1">
               <div className="flex items-center gap-1.5">
                 {displayKycStatus === "VERIFIED" ? (
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5">
+                   <div className="flex items-center gap-1">
                       <Shield className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-xs text-emerald-600 font-bold tracking-tight">Verified</span>
-                    </div>
-                    {liveKycStatus?.sumsub?.level && (
-                      <span className="text-[10px] text-muted-foreground ml-5 opacity-70 uppercase tracking-tighter">
-                        {liveKycStatus.sumsub.level.replace(/-/g, ' ')}
-                      </span>
-                    )}
-                  </div>
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Verified</span>
+                   </div>
                 ) : displayKycStatus === "IN_REVIEW" ? (
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5">
+                   <div className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="text-xs text-amber-600 font-medium">In Review</span>
-                    </div>
-                    {liveKycStatus?.sumsub?.level && (
-                      <span className="text-[10px] text-muted-foreground ml-5 opacity-70 uppercase tracking-tighter">
-                        {liveKycStatus.sumsub.level.replace(/-/g, ' ')}
-                      </span>
-                    )}
-                  </div>
-                ) : displayKycStatus === "REJECTED" ? (
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                      <span className="text-xs text-red-600 font-medium">Rejected</span>
-                    </div>
-                  </div>
+                      <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">In Review</span>
+                   </div>
                 ) : (
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5">
+                   <div className="flex items-center gap-1">
                       <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="text-xs text-amber-600 font-medium">KYC Pending</span>
-                    </div>
-                    {userRole === 'INSTALLER' && (
-                      <span className="text-[10px] text-amber-600/70 ml-5 tracking-tighter">
-                        Requires Enhanced Identity
-                      </span>
-                    )}
-                  </div>
+                      <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">KYC Pending</span>
+                   </div>
                 )}
               </div>
               <span className={cn(
-                "text-xs font-medium px-2 py-0.5 rounded-full",
-                userRole === "INSTALLER" 
-                  ? "bg-blue-100 text-blue-700" 
-                  : "bg-emerald-100 text-emerald-700"
+                "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest",
+                userRole === "INSTALLER" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
               )}>
-                {userRole === "INSTALLER" ? "Installer" : "Investor"}
+                {userRole}
               </span>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Admin specific badge when personal info is hidden */}
-      {userRole === "ADMIN" && !collapsed && (
-        <div className="px-6 py-4 border-b border-sidebar-border">
-          <div className="flex items-center justify-between bg-purple-50 px-3 py-2 rounded-xl border border-purple-100">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-semibold text-purple-700">Administrator</span>
-            </div>
-          </div>
         </div>
       )}
 
@@ -261,10 +196,7 @@ export function Sidebar({
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-hidden">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || 
-            (pathname === "/dashboard" && item.id === "portfolio") ||
-            (pathname === "/dashboard" && userRole === "INSTALLER" && item.id === "my-projects") ||
-            (pathname === "/dashboard" && userRole === "ADMIN" && item.id === "admin-stats");
+          const isActive = pathname === item.href || (pathname === "/dashboard" && item.id === "portfolio");
 
           return (
             <Link
@@ -273,51 +205,39 @@ export function Sidebar({
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                  ? "bg-zinc-100 text-zinc-900 border border-zinc-200"
+                  : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
               )}
             >
-              {/* Active indicator */}
-              <span
-                className={cn(
-                  "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-accent transition-all duration-300",
-                  isActive ? "opacity-100" : "opacity-0"
-                )}
-              />
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-emerald-500" />
+              )}
               <Icon
                 className={cn(
                   "w-5 h-5 shrink-0 transition-all duration-200",
-                  isActive ? "text-accent" : "group-hover:scale-110"
+                  isActive ? "text-emerald-600" : "group-hover:scale-110"
                 )}
               />
-              <span
-                className={cn(
-                  "whitespace-nowrap transition-all duration-300",
-                  collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                )}
-              >
-                {item.label}
-              </span>
+              {!collapsed && (
+                <span className="whitespace-nowrap">{item.label}</span>
+              )}
             </Link>
           );
         })}
       </nav>
 
-
-
-      {/* Network Status */}
+      {/* Network Status Area */}
       {!collapsed && (
-        <div className="px-3 py-2 border-t border-sidebar-border">
-          <div className="flex items-center gap-2 px-3 py-2">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            <span className="text-xs text-muted-foreground">Stellar Testnet</span>
-          </div>
+        <div className="p-4 border-t border-zinc-200">
+           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50">
+              <span className="relative flex h-2 w-2">
+                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Stellar Testnet</span>
+           </div>
         </div>
       )}
-
     </aside>
   );
 }

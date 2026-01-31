@@ -31,6 +31,7 @@ interface ProjectFormData {
   pricePerToken: string;
   startDate: string;
   estimatedCompletionDate: string;
+  fundingModel: 'FULL_UPFRONT' | 'MILESTONE_BASED';
 }
 
 const initialFormData: ProjectFormData = {
@@ -47,6 +48,7 @@ const initialFormData: ProjectFormData = {
   pricePerToken: "100",
   startDate: "",
   estimatedCompletionDate: "",
+  fundingModel: "FULL_UPFRONT",
 };
 
 export function NewProjectSection() {
@@ -80,6 +82,7 @@ export function NewProjectSection() {
         expectedYield: Number(formData.expectedYield),
         fundingTarget: Number(formData.fundingTarget),
         pricePerToken: Number(formData.pricePerToken),
+        fundingModel: formData.fundingModel,
         estimatedCompletionDate: formData.estimatedCompletionDate ? new Date(formData.estimatedCompletionDate).toISOString() : undefined,
       };
 
@@ -380,6 +383,41 @@ export function NewProjectSection() {
                 />
               </div>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-3">Funding Model *</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={() => updateField("fundingModel", "FULL_UPFRONT")}
+                  className={cn(
+                    "p-4 rounded-2xl border text-left transition-all",
+                    formData.fundingModel === "FULL_UPFRONT"
+                      ? "bg-zinc-900 text-white border-zinc-900 shadow-lg shadow-zinc-200"
+                      : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
+                  )}
+                >
+                  <p className="font-bold mb-1">Full Upfront</p>
+                  <p className="text-xs opacity-70">Release 100% of funds immediately after successful funding.</p>
+                </button>
+                <button
+                  onClick={() => updateField("fundingModel", "MILESTONE_BASED")}
+                  className={cn(
+                    "p-4 rounded-2xl border text-left transition-all",
+                    formData.fundingModel === "MILESTONE_BASED"
+                      ? "bg-zinc-900 text-white border-zinc-900 shadow-lg shadow-zinc-200"
+                      : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300"
+                  )}
+                >
+                  <p className="font-bold mb-1">Milestone-Based</p>
+                  <p className="text-xs opacity-70">Funds released in phases based on project progress and verification.</p>
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5" />
+                Milestone-based funding builds higher investor trust and reduces platform risk.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-1.5">Expected Annual Yield (%) *</label>
               <input
