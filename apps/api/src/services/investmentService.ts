@@ -161,52 +161,12 @@ export class InvestmentService {
           },
         });
 
+        // Capital release is now handled manually by Admin activation to match Stage 6 requirement
+        /*
         if (updatedProject && updatedProject.status === "FUNDED") {
-          console.log(
-            `🚀 Project ${projectId} is FUNDED! Triggering capital release...`,
-          );
-
-          try {
-            const contracts = getContractAddresses();
-            const encryptedSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
-
-            if (
-              contracts.treasury &&
-              encryptedSecret &&
-              updatedProject.installer?.stellarPubKey
-            ) {
-              const relayerSecret = walletService.decryptSecret(encryptedSecret);
-              const relayerKeypair = Keypair.fromSecret(relayerSecret);
-
-              const releaseResult = await contractService.releaseEscrow(
-                contracts.treasury,
-                relayerKeypair,
-                projectId,
-                updatedProject.installer.stellarPubKey,
-              );
-
-              if (releaseResult.success) {
-                console.log(
-                  `✅ Capital released for project ${projectId}. Tx: ${releaseResult.txHash}`,
-                );
-
-                // Transition project to ACTIVE
-                await prisma.project.update({
-                  where: { id: projectId },
-                  data: {
-                    status: "ACTIVE",
-                    // Also initialize total production and carbon credits if null
-                    totalEnergyProduced: 0,
-                    carbonCredits: 0,
-                  },
-                });
-              }
-            }
-          } catch (releaseError) {
-            console.error("Capital release failed:", releaseError);
-            // We don't fail the investment if release fails, it can be retried by admin
-          }
+          ...
         }
+        */
 
         return {
           success: true,
@@ -244,20 +204,18 @@ export class InvestmentService {
     investmentId: string,
     amount: number,
   ): Promise<string> {
-    // Get investor keypair (decrypt secret)
+    // 1. Get investor keypair (decrypt secret)
     const investorKeypair = await this.getInvestorKeypair(investor);
 
-    // Get Soroban server
+    // 2. Get Soroban server
     const server = this.stellar.getRpcServer();
-    const account = await server.getAccount(investor.stellarPubKey);
+    const investorAccount = await server.getAccount(investor.stellarPubKey);
 
-    // Build transaction to call Treasury.process_investment
+    // 3. Build inner transaction with INVESTOR as the source
     const treasuryContract = new Contract(this.contracts.treasury);
-
-    // Convert amount to stroops (7 decimals for USDC)
     const amountScaled = BigInt(Math.round(amount * 10_000_000));
 
-    const tx = new TransactionBuilder(account, {
+    const tx = new TransactionBuilder(investorAccount, {
       fee: BASE_FEE,
       networkPassphrase: this.stellar.getNetworkPassphrase(),
     })
@@ -267,59 +225,37 @@ export class InvestmentService {
           nativeToScVal(project.id, { type: "string" }),
           nativeToScVal(investor.stellarPubKey, { type: "address" }),
           nativeToScVal(amountScaled, { type: "i128" }),
-        ),
+        )
       )
       .setTimeout(300)
       .build();
 
-    // Prepare and sign the inner transaction
+    // 4. Prepare and sign inner transaction with Investor
+    console.log(`[Investment] Preparing transaction for investor ${investor.stellarPubKey}`);
     const preparedTx = await server.prepareTransaction(tx);
     preparedTx.sign(investorKeypair);
 
-    // Get Relayer for Admin signature AND gas sponsorship
+    // 5. Sponsorship (Fee Bump)
     const relayer = getRelayerService();
     await relayer.initialize();
-    const relayerKeypair = relayer.getKeypair();
-
+    
     let finalTx: any = preparedTx;
-    let submissionMethod = (t: any) => server.sendTransaction(t);
-
-    if (await relayer.isReady() && relayerKeypair) {
-      console.log(
-        `[Relayer] Signing as Admin & Sponsoring for investor: ${investor.stellarPubKey}`,
-      );
-      // Sign with Admin key (required by contract: admin.require_auth())
-      preparedTx.sign(relayerKeypair);
-
-      try {
-        // Fee bump the transaction - Relayer pays the gas
-        // Note: The inner tx now has 2 signatures: Investor + Admin
-        finalTx = await relayer.sponsorTransaction(preparedTx);
-      } catch (sponsorError) {
-        console.warn(
-          "[Relayer] Sponsorship failed, falling back to user-paid fee:",
-          sponsorError,
-        );
-      }
-    } else {
-      console.warn(
-        "[Relayer] Relayer not ready. Transaction may fail if Admin auth is required.",
-      );
+    if (await relayer.isReady()) {
+      console.log(`[Investment] Sponsoring gas with relayer for ${investor.stellarPubKey}`);
+      finalTx = await relayer.sponsorTransaction(preparedTx);
     }
 
-    // Submit the (possibly sponsored) transaction
-    const result = await submissionMethod(finalTx);
+    // 6. Submit
+    const result = await server.sendTransaction(finalTx);
 
-    if (result.status === "PENDING") {
-      // Wait for confirmation (will be handled by monitor)
+    if (result.status === "PENDING" || result.status === ("SUCCESS" as any)) {
       return result.hash;
-    } else if (result.status === "ERROR") {
+    } else {
+      console.error("[Investment] Transaction failed:", result.errorResult);
       throw new Error(
         `Transaction failed: ${JSON.stringify(result.errorResult)}`,
       );
     }
-
-    return result.hash;
   }
 
   /**

@@ -283,6 +283,8 @@ router.get(
               tokenSymbol: true,
               status: true,
               expectedYield: true,
+              location: true,
+              pricePerToken: true,
             },
           },
         },

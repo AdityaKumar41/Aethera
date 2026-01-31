@@ -12,11 +12,6 @@ import {
   BASE_FEE,
 } from "@stellar/stellar-sdk";
 
-/**
- * Stellar Testnet USDC Asset
- * Issuer: GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
- * Asset Code: USDC
- */
 export const USDC_ASSET_TESTNET = new Asset(
   "USDC",
   "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",

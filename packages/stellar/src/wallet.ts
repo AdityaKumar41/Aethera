@@ -72,6 +72,7 @@ export class WalletService {
       return account.balances.map((b: any) => ({
         asset_type: b.asset_type,
         asset_code: b.asset_code,
+        asset: b.asset_code || "XLM",
         asset_issuer: b.asset_issuer,
         balance: b.balance,
       }));

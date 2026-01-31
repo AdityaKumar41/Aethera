@@ -16,7 +16,7 @@ export interface ContractInvocationResult {
 
 export class ContractService {
   private client: StellarClient;
-  private rpcServer: StellarSdk.SorobanRpc.Server;
+  private rpcServer: StellarSdk.rpc.Server;
 
   constructor(network: NetworkType = 'testnet') {
     this.client = new StellarClient(network);
@@ -50,7 +50,7 @@ export class ContractService {
 
       const simulation = await this.rpcServer.simulateTransaction(transaction);
 
-      if (StellarSdk.SorobanRpc.Api.isSimulationError(simulation)) {
+      if (StellarSdk.rpc.Api.isSimulationError(simulation)) {
         return {
           success: false,
           error: simulation.error,
@@ -58,7 +58,7 @@ export class ContractService {
       }
 
       // Extract result from simulation
-      if (StellarSdk.SorobanRpc.Api.isSimulationSuccess(simulation) && simulation.result) {
+      if (StellarSdk.rpc.Api.isSimulationSuccess(simulation) && simulation.result) {
         return {
           success: true,
           result: simulation.result,
@@ -99,7 +99,7 @@ export class ContractService {
       // Simulate first to get footprint and auth
       const simulation = await this.rpcServer.simulateTransaction(transaction);
 
-      if (StellarSdk.SorobanRpc.Api.isSimulationError(simulation)) {
+      if (StellarSdk.rpc.Api.isSimulationError(simulation)) {
         return {
           success: false,
           error: simulation.error,
@@ -107,7 +107,7 @@ export class ContractService {
       }
 
       // Prepare transaction with simulation results
-      const preparedTx = StellarSdk.SorobanRpc.assembleTransaction(
+      const preparedTx = StellarSdk.rpc.assembleTransaction(
         transaction,
         simulation
       ).build();
@@ -263,9 +263,9 @@ export class ContractService {
   // ============================================
 
   /**
-   * Deposit funds into escrow for a project
+   * Process investment through treasury (atomic USDC transfer and token minting)
    */
-  async depositToEscrow(
+  async processInvestment(
     contractId: string,
     investorKeypair: StellarSdk.Keypair,
     projectId: string,
@@ -273,27 +273,26 @@ export class ContractService {
   ): Promise<ContractInvocationResult> {
     const args = [
       StellarSdk.nativeToScVal(projectId, { type: 'string' }),
+      StellarSdk.nativeToScVal(investorKeypair.publicKey(), { type: 'address' }),
       StellarSdk.nativeToScVal(amount, { type: 'i128' }),
     ];
 
-    return await this.invokeContract(contractId, 'deposit', args, investorKeypair);
+    return await this.invokeContract(contractId, 'process_investment', args, investorKeypair);
   }
 
   /**
-   * Release escrow funds to installer
+   * Release capital to installer (admin only)
    */
-  async releaseEscrow(
+  async releaseCapital(
     contractId: string,
     adminKeypair: StellarSdk.Keypair,
-    projectId: string,
-    installerPublicKey: string
+    projectId: string
   ): Promise<ContractInvocationResult> {
     const args = [
       StellarSdk.nativeToScVal(projectId, { type: 'string' }),
-      StellarSdk.nativeToScVal(installerPublicKey, { type: 'address' }),
     ];
 
-    return await this.invokeContract(contractId, 'release', args, adminKeypair);
+    return await this.invokeContract(contractId, 'release_capital', args, adminKeypair);
   }
 
   // ============================================
@@ -301,38 +300,49 @@ export class ContractService {
   // ============================================
 
   /**
-   * Distribute yield to all token holders
+   * Create a new yield distribution
    */
-  async distributeYield(
+  async createYieldDistribution(
     contractId: string,
     adminKeypair: StellarSdk.Keypair,
     projectId: string,
-    totalAmount: bigint
+    assetTokenAddress: string,
+    periodStart: number,
+    periodEnd: number,
+    totalEnergyKwh: bigint,
+    revenuePerKwh: bigint
   ): Promise<ContractInvocationResult> {
     const args = [
       StellarSdk.nativeToScVal(projectId, { type: 'string' }),
-      StellarSdk.nativeToScVal(totalAmount, { type: 'i128' }),
+      StellarSdk.nativeToScVal(assetTokenAddress, { type: 'address' }),
+      StellarSdk.nativeToScVal(periodStart, { type: 'u64' }),
+      StellarSdk.nativeToScVal(periodEnd, { type: 'u64' }),
+      StellarSdk.nativeToScVal(totalEnergyKwh, { type: 'i128' }),
+      StellarSdk.nativeToScVal(revenuePerKwh, { type: 'i128' }),
     ];
 
-    return await this.invokeContract(contractId, 'distribute', args, adminKeypair);
+    return await this.invokeContract(contractId, 'create_distribution', args, adminKeypair);
   }
 
   /**
-   * Claim yield for an investor (YieldDistributor contract)
+   * Claim yield for an investor
    */
   async claimYield(
     contractId: string,
     investorKeypair: StellarSdk.Keypair,
-    projectId: string
+    distributionId: bigint
   ): Promise<ContractInvocationResult> {
     const args = [
-      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
+      StellarSdk.nativeToScVal(distributionId, { type: 'u64' }),
       StellarSdk.nativeToScVal(investorKeypair.publicKey(), { type: 'address' }),
     ];
 
-    return await this.invokeContract(contractId, 'claim', args, investorKeypair);
+    return await this.invokeContract(contractId, 'claim_yield', args, investorKeypair);
   }
 
+  /**
+   * Commit production data to the blockchain (Oracle contract)
+   */
   /**
    * Commit production data to the blockchain (Oracle contract)
    */
@@ -342,15 +352,13 @@ export class ContractService {
     projectId: string,
     periodStart: number,
     periodEnd: number,
-    energyKwh: bigint,
-    signature: string
+    energyKwh: bigint
   ): Promise<ContractInvocationResult> {
     const args = [
       StellarSdk.nativeToScVal(projectId, { type: 'string' }),
       StellarSdk.nativeToScVal(periodStart, { type: 'u64' }),
       StellarSdk.nativeToScVal(periodEnd, { type: 'u64' }),
       StellarSdk.nativeToScVal(energyKwh, { type: 'i128' }),
-      StellarSdk.nativeToScVal(signature, { type: 'string' }),
     ];
 
     return await this.invokeContract(contractId, 'commit_production', args, signerKeypair);
@@ -374,7 +382,7 @@ export class ContractService {
       StellarSdk.nativeToScVal(pricePerToken, { type: 'i128' }),
     ];
 
-    return await this.invokeContract(contractId, 'buyback', args, adminKeypair);
+    return await this.invokeContract(contractId, 'buyback_tokens', args, adminKeypair);
   }
 }
 

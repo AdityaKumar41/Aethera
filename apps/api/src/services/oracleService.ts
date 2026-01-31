@@ -5,7 +5,7 @@
  * Uses Ed25519 signatures for cryptographic verification.
  */
 
-import { prisma, Prisma } from "@aethera/database";
+import { prisma, Prisma, ProjectStatus, IoTDevice } from "@aethera/database";
 import { createHash, createHmac, randomBytes } from "crypto";
 import * as nacl from "tweetnacl";
 import * as naclUtil from "tweetnacl-util";
@@ -243,12 +243,19 @@ export class OracleService {
       data: { lastSeenAt: new Date() },
     });
 
+    const project = await prisma.project.findUnique({
+      where: { id: device.projectId },
+      select: { status: true },
+    });
+
     await prisma.project.update({
       where: { id: device.projectId },
       data: {
         totalEnergyProduced: { increment: energyKwh },
         carbonCredits: { increment: carbonCredits },
         lastProductionUpdate: new Date(),
+        // Automatically transition to ACTIVE if in ACTIVE_PENDING_DATA
+        ...(project?.status === ProjectStatus.ACTIVE_PENDING_DATA ? { status: ProjectStatus.ACTIVE } : {}),
       },
     });
 
@@ -277,15 +284,14 @@ export class OracleService {
       if (!adminSecret) return;
 
       const adminKeypair = Keypair.fromSecret(adminSecret);
-      const anchorResult = await contractService.commitProduction(
-        contracts.oracle,
-        adminKeypair,
-        projectId,
-        Math.floor(Date.now() / 1000), // Current time for simplicity
-        Math.floor(Date.now() / 1000),
-        BigInt(Math.floor(energyKwh * 100)),
-        signature
-      );
+        const anchorResult = await contractService.commitProduction(
+          contracts.oracle,
+          adminKeypair,
+          projectId,
+          Math.floor(Date.now() / 1000), // Current time for simplicity
+          Math.floor(Date.now() / 1000),
+          BigInt(Math.floor(energyKwh * 100))
+        );
 
       if (anchorResult.success) {
         await prisma.productionData.update({
@@ -394,8 +400,7 @@ export class OracleService {
               submission.data.projectId,
               Math.floor(new Date(submission.data.periodStart || submission.data.recordedAt).getTime() / 1000),
               Math.floor(new Date(submission.data.periodEnd || submission.data.recordedAt).getTime() / 1000),
-              BigInt(Math.floor(submission.data.energyProduced * 100)), // Scale to avoid decimals in contract
-              submission.signature
+              BigInt(Math.floor(submission.data.energyProduced * 100)) // Scale to avoid decimals in contract
             );
 
             if (anchorResult.success) {

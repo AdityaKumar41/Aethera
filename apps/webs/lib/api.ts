@@ -127,6 +127,15 @@ export const projectApi = {
     apiRequest<any>(`/api/projects/${projectId}/production`, { method: 'POST', body: data }),
 };
 
+export const oracleApi = {
+  registerDevice: (data: { projectId: string; publicKey: string; metadata?: any }) =>
+    apiRequest<any>('/api/oracle/devices/register', { method: 'POST', body: data }),
+  getProjectDevices: (projectId: string) =>
+    apiRequest<any[]>(`/api/oracle/projects/${projectId}/devices`),
+  getDeviceTelemetry: (deviceId: string) =>
+    apiRequest<any[]>(`/api/oracle/devices/${deviceId}/telemetry`),
+};
+
 export const adminApi = {
   getPendingKYC: () => apiRequest<any[]>('/api/admin/kyc/pending'),
   approveKYC: (userId: string) => apiRequest<any>(`/api/admin/kyc/${userId}/approve`, { method: 'POST' }),
@@ -252,7 +261,7 @@ export interface Project {
   totalTokens: number;
   tokensRemaining: number;
   tokenSymbol: string;
-  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'FUNDING' | 'FUNDED' | 'ACTIVE' | 'COMPLETED';
+  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'FUNDING' | 'FUNDED' | 'ACTIVE_PENDING_DATA' | 'ACTIVE' | 'COMPLETED';
   installer?: {
     id: string;
     name: string;
@@ -290,7 +299,7 @@ export interface Investment {
   id: string;
   amount: number;
   tokenAmount: number;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: 'PENDING' | 'PENDING_ONCHAIN' | 'CONFIRMED' | 'FAILED' | 'CANCELLED';
   createdAt: string;
   project: {
     id: string;
@@ -299,6 +308,7 @@ export interface Investment {
     status: string;
     expectedYield: number;
     location?: string;
+    pricePerToken?: number;
   };
 }
 

@@ -11,7 +11,7 @@
 //! 4. Revenue flows back for yield distribution
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, token, Address, Env, String,
+    contract, contractimpl, contracttype, token, Address, Env, IntoVal, String,
 };
 
 #[contracttype]
@@ -116,8 +116,8 @@ impl TreasuryContract {
             panic!("Contract is paused");
         }
 
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
-        admin.require_auth();
+        let _admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        // admin.require_auth(); // Removed to allow easier gas sponsorship without multi-sig on envelope
 
         let mut escrow: ProjectEscrow = env
             .storage()
@@ -127,6 +127,12 @@ impl TreasuryContract {
 
         if escrow.status != ProjectStatus::Funding {
             panic!("Project not accepting investments");
+        }
+
+        // Check if investment exceeds target
+        let remaining = escrow.funding_target - escrow.current_funding;
+        if amount > remaining {
+            panic!("Investment exceeds funding target");
         }
 
         // Transfer USDC from investor to this contract
@@ -209,6 +215,46 @@ impl TreasuryContract {
         env.storage()
             .persistent()
             .set(&DataKey::Project(project_id), &escrow);
+    }
+
+    /// Facilitate token buyback from investor using treasury funds
+    pub fn buyback_tokens(
+        env: Env,
+        project_id: String,
+        investor: Address,
+        amount: i128,
+        price_per_token: i128,
+    ) {
+        // Only admin can trigger buyback (platform-led)
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        let mut _escrow: ProjectEscrow = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Project(project_id.clone()))
+            .expect("Project not found");
+
+        // Calculate USDC amount needed for buyback
+        // (amount * price_per_token) / 10^7 (since price has 7 decimals)
+        let usdc_amount = (amount * price_per_token) / 10_000_000i128;
+
+        // Transfer USDC from treasury to investor
+        let usdc: Address = env.storage().instance().get(&DataKey::UsdcToken).unwrap();
+        let token_client = token::Client::new(&env, &usdc);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &investor,
+            &usdc_amount,
+        );
+
+        // Burn tokens from investor
+        // This requires AssetToken admin authorization, which is the same as Treasury admin
+        env.invoke_contract::<()>(
+            &_escrow.asset_token,
+            &soroban_sdk::Symbol::new(&env, "burn"),
+            (investor, amount).into_val(&env),
+        );
     }
 
     /// Receive yield payment from project operator

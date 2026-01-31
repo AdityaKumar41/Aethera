@@ -128,9 +128,6 @@ export class TransactionMonitorService {
           txHash: investment.txHash,
           ledger: result.ledger,
         });
-
-        // Trigger token minting
-        await this.triggerTokenMint(investment);
       } else if (result.error) {
         // Transaction failed
         await this.handleTransactionFailure(investment, result.error);

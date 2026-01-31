@@ -68,4 +68,4 @@ export {
   Contract,
 } from "@stellar/stellar-sdk";
 
-export type { Horizon, SorobanRpc } from "@stellar/stellar-sdk";
+export type { Horizon, rpc } from "@stellar/stellar-sdk";

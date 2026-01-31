@@ -170,8 +170,9 @@ router.post(
           symbol: project.tokenSymbol || `SOL${project.name.substring(0, 3).toUpperCase()}`,
           capacityKw: project.capacity,
           expectedYieldBps: Math.round(project.expectedYield * 100),
-          totalSupply: BigInt(project.totalTokens || 0),
-        }
+          totalSupply: BigInt(Math.round((project.totalTokens || 0) * 10_000_000)), // Apply 10^7 decimals
+        },
+        contracts.treasury // Set Treasury as the admin for minting authority
       );
 
       console.log(`[Admin] Token deployed: ${deploymentResult.contractId}. Registering with Treasury...`);
@@ -307,11 +308,35 @@ router.post(
         throw createApiError("Project is not fully funded yet", 400);
       }
 
-      // Transition to ACTIVE
+      // 1. Trigger on-chain capital release
+      const { contractService, getContractAddresses, walletService } = await import("@aethera/stellar");
+      const { Keypair } = await import("@stellar/stellar-sdk");
+      
+      const contracts = getContractAddresses();
+      const encryptedSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
+      
+      if (contracts.treasury && encryptedSecret) {
+        console.log(`[Admin] Activating project ${project.id}. Releasing capital from Treasury...`);
+        const adminSecret = walletService.decryptSecret(encryptedSecret);
+        const adminKeypair = Keypair.fromSecret(adminSecret);
+        
+        const releaseResult = await contractService.releaseCapital(
+          contracts.treasury,
+          adminKeypair,
+          project.id
+        );
+
+        if (!releaseResult.success) {
+          throw createApiError(`On-chain release failed: ${releaseResult.error}`, 500);
+        }
+        console.log(`[Admin] Capital released. Tx: ${releaseResult.txHash}`);
+      }
+
+      // 2. Transition project to ACTIVE_PENDING_DATA in DB
       const updated = await prisma.project.update({
         where: { id: req.params.id },
         data: {
-          status: "ACTIVE",
+          status: "ACTIVE_PENDING_DATA",
           startDate: new Date(),
         },
       });
@@ -320,9 +345,9 @@ router.post(
       await AuditLogger.logProjectTransition(
         req.params.id,
         "FUNDED",
-        "ACTIVE",
+        "ACTIVE_PENDING_DATA",
         req.auth?.userId!,
-        { adminAction: "activate", activatedAt: new Date() },
+        { adminAction: "activate", activatedAt: new Date(), onChain: true },
       );
 
       res.json({

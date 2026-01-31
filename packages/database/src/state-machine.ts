@@ -14,7 +14,8 @@ const STATE_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   APPROVED: ["FUNDING"], // Auto-transition after contract deployment
   REJECTED: [], // Terminal state (could allow resubmission in future)
   FUNDING: ["FUNDED"], // Auto when target reached
-  FUNDED: ["ACTIVE"], // Admin releases capital
+  FUNDED: ["ACTIVE_PENDING_DATA", "ACTIVE"], // Admin releases capital
+  ACTIVE_PENDING_DATA: ["ACTIVE"], // Auto when first data received
   ACTIVE: ["COMPLETED"], // Project lifecycle ends
   COMPLETED: [], // Terminal state
 };
@@ -34,10 +35,8 @@ const STATE_REQUIREMENTS: Record<ProjectStatus, string[]> = {
   REJECTED: ["Rejection reason required"],
   FUNDING: ["Smart contract must be deployed", "Token contract ID required"],
   FUNDED: ["Funding target must be reached", "At least one investor"],
-  ACTIVE: [
-    "Capital release transaction required",
-    "Project must be fully funded",
-  ],
+  ACTIVE_PENDING_DATA: ["Capital release transaction required", "Wait for IoT data"],
+  ACTIVE: ["Commissioned", "Producing verified energy data"],
   COMPLETED: ["Project must have been active", "All obligations fulfilled"],
 };
 

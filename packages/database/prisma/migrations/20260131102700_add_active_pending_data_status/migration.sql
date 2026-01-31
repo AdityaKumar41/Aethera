@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ProjectStatus" ADD VALUE 'ACTIVE_PENDING_DATA';

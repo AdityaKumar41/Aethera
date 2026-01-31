@@ -68,10 +68,18 @@ export class OracleService {
         throw new Error("Project not found");
       }
 
-      if (project.status !== "ACTIVE" && project.status !== "COMPLETED") {
+      if (project.status !== "ACTIVE" && project.status !== "COMPLETED" && project.status !== "ACTIVE_PENDING_DATA") {
         throw new Error(
           `Cannot record production data for project in ${project.status} status`,
         );
+      }
+
+      // Automatically transition to ACTIVE if in ACTIVE_PENDING_DATA
+      if (project.status === "ACTIVE_PENDING_DATA") {
+        await prisma.project.update({
+          where: { id: data.projectId },
+          data: { status: "ACTIVE" }
+        });
       }
 
       // Create production record

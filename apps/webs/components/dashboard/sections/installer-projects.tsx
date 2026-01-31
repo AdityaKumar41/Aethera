@@ -28,6 +28,7 @@ const statusConfig = {
   REJECTED: { label: "Rejected", color: "bg-red-500", icon: XCircle },
   FUNDING: { label: "Funding", color: "bg-purple-500", icon: DollarSign },
   FUNDED: { label: "Funded", color: "bg-emerald-500", icon: CheckCircle2 },
+  ACTIVE_PENDING_DATA: { label: "Awaiting IoT", color: "bg-orange-500", icon: AlertCircle },
   ACTIVE: { label: "Active", color: "bg-green-500", icon: Zap },
   COMPLETED: { label: "Completed", color: "bg-zinc-600", icon: CheckCircle2 },
 };
@@ -38,7 +39,7 @@ export function InstallerProjectsSection() {
 
   const stats = {
     total: projects.length,
-    active: projects.filter(p => p.status === "ACTIVE").length,
+    active: projects.filter(p => p.status === "ACTIVE" || p.status === "ACTIVE_PENDING_DATA").length,
     funding: projects.filter(p => p.status === "FUNDING").length,
     pending: projects.filter(p => p.status === "PENDING_APPROVAL").length,
   };
@@ -177,7 +178,7 @@ export function InstallerProjectsSection() {
                       </div>
 
                       {/* Funding progress */}
-                      {(project.status === "FUNDING" || project.status === "FUNDED" || project.status === "ACTIVE") && (
+                      {(project.status === "FUNDING" || project.status === "FUNDED" || project.status === "ACTIVE_PENDING_DATA" || project.status === "ACTIVE") && (
                         <div className="mt-3">
                           <div className="flex items-center justify-between text-sm mb-1">
                             <span className="text-muted-foreground">Funding progress</span>

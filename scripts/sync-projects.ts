@@ -12,7 +12,7 @@ async function main() {
   // Load contract addresses manually if needed, or rely on hardcoded for this fix
   // Contracts list from registry.ts (Testnet)
   const contracts = {
-      treasury: "CBVWVM66CY7QULF2E3M2ZVVNDQIPY3SH7Z7QIANJWT23FERCBUWROOAX"
+      treasury: "CDYO6MEI2KT65O3NN3OEBPTCLJIMFSWKEUVL4SZFHFLXU2OSMNQJONL2"
   };
   console.log("Treasury ID:", contracts.treasury);
 
@@ -67,7 +67,7 @@ async function main() {
   console.log(`Found ${projects.length} projects to sync.`);
 
   // Use raw SDK servers to avoid StellarClient wrapper issues
-  const server = new StellarSdk.SorobanRpc.Server("https://soroban-testnet.stellar.org");
+  const server = new StellarSdk.rpc.Server("https://soroban-testnet.stellar.org");
   const networkPassphrase = "Test SDF Network ; September 2015";
   const treasury = new StellarSdk.Contract(contracts.treasury);
 
@@ -101,7 +101,8 @@ async function main() {
                 StellarSdk.nativeToScVal(project.tokenContractId, { type: "address" }),
                 StellarSdk.nativeToScVal(project.installer.stellarPubKey, { type: "address" }),
                 StellarSdk.nativeToScVal(BigInt(Math.round(Number(project.fundingTarget) * 10_000_000)), { type: "i128" }), // USDC 7 decimals
-                StellarSdk.nativeToScVal(250, { type: "u32" }) // 2.5% fee hardcoded
+                StellarSdk.nativeToScVal(250, { type: "u32" }), // 2.5% fee hardcoded
+                StellarSdk.nativeToScVal(BigInt(Math.round(Number(project.pricePerToken) * 10_000_000)), { type: "i128" }) // price per token
             )
         )
         .setTimeout(180)

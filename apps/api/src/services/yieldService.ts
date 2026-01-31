@@ -55,14 +55,20 @@ export class YieldService {
         
         const adminKeypair = Keypair.fromSecret(adminSecret);
         
-        // Scale total yield for on-chain (7 decimals for USDC)
-        const totalYieldScaled = BigInt(Math.round(distribution.totalYield * 10_000_000));
+        // Total energy and revenue per kWh should be extracted from distribution logic
+        // For now we calculate defaults based on the distribution record
+        const energyKwhScaled = BigInt(Math.round(distribution.totalEnergyProduced * 10000));
+        const revenuePerKwhScaled = BigInt(Math.round(params.revenuePerKwh * 10_000_000));
         
-        const result = await contractService.distributeYield(
+        const result = await contractService.createYieldDistribution(
           contracts.yieldDistributor,
           adminKeypair,
           params.projectId,
-          totalYieldScaled
+          (distribution as any).project?.tokenContractId || "",
+          Math.floor(params.periodStart.getTime() / 1000),
+          Math.floor(params.periodEnd.getTime() / 1000),
+          energyKwhScaled,
+          revenuePerKwhScaled
         );
         
         if (result.success && result.txHash) {
@@ -113,7 +119,7 @@ export class YieldService {
         const result = await contractService.claimYield(
           contracts.yieldDistributor,
           investorKeypair,
-          claim.distribution.projectId
+          BigInt(claim.distribution.id)
         );
         
         if (result.success && result.txHash) {

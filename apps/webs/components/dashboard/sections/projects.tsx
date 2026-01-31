@@ -44,6 +44,11 @@ const statusConfig = {
     color: "bg-amber-500",
     textColor: "text-amber-600",
   },
+  pending_onchain: {
+    label: "Processing",
+    color: "bg-blue-500/80 animate-pulse",
+    textColor: "text-blue-600",
+  },
 };
 
 interface MappedProject {
@@ -72,19 +77,59 @@ export function ProjectsSection() {
   const [showSellModal, setShowSellModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Map investments to project format
-  const myProjects: MappedProject[] = investments.map((inv) => ({
-    id: inv.id,
-    projectId: inv.project.id,
-    name: inv.project.name,
-    location: inv.project.location || "Unknown location",
-    tokensOwned: inv.tokenAmount,
-    tokenValue: inv.amount, // Current value same as purchase for now
-    purchasePrice: inv.amount,
-    pricePerToken: inv.amount / Math.max(inv.tokenAmount, 1), // Calculate from amount and token count
-    cumulativeYield: 0, // Would come from yield history
-    status: (inv.project.status?.toLowerCase() ||
-      inv.status.toLowerCase()) as keyof typeof statusConfig,
+  // Group investments by project and filter out failed ones
+  const projectGroups = investments.reduce((acc: Record<string, any>, inv) => {
+    if (inv.status === "FAILED") return acc;
+
+    const pid = inv.project.id;
+    if (!acc[pid]) {
+      acc[pid] = {
+        id: inv.project.id,
+        projectId: inv.project.id,
+        name: inv.project.name,
+        location: inv.project.location || "Unknown location",
+        tokensOwned: 0,
+        purchasePrice: 0,
+        projectStatus: inv.project.status,
+        investmentStatus: inv.status,
+        currentPricePerToken: Number(inv.project.pricePerToken) || 100,
+      };
+    }
+
+    acc[pid].tokensOwned += inv.tokenAmount;
+    acc[pid].purchasePrice += Number(inv.amount);
+    
+    // Update display status priority
+    if (inv.status === "CONFIRMED") acc[pid].investmentStatus = "CONFIRMED";
+    else if (inv.status === "PENDING_ONCHAIN" && acc[pid].investmentStatus !== "CONFIRMED") {
+      acc[pid].investmentStatus = "PENDING_ONCHAIN";
+    }
+
+    return acc;
+  }, {});
+
+  const myProjects: MappedProject[] = Object.values(projectGroups).map((group: any) => ({
+    id: group.id,
+    projectId: group.projectId,
+    name: group.name,
+    location: group.location,
+    tokensOwned: group.tokensOwned,
+    tokenValue: group.tokensOwned * group.currentPricePerToken,
+    purchasePrice: group.purchasePrice,
+    pricePerToken: group.purchasePrice / Math.max(group.tokensOwned, 1),
+    cumulativeYield: 0,
+    status: (() => {
+      const pStatus = group.projectStatus?.toLowerCase();
+      const iStatus = group.investmentStatus.toLowerCase();
+      
+      if (pStatus === "active" || pStatus === "producing") return "producing";
+      if (iStatus === "pending_onchain") return "pending_onchain";
+      if (iStatus === "pending") return "pending";
+      if (pStatus === "funded") return "funded";
+      if (pStatus === "funding") return "funding";
+      
+      return "confirmed";
+    })() as keyof typeof statusConfig,
     energyToday: 0,
     energyMonth: 0,
     lastYieldDate: null,

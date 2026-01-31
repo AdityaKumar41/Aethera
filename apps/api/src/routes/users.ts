@@ -339,7 +339,7 @@ router.get("/portfolio", async (req: AuthenticatedRequest, res, next) => {
     const investments = await prisma.investment.findMany({
       where: {
         investorId: req.auth?.userId,
-        status: "CONFIRMED",
+        status: { in: ["CONFIRMED", "PENDING_ONCHAIN"] },
       },
       include: {
         project: {

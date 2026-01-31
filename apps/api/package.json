@@ -19,7 +19,7 @@
     "@aethera/types": "workspace:*",
     "@clerk/clerk-sdk-node": "^5.1.6",
     "@clerk/express": "^1.0.0",
-    "@stellar/stellar-sdk": "^12.3.0",
+    "@stellar/stellar-sdk": "^14.5.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",

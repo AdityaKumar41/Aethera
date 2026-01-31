@@ -4,7 +4,7 @@
 
 import {
   Contract,
-  SorobanRpc,
+  rpc,
   TransactionBuilder,
   Operation,
   Keypair,
@@ -17,14 +17,14 @@ import { getNetworkConfig } from "./config";
 
 export class SorobanContractService {
   private client: StellarClient;
-  private rpcServer: SorobanRpc.Server;
+  private rpcServer: rpc.Server;
   private assetTokenContract: Contract | null = null;
   private treasuryContract: Contract | null = null;
 
   constructor(client: StellarClient) {
     this.client = client;
     const config = getNetworkConfig(client.getNetwork());
-    this.rpcServer = new SorobanRpc.Server(config.rpcUrl);
+    this.rpcServer = new rpc.Server(config.rpcUrl);
 
     // Initialize contracts
     if (config.assetTokenContractId) {
@@ -78,12 +78,12 @@ export class SorobanContractService {
 
     // Simulate first
     const simulated = await this.rpcServer.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationError(simulated)) {
+    if (rpc.Api.isSimulationError(simulated)) {
       throw new Error(`Simulation failed: ${simulated.error}`);
     }
 
     // Prepare and sign
-    const prepared = SorobanRpc.assembleTransaction(tx, simulated).build();
+    const prepared = rpc.assembleTransaction(tx, simulated).build();
     prepared.sign(params.sourceKeypair);
 
     // Submit
@@ -137,11 +137,11 @@ export class SorobanContractService {
       .build();
 
     const simulated = await this.rpcServer.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationError(simulated)) {
+    if (rpc.Api.isSimulationError(simulated)) {
       throw new Error(`Simulation failed: ${simulated.error}`);
     }
 
-    const prepared = SorobanRpc.assembleTransaction(tx, simulated).build();
+    const prepared = rpc.assembleTransaction(tx, simulated).build();
     prepared.sign(params.sourceKeypair);
 
     const result = await this.rpcServer.sendTransaction(prepared);
@@ -204,11 +204,11 @@ export class SorobanContractService {
       .build();
 
     const simulated = await this.rpcServer.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationError(simulated)) {
+    if (rpc.Api.isSimulationError(simulated)) {
       throw new Error(`Simulation failed: ${simulated.error}`);
     }
 
-    const prepared = SorobanRpc.assembleTransaction(tx, simulated).build();
+    const prepared = rpc.assembleTransaction(tx, simulated).build();
     prepared.sign(params.sourceKeypair);
 
     const result = await this.rpcServer.sendTransaction(prepared);
@@ -280,11 +280,11 @@ export class SorobanContractService {
       .build();
 
     const simulated = await this.rpcServer.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationError(simulated)) {
+    if (rpc.Api.isSimulationError(simulated)) {
       throw new Error(`Simulation failed: ${simulated.error}`);
     }
 
-    const prepared = SorobanRpc.assembleTransaction(tx, simulated).build();
+    const prepared = rpc.assembleTransaction(tx, simulated).build();
     prepared.sign(params.sourceKeypair);
 
     const result = await this.rpcServer.sendTransaction(prepared);

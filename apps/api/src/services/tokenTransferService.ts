@@ -21,6 +21,19 @@ interface CreateTransferListingParams {
   pricePerToken: number;
 }
 
+interface TokenListing {
+  seller: {
+    id: string;
+    email: string;
+    name: string | null;
+  };
+  project: {
+    id: string;
+    name: string;
+    pricePerToken: number;
+    tokenSymbol?: string;
+  };
+}
 interface AcceptTransferParams {
   transferId: string;
   buyerId: string;
@@ -224,10 +237,10 @@ export class TokenTransferService {
       },
       include: {
         seller: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, email: true },
         },
         project: {
-          select: { name: true, tokenSymbol: true, expectedYield: true },
+          select: { name: true, tokenSymbol: true, expectedYield: true, pricePerToken: true },
         },
       },
       orderBy: { createdAt: "desc" },

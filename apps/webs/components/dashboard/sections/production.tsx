@@ -9,11 +9,15 @@ import {
   Loader2, 
   History,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Info,
+  SignalLow
 } from "lucide-react";
 import { useInstallerProjects } from "@/hooks/use-dashboard-data";
 import { projectApi } from "@/lib/api";
 import { toast } from "sonner";
+import { IoTDeviceManager } from "./iot-device-manager";
+import { SimulationGuide } from "./simulation-guide";
 
 export function ProductionSection() {
   const { projects, loading: projectsLoading } = useInstallerProjects();
@@ -23,7 +27,7 @@ export function ProductionSection() {
   const [notes, setNotes] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
-  const activeProjects = projects.filter(p => p.status === "ACTIVE" || p.status === "COMPLETED");
+  const activeProjects = projects.filter(p => p.status === "ACTIVE" || p.status === "COMPLETED" || p.status === "ACTIVE_PENDING_DATA");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +158,37 @@ export function ProductionSection() {
                 </div>
               )}
             </form>
+            
+            {selectedProjectId && (
+              <div className="mt-8 border-t border-zinc-100 pt-6">
+                <IoTDeviceManager 
+                  projectId={selectedProjectId} 
+                  onDeviceRegistered={() => {
+                    // Refresh projects to update status if needed
+                  }}
+                />
+              </div>
+            )}
           </div>
+
+          {selectedProjectId && projects.find(p => p.id === selectedProjectId)?.status === "ACTIVE_PENDING_DATA" && (
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                <SignalLow className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-orange-900 text-sm mb-1">Awaiting First IoT Signal</h4>
+                <p className="text-xs text-orange-700 leading-relaxed">
+                  This project is ready to go live! Once your registered device sends its first verified telemetry packet, the status will automatically switch to <strong>Active</strong>.
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  <code className="px-2 py-1 bg-white border border-orange-200 rounded text-[10px] font-mono text-orange-800">
+                    PROJECT_ID={selectedProjectId}
+                  </code>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats & History */}
@@ -194,6 +228,12 @@ export function ProductionSection() {
               <p className="text-sm text-muted-foreground">No recent production records found.</p>
             </div>
           </div>
+
+          {selectedProjectId && (
+            <div className="mt-6">
+              <SimulationGuide projectId={selectedProjectId} />
+            </div>
+          )}
         </div>
       </div>
     </div>

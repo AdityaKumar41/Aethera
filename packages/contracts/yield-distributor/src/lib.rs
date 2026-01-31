@@ -13,7 +13,7 @@
 //! 5. Holders claim their yield
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, token, Address, Env, String, Symbol, Vec,
+    contract, contractimpl, contracttype, token, Address, Env, IntoVal, String, Symbol,
 };
 
 // ============================================
@@ -426,11 +426,10 @@ impl YieldDistributorContract {
     /// Get total supply from asset token contract
     fn get_asset_token_supply(env: &Env, asset_token: &Address) -> i128 {
         // Call the asset token contract to get total supply
-        // This creates a cross-contract call
         env.invoke_contract::<i128>(
             asset_token,
             &Symbol::new(env, "total_supply"),
-            soroban_sdk::vec![env],
+            soroban_sdk::Vec::new(env),
         )
     }
 
@@ -440,7 +439,7 @@ impl YieldDistributorContract {
         env.invoke_contract::<i128>(
             asset_token,
             &Symbol::new(env, "balance"),
-            soroban_sdk::vec![env, holder.to_val()],
+            (holder.clone(),).into_val(env),
         )
     }
 }

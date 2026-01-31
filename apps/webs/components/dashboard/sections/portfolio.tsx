@@ -32,6 +32,11 @@ export function PortfolioSection() {
         status: inv.status.toLowerCase() as "completed" | "pending",
     })) || [];
 
+    const getDisplayStatus = (status: string): "completed" | "pending" => {
+        if (status === "CONFIRMED" || status === "SUCCESS") return "completed";
+        return "pending";
+    };
+
     const transactions = [
         ...(yieldSummary?.recentClaims || []).map((c: any) => ({
             id: c.id,
@@ -47,7 +52,7 @@ export function PortfolioSection() {
             project: i.project?.name || "Solar Project",
             amount: Number(i.amount),
             date: new Date(i.createdAt).toLocaleDateString(),
-            status: "completed" as const,
+            status: getDisplayStatus(i.status),
         }))
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 

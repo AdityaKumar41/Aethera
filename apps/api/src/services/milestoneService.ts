@@ -123,11 +123,10 @@ export class MilestoneService {
         const relayerKeypair = Keypair.fromSecret(relayerSecret);
         // Note: Using releaseEscrow for now as a fallback if release_milestone isn't available
         // In production, we'd call the specific milestone release method
-        const result = await contractService.releaseEscrow(
+        const result = await contractService.releaseCapital(
           contracts.treasury,
           relayerKeypair,
-          project.id,
-          project.installer.stellarPubKey
+          project.id
         );
         
         if (result.success) {
@@ -171,7 +170,7 @@ export class MilestoneService {
       if (remainingMilestones === 0 && project.status !== ProjectStatus.ACTIVE) {
         await tx.project.update({
           where: { id: project.id },
-          data: { status: ProjectStatus.ACTIVE },
+          data: { status: ProjectStatus.ACTIVE_PENDING_DATA },
         });
       }
 

@@ -8,7 +8,7 @@ import { getNetworkConfig, type NetworkType } from './config';
 export class StellarClient {
   private network: NetworkType;
   private horizonServer: StellarSdk.Horizon.Server;
-  private rpcServer: StellarSdk.SorobanRpc.Server;
+  private rpcServer: StellarSdk.rpc.Server;
   private networkPassphrase: string;
 
   constructor(network: NetworkType = 'testnet') {
@@ -16,13 +16,13 @@ export class StellarClient {
     const config = getNetworkConfig(network);
     this.networkPassphrase = config.networkPassphrase;
     this.horizonServer = new StellarSdk.Horizon.Server(config.horizonUrl);
-    this.rpcServer = new StellarSdk.SorobanRpc.Server(config.rpcUrl);
+    this.rpcServer = new StellarSdk.rpc.Server(config.rpcUrl);
   }
   public get horizon(): StellarSdk.Horizon.Server {
     return this.horizonServer;
   }
 
-  public get rpc(): StellarSdk.SorobanRpc.Server {
+  public get rpc(): StellarSdk.rpc.Server {
     return this.rpcServer;
   }
 
@@ -249,7 +249,7 @@ export class StellarClient {
     return this.horizonServer;
   }
 
-  getRpcServer(): StellarSdk.SorobanRpc.Server {
+  getRpcServer(): StellarSdk.rpc.Server {
     return this.rpcServer;
   }
 
