@@ -2,14 +2,14 @@
 // User Routes
 // ============================================
 
-import { Router } from 'express';
-import { z } from 'zod';
-import { prisma } from '@aethera/database';
-import { walletService } from '@aethera/stellar';
-import { impactService } from '../services/impactService.js';
-import { authenticate, type AuthenticatedRequest } from '../middleware/auth.js';
-import { createApiError } from '../middleware/error.js';
-import { syncKycStatus } from './kyc.js';
+import { Router } from "express";
+import { z } from "zod";
+import { prisma } from "@aethera/database";
+import { walletService } from "@aethera/stellar";
+import { impactService } from "../services/impactService.js";
+import { authenticate, type AuthenticatedRequest } from "../middleware/auth.js";
+import { createApiError } from "../middleware/error.js";
+import { syncKycStatus } from "./kyc.js";
 
 const router = Router();
 
@@ -20,14 +20,14 @@ router.use(authenticate);
 // Get User Profile
 // ============================================
 
-router.get('/profile', async (req: AuthenticatedRequest, res, next) => {
+router.get("/profile", async (req: AuthenticatedRequest, res, next) => {
   try {
     // Sync KYC status inline
     let kycSyncResult = null;
     try {
       kycSyncResult = await syncKycStatus(req.auth!.userId);
     } catch (e) {
-      console.error('[User Profile] KYC sync failed:', e);
+      console.error("[User Profile] KYC sync failed:", e);
     }
 
     const user = await prisma.user.findUnique({
@@ -49,15 +49,15 @@ router.get('/profile', async (req: AuthenticatedRequest, res, next) => {
     });
 
     if (!user) {
-      throw createApiError('User not found', 404);
+      throw createApiError("User not found", 404);
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: {
         ...user,
-        kycStatus: kycSyncResult?.status || user.kycStatus
-      } 
+        kycStatus: kycSyncResult?.status || user.kycStatus,
+      },
     });
   } catch (error) {
     next(error);
@@ -76,7 +76,7 @@ const updateProfileSchema = z.object({
   country: z.string().optional(),
 });
 
-router.patch('/profile', async (req: AuthenticatedRequest, res, next) => {
+router.patch("/profile", async (req: AuthenticatedRequest, res, next) => {
   try {
     const data = updateProfileSchema.parse(req.body);
 
@@ -105,7 +105,7 @@ router.patch('/profile', async (req: AuthenticatedRequest, res, next) => {
 // Get Wallet Balances
 // ============================================
 
-router.get('/wallet/balances', async (req: AuthenticatedRequest, res, next) => {
+router.get("/wallet/balances", async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.auth?.userId },
@@ -120,11 +120,36 @@ router.get('/wallet/balances', async (req: AuthenticatedRequest, res, next) => {
       return;
     }
 
-    const [balances, claimableBalances, funded] = await Promise.all([
+    const [rawBalances, claimableBalances, funded] = await Promise.all([
       walletService.getBalances(user.stellarPubKey),
       walletService.getClaimableBalances(user.stellarPubKey),
       walletService.isAccountFunded(user.stellarPubKey),
     ]);
+
+    // Transform and aggregate balances
+    const balanceMap = new Map<string, { asset: string; balance: number }>();
+
+    rawBalances.forEach((b: any) => {
+      const assetCode =
+        b.asset_type === "native" ? "XLM" : b.asset_code || "UNKNOWN";
+      const balance = parseFloat(b.balance);
+
+      // Aggregate balances by asset code (combine all USDC from different issuers)
+      if (balanceMap.has(assetCode)) {
+        const existing = balanceMap.get(assetCode)!;
+        existing.balance += balance;
+      } else {
+        balanceMap.set(assetCode, { asset: assetCode, balance });
+      }
+    });
+
+    // Convert to array and filter out zero balances
+    const balances = Array.from(balanceMap.values())
+      .filter((b) => b.balance > 0)
+      .map((b) => ({
+        asset: b.asset,
+        balance: b.balance.toFixed(7), // 7 decimals for Stellar assets
+      }));
 
     res.json({
       success: true,
@@ -144,12 +169,12 @@ router.get('/wallet/balances', async (req: AuthenticatedRequest, res, next) => {
 // Claim Wallet Balances
 // ============================================
 
-router.post('/wallet/claim', async (req: AuthenticatedRequest, res, next) => {
+router.post("/wallet/claim", async (req: AuthenticatedRequest, res, next) => {
   try {
     const { balanceIds } = req.body;
-    
+
     if (!balanceIds || !Array.isArray(balanceIds) || balanceIds.length === 0) {
-      throw createApiError('balanceIds array is required', 400);
+      throw createApiError("balanceIds array is required", 400);
     }
 
     const user = await prisma.user.findUnique({
@@ -158,18 +183,24 @@ router.post('/wallet/claim', async (req: AuthenticatedRequest, res, next) => {
     });
 
     if (!user?.stellarSecretEncrypted) {
-      throw createApiError('Custodial wallet not configured or secret missing. Use the command line script with your secret.', 400);
+      throw createApiError(
+        "Custodial wallet not configured or secret missing. Use the command line script with your secret.",
+        400,
+      );
     }
 
-    const result = await walletService.claimBalances(user.stellarSecretEncrypted, balanceIds);
+    const result = await walletService.claimBalances(
+      user.stellarSecretEncrypted,
+      balanceIds,
+    );
 
     if (!result.success) {
-      throw createApiError(result.error || 'Failed to claim balances', 500);
+      throw createApiError(result.error || "Failed to claim balances", 500);
     }
 
     res.json({
       success: true,
-      message: 'Balances claimed successfully',
+      message: "Balances claimed successfully",
       txHash: result.txHash,
     });
   } catch (error) {
@@ -181,67 +212,75 @@ router.post('/wallet/claim', async (req: AuthenticatedRequest, res, next) => {
 // Get Wallet Transactions
 // ============================================
 
-router.get('/wallet/transactions', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.auth?.userId },
-      select: { stellarPubKey: true },
-    });
+router.get(
+  "/wallet/transactions",
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { stellarPubKey: true },
+      });
 
-    if (!user?.stellarPubKey) {
-      res.json({ success: true, data: [] });
-      return;
+      if (!user?.stellarPubKey) {
+        res.json({ success: true, data: [] });
+        return;
+      }
+
+      const transactions = await walletService.getTransactions(
+        user.stellarPubKey,
+      );
+      res.json({ success: true, data: transactions });
+    } catch (error) {
+      next(error);
     }
-
-    const transactions = await walletService.getTransactions(user.stellarPubKey);
-    res.json({ success: true, data: transactions });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 // ============================================
 // Fund Wallet (Friendbot - Testnet)
 // ============================================
 
-router.post('/wallet/fund/friendbot', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.auth?.userId },
-      select: { stellarPubKey: true },
-    });
+router.post(
+  "/wallet/fund/friendbot",
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.auth?.userId },
+        select: { stellarPubKey: true },
+      });
 
-    if (!user?.stellarPubKey) {
-      throw createApiError('Stellar wallet not initialized', 400);
+      if (!user?.stellarPubKey) {
+        throw createApiError("Stellar wallet not initialized", 400);
+      }
+
+      const success = await walletService.fundWithFriendbot(user.stellarPubKey);
+
+      if (!success) {
+        throw createApiError("Friendbot funding failed", 500);
+      }
+
+      res.json({
+        success: true,
+        message: "Account funded successfully",
+      });
+    } catch (error) {
+      next(error);
     }
-
-    const success = await walletService.fundWithFriendbot(user.stellarPubKey);
-    
-    if (!success) {
-      throw createApiError('Friendbot funding failed', 500);
-    }
-
-    res.json({ 
-      success: true, 
-      message: 'Account funded successfully' 
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 // ============================================
 // Submit KYC (Mock Implementation)
 // ============================================
 
 const kycSubmitSchema = z.object({
-  idType: z.enum(['passport', 'drivers_license', 'national_id']),
+  idType: z.enum(["passport", "drivers_license", "national_id"]),
   idNumber: z.string().min(5),
   dateOfBirth: z.string(),
   nationality: z.string(),
 });
 
-router.post('/kyc/submit', async (req: AuthenticatedRequest, res, next) => {
+router.post("/kyc/submit", async (req: AuthenticatedRequest, res, next) => {
   try {
     const data = kycSubmitSchema.parse(req.body);
 
@@ -249,7 +288,7 @@ router.post('/kyc/submit', async (req: AuthenticatedRequest, res, next) => {
     const user = await prisma.user.update({
       where: { id: req.auth?.userId },
       data: {
-        kycStatus: 'IN_REVIEW',
+        kycStatus: "IN_REVIEW",
         kycSubmittedAt: new Date(),
         kycDocuments: data,
       },
@@ -262,7 +301,7 @@ router.post('/kyc/submit', async (req: AuthenticatedRequest, res, next) => {
 
     res.json({
       success: true,
-      message: 'KYC submitted for review',
+      message: "KYC submitted for review",
       data: user,
     });
   } catch (error) {
@@ -274,7 +313,7 @@ router.post('/kyc/submit', async (req: AuthenticatedRequest, res, next) => {
 // Get KYC Status
 // ============================================
 
-router.get('/kyc/status', async (req: AuthenticatedRequest, res, next) => {
+router.get("/kyc/status", async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.auth?.userId },
@@ -295,12 +334,12 @@ router.get('/kyc/status', async (req: AuthenticatedRequest, res, next) => {
 // Get User's Investments (Portfolio)
 // ============================================
 
-router.get('/portfolio', async (req: AuthenticatedRequest, res, next) => {
+router.get("/portfolio", async (req: AuthenticatedRequest, res, next) => {
   try {
     const investments = await prisma.investment.findMany({
-      where: { 
+      where: {
         investorId: req.auth?.userId,
-        status: 'CONFIRMED',
+        status: "CONFIRMED",
       },
       include: {
         project: {
@@ -315,17 +354,17 @@ router.get('/portfolio', async (req: AuthenticatedRequest, res, next) => {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     // Calculate portfolio stats
     const totalInvested = investments.reduce(
-      (sum: number, inv) => sum + Number(inv.amount), 
-      0
+      (sum: number, inv) => sum + Number(inv.amount),
+      0,
     );
     const totalTokens = investments.reduce(
-      (sum: number, inv) => sum + inv.tokenAmount, 
-      0
+      (sum: number, inv) => sum + inv.tokenAmount,
+      0,
     );
 
     // Get pending yields
@@ -341,7 +380,7 @@ router.get('/portfolio', async (req: AuthenticatedRequest, res, next) => {
 
     const pendingYieldAmount = pendingYields.reduce(
       (sum: number, y) => sum + Number(y.amount),
-      0
+      0,
     );
 
     // Calculate total impact (based on pro-rata share of project production)

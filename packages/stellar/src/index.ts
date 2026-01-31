@@ -9,10 +9,14 @@ export { getNetworkConfig, NETWORKS, type NetworkType } from "./config";
 export { StellarClient, stellarClient } from "./client";
 
 // Wallet Service
-export { WalletService, walletService } from "./wallet";
+export { WalletService, walletService, fundWithFriendbot } from "./wallet";
 
 // Contract Service
-export { ContractService, contractService, type ContractInvocationResult } from "./contracts";
+export {
+  ContractService,
+  contractService,
+  type ContractInvocationResult,
+} from "./contracts";
 
 // Contract Deployment Service
 export {
@@ -33,7 +37,12 @@ export {
 export { SorobanContractService, getSorobanService } from "./soroban";
 
 // Relayer Service (Admin gas sponsorship)
-export { RelayerService, getRelayerService, relayerService } from "./relayer";
+export {
+  RelayerService,
+  getRelayerService,
+  relayerService,
+  getOrCreateRelayerAccount,
+} from "./relayer";
 
 // Contract Registry
 export {

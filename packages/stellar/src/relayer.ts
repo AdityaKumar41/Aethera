@@ -1,11 +1,17 @@
 /**
  * Relayer Service
- * 
+ *
  * Manages the admin relayer wallet for sponsoring user transactions.
  * The relayer pays gas fees so users don't need XLM for transactions.
  */
 
-import { Keypair, Transaction, TransactionBuilder, FeeBumpTransaction, Networks } from "@stellar/stellar-sdk";
+import {
+  Keypair,
+  Transaction,
+  TransactionBuilder,
+  FeeBumpTransaction,
+  Networks,
+} from "@stellar/stellar-sdk";
 import type { Horizon } from "@stellar/stellar-sdk";
 import { StellarClient, stellarClient } from "./client";
 import { getNetworkConfig } from "./config";
@@ -51,7 +57,7 @@ export class RelayerService {
   async initialize(): Promise<void> {
     // Refresh encryption key in case env vars were loaded late
     this.encryptionKey = this.generateEncryptionKey();
-    
+
     const publicKey = process.env.ADMIN_RELAYER_PUBLIC_KEY;
     const encryptedSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
 
@@ -91,7 +97,7 @@ export class RelayerService {
    */
   async getWalletInfo(): Promise<RelayerWalletInfo | null> {
     const publicKey = process.env.ADMIN_RELAYER_PUBLIC_KEY;
-    
+
     if (!publicKey) {
       return null;
     }
@@ -99,7 +105,7 @@ export class RelayerService {
     try {
       const server = this.client.getHorizonServer();
       const account = await server.loadAccount(publicKey);
-      
+
       // Find XLM and USDC balances
       let xlmBalance = "0";
       let usdcBalance = "0";
@@ -141,7 +147,9 @@ export class RelayerService {
    * Sign and sponsor a user transaction (fee bump)
    * The relayer pays the gas fee instead of the user
    */
-  async sponsorTransaction(userTransaction: Transaction): Promise<FeeBumpTransaction> {
+  async sponsorTransaction(
+    userTransaction: Transaction,
+  ): Promise<FeeBumpTransaction> {
     if (!this.relayerKeypair) {
       throw new Error("Relayer not initialized");
     }
@@ -151,7 +159,7 @@ export class RelayerService {
       this.relayerKeypair,
       "1000000", // 0.1 XLM max fee
       userTransaction,
-      config.networkPassphrase
+      config.networkPassphrase,
     );
 
     feeBumpTx.sign(this.relayerKeypair);
@@ -170,9 +178,11 @@ export class RelayerService {
   /**
    * Get recent transactions for the relayer wallet
    */
-  async getRecentTransactions(limit: number = 10): Promise<RelayerTransaction[]> {
+  async getRecentTransactions(
+    limit: number = 10,
+  ): Promise<RelayerTransaction[]> {
     const publicKey = process.env.ADMIN_RELAYER_PUBLIC_KEY;
-    
+
     if (!publicKey) {
       return [];
     }
@@ -191,7 +201,7 @@ export class RelayerService {
         type: "sponsor" as const,
         amount: tx.fee_charged,
         timestamp: new Date(tx.created_at),
-        status: tx.successful ? "success" as const : "failed" as const,
+        status: tx.successful ? ("success" as const) : ("failed" as const),
       }));
     } catch (error) {
       console.error("[Relayer] Failed to get transactions:", error);
@@ -204,7 +214,7 @@ export class RelayerService {
    */
   async fundFromFriendbot(): Promise<boolean> {
     const publicKey = process.env.ADMIN_RELAYER_PUBLIC_KEY;
-    
+
     if (!publicKey) {
       throw new Error("Relayer public key not configured");
     }
@@ -216,9 +226,9 @@ export class RelayerService {
 
     try {
       const response = await fetch(
-        `https://friendbot.stellar.org?addr=${encodeURIComponent(publicKey)}`
+        `https://friendbot.stellar.org?addr=${encodeURIComponent(publicKey)}`,
       );
-      
+
       if (!response.ok) {
         throw new Error(`Friendbot request failed: ${response.statusText}`);
       }
@@ -255,7 +265,7 @@ export class RelayerService {
     const decipher = crypto.createDecipheriv(
       "aes-256-cbc",
       Buffer.from(this.encryptionKey),
-      iv
+      iv,
     );
 
     let decrypted = decipher.update(encryptedText);
@@ -272,7 +282,7 @@ export class RelayerService {
     const cipher = crypto.createCipheriv(
       "aes-256-cbc",
       Buffer.from(this.encryptionKey),
-      iv
+      iv,
     );
 
     let encrypted = cipher.update(secret);
@@ -293,3 +303,39 @@ export function getRelayerService(): RelayerService {
 }
 
 export const relayerService = new RelayerService();
+
+/**
+ * Helper function to get or create the relayer account keypair
+ */
+export async function getOrCreateRelayerAccount(): Promise<Keypair> {
+  const publicKey = process.env.ADMIN_RELAYER_PUBLIC_KEY;
+  const encryptedSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
+
+  if (!publicKey || !encryptedSecret) {
+    throw new Error(
+      "Relayer wallet not configured. Please set ADMIN_RELAYER_PUBLIC_KEY and ADMIN_RELAYER_SECRET_ENCRYPTED",
+    );
+  }
+
+  // Decrypt the secret
+  const encryptionKey = crypto
+    .createHash("sha256")
+    .update(process.env.WALLET_ENCRYPTION_SECRET || "default-aethera-dev-key")
+    .digest("base64")
+    .slice(0, 32);
+
+  const [ivHex, encryptedHex] = encryptedSecret.split(":");
+  const iv = Buffer.from(ivHex, "hex");
+  const encryptedText = Buffer.from(encryptedHex, "hex");
+  const decipher = crypto.createDecipheriv(
+    "aes-256-cbc",
+    Buffer.from(encryptionKey),
+    iv,
+  );
+
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  const secret = decrypted.toString();
+
+  return Keypair.fromSecret(secret);
+}

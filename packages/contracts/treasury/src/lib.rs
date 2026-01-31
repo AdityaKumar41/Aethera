@@ -24,6 +24,7 @@ pub struct ProjectEscrow {
     pub current_funding: i128,      // Current amount funded
     pub status: ProjectStatus,
     pub platform_fee_bps: u32,      // Platform fee in basis points (250 = 2.5%)
+    pub price_per_token: i128,      // USDC per token (7 decimals)
 }
 
 #[contracttype]
@@ -73,6 +74,7 @@ impl TreasuryContract {
         installer: Address,
         funding_target: i128,
         platform_fee_bps: u32,
+        price_per_token: i128,
     ) {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
@@ -90,6 +92,7 @@ impl TreasuryContract {
             current_funding: 0,
             status: ProjectStatus::Funding,
             platform_fee_bps,
+            price_per_token,
         };
 
         env.storage()
@@ -105,6 +108,9 @@ impl TreasuryContract {
         investor: Address,
         amount: i128,
     ) -> bool {
+        // Investor must authorize this call since it triggers a transfer from them
+        investor.require_auth();
+
         // Check if paused
         if env.storage().instance().get::<_, bool>(&DataKey::Paused).unwrap_or(false) {
             panic!("Contract is paused");
@@ -127,6 +133,16 @@ impl TreasuryContract {
         let usdc: Address = env.storage().instance().get(&DataKey::UsdcToken).unwrap();
         let token_client = token::Client::new(&env, &usdc);
         token_client.transfer(&investor, &env.current_contract_address(), &amount);
+
+        // Mint project tokens to investor
+        // token_amount = (amount * 10^7) / price_per_token
+        let token_amount = (amount * 10_000_000i128) / escrow.price_per_token;
+        
+        env.invoke_contract::<()>(
+            &escrow.asset_token,
+            &soroban_sdk::Symbol::new(&env, "mint"),
+            (investor.clone(), token_amount).into_val(&env),
+        );
 
         // Update escrow
         escrow.current_funding += amount;

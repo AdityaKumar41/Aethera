@@ -1,4 +1,10 @@
-import { Keypair, Operation, TransactionBuilder, BASE_FEE, Asset } from "@stellar/stellar-sdk";
+import {
+  Keypair,
+  Operation,
+  TransactionBuilder,
+  BASE_FEE,
+  Asset,
+} from "@stellar/stellar-sdk";
 import crypto from "crypto";
 import { stellarClient } from "./client";
 
@@ -14,7 +20,8 @@ export class WalletService {
   private encryptionKey: string;
 
   constructor(
-    encryptionKey: string = process.env.ENCRYPTION_KEY ||
+    encryptionKey: string = process.env.WALLET_ENCRYPTION_SECRET ||
+      process.env.ENCRYPTION_KEY ||
       "default-aethera-dev-key",
   ) {
     this.encryptionKey = crypto
@@ -102,7 +109,7 @@ export class WalletService {
         .order("desc")
         .limit(limit)
         .call();
-      
+
       return txs.records.map((r: any) => ({
         id: r.id,
         hash: r.hash,
@@ -142,7 +149,7 @@ export class WalletService {
         .claimableBalances()
         .claimant(publicKey)
         .call();
-      
+
       return response.records.map((cb: any) => ({
         id: cb.id,
         asset: cb.asset,
@@ -163,13 +170,13 @@ export class WalletService {
    */
   async claimBalances(
     encryptedSecret: string,
-    balanceIds: string[]
+    balanceIds: string[],
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
       const secret = this.decryptSecret(encryptedSecret);
       const keypair = Keypair.fromSecret(secret);
       const publicKey = keypair.publicKey();
-      
+
       const account = await stellarClient.horizon.loadAccount(publicKey);
       const txBuilder = new TransactionBuilder(account, {
         fee: BASE_FEE,
@@ -183,15 +190,19 @@ export class WalletService {
         .call();
 
       for (const balanceId of balanceIds) {
-        const balance = pendingBalances.records.find((b: any) => b.id === balanceId);
+        const balance = pendingBalances.records.find(
+          (b: any) => b.id === balanceId,
+        );
         if (!balance) continue;
 
         // Ensure trustline exists if not native
         const assetParts = balance.asset.split(":");
         if (assetParts.length === 2) {
           const asset = new Asset(assetParts[0], assetParts[1]);
-          const hasTrustline = account.balances.some((b: any) => 
-            b.asset_code === asset.getCode() && b.asset_issuer === asset.getIssuer()
+          const hasTrustline = account.balances.some(
+            (b: any) =>
+              b.asset_code === asset.getCode() &&
+              b.asset_issuer === asset.getIssuer(),
           );
 
           if (!hasTrustline) {
@@ -232,3 +243,18 @@ export class WalletService {
 }
 
 export const walletService = new WalletService();
+
+/**
+ * Helper function to fund account with Friendbot (Testnet only)
+ */
+export async function fundWithFriendbot(
+  publicKey: string,
+): Promise<string | null> {
+  try {
+    const response = await stellarClient.horizon.friendbot(publicKey).call();
+    return response.hash || null;
+  } catch (error) {
+    console.error("[Stellar] Friendbot funding failed:", error);
+    return null;
+  }
+}

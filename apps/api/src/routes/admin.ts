@@ -118,6 +118,7 @@ router.post(
     try {
       const project = await prisma.project.findUnique({
         where: { id: req.params.id },
+        include: { installer: true },
       });
 
       if (!project) {
@@ -148,12 +149,18 @@ router.post(
       });
 
       // Deploy Soroban contract
-      const { contractDeploymentService } = await import("@aethera/stellar");
+      const { contractDeploymentService, getContractAddresses, walletService } = await import("@aethera/stellar");
       const { Keypair } = await import("@stellar/stellar-sdk");
       
-      const adminSecret = process.env.STAT_RELAYER_SECRET;
-      if (!adminSecret) throw new Error("Admin secret not configured");
+      const encryptedSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
+      if (!encryptedSecret) throw new Error("Admin relayer secret not configured");
+      
+      const adminSecret = walletService.decryptSecret(encryptedSecret);
       const adminKeypair = Keypair.fromSecret(adminSecret);
+
+      const contracts = getContractAddresses();
+
+      console.log(`[Admin] Approving project ${project.id}. Deploying asset token...`);
 
       const deploymentResult = await contractDeploymentService.deployAssetToken(
         adminKeypair, 
@@ -166,6 +173,22 @@ router.post(
           totalSupply: BigInt(project.totalTokens || 0),
         }
       );
+
+      console.log(`[Admin] Token deployed: ${deploymentResult.contractId}. Registering with Treasury...`);
+
+      // Create escrow in Treasury
+      await contractDeploymentService.createProjectEscrow(
+        contracts.treasury,
+        adminKeypair,
+        project.id,
+        deploymentResult.contractId,
+        project.installer?.stellarPubKey || "",
+        BigInt(Math.round(Number(project.fundingTarget) * 10_000_000)), // USDC 7 decimals
+        250, // 2.5% platform fee
+        BigInt(Math.round(Number(project.pricePerToken) * 10_000_000)) // price per token
+      );
+
+      console.log(`[Admin] Project registered with Treasury.`);
 
       // After successful deployment, transition to FUNDING and store contract ID
       const updated = await prisma.project.update({

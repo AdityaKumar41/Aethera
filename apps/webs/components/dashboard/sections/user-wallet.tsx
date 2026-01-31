@@ -19,7 +19,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export function UserWalletSection() {
-  const { balances, claimableBalances, loading, refetch } = useWalletBalances();
+  const { balances, loading, refetch } = useWalletBalances();
+  const claimableBalances = balances?.claimableBalances;
   const { claim, loading: claiming } = useClaimTokens();
   const [isRefetching, setIsRefetching] = useState(false);
 

@@ -328,4 +328,174 @@ router.post(
   },
 );
 
+// ============================================
+// Fund Test USDC (Testnet Only)
+// ============================================
+
+router.post(
+  "/fund-test-usdc",
+  authenticate,
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) {
+        throw createApiError("Unauthorized", 401);
+      }
+
+      // Get user's wallet
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { stellarPubKey: true, stellarSecretEncrypted: true },
+      });
+
+      if (!user?.stellarPubKey) {
+        throw createApiError("Wallet not found", 400);
+      }
+
+      const amount = req.body.amount || "10000";
+
+      console.log(
+        `💰 Funding ${user.stellarPubKey} with ${amount} test USDC...`,
+      );
+
+      // Create temporary issuer and distributor using dynamic import
+      const { Keypair, Asset, Operation, TransactionBuilder } =
+        await import("@stellar/stellar-sdk");
+
+      const issuerKeypair = Keypair.random();
+      const distributorKeypair = Keypair.random();
+
+      // Fund with Friendbot
+      await stellarClient.horizon.friendbot(issuerKeypair.publicKey()).call();
+      await stellarClient.horizon
+        .friendbot(distributorKeypair.publicKey())
+        .call();
+
+      // Wait for accounts
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Create test USDC asset
+      const testUSDC = new Asset("USDC", issuerKeypair.publicKey());
+
+      // Distributor creates trustline
+      const distributorAccount = await stellarClient.horizon.loadAccount(
+        distributorKeypair.publicKey(),
+      );
+
+      const trustlineTx = new TransactionBuilder(distributorAccount, {
+        fee: "10000",
+        networkPassphrase:
+          process.env.STELLAR_NETWORK_PASSPHRASE ||
+          "Test SDF Network ; September 2015",
+      })
+        .addOperation(
+          Operation.changeTrust({
+            asset: testUSDC,
+            limit: "1000000000",
+          }),
+        )
+        .setTimeout(30)
+        .build();
+
+      trustlineTx.sign(distributorKeypair);
+      await stellarClient.horizon.submitTransaction(trustlineTx);
+
+      // Issue USDC to distributor
+      const issuerAccount = await stellarClient.horizon.loadAccount(
+        issuerKeypair.publicKey(),
+      );
+
+      const issueTx = new TransactionBuilder(issuerAccount, {
+        fee: "10000",
+        networkPassphrase:
+          process.env.STELLAR_NETWORK_PASSPHRASE ||
+          "Test SDF Network ; September 2015",
+      })
+        .addOperation(
+          Operation.payment({
+            destination: distributorKeypair.publicKey(),
+            asset: testUSDC,
+            amount: "1000000",
+          }),
+        )
+        .setTimeout(30)
+        .build();
+
+      issueTx.sign(issuerKeypair);
+      await stellarClient.horizon.submitTransaction(issueTx);
+
+      // Check user's trustline
+      const userAccount = await stellarClient.horizon.loadAccount(
+        user.stellarPubKey,
+      );
+      const hasTrustline = userAccount.balances.some(
+        (balance: any) =>
+          balance.asset_type !== "native" &&
+          balance.asset_code === "USDC" &&
+          balance.asset_issuer === issuerKeypair.publicKey(),
+      );
+
+      // Create trustline if needed
+      if (!hasTrustline && user.stellarSecretEncrypted) {
+        const userSecret = walletService.decryptSecret(
+          user.stellarSecretEncrypted,
+        );
+        const userKeypair = Keypair.fromSecret(userSecret);
+
+        const userTrustlineTx = new TransactionBuilder(userAccount, {
+          fee: "10000",
+          networkPassphrase:
+            process.env.STELLAR_NETWORK_PASSPHRASE ||
+            "Test SDF Network ; September 2015",
+        })
+          .addOperation(
+            Operation.changeTrust({
+              asset: testUSDC,
+              limit: "922337203685.4775807",
+            }),
+          )
+          .setTimeout(30)
+          .build();
+
+        userTrustlineTx.sign(userKeypair);
+        await stellarClient.horizon.submitTransaction(userTrustlineTx);
+      }
+
+      // Send USDC to user
+      const distributorAccountReload = await stellarClient.horizon.loadAccount(
+        distributorKeypair.publicKey(),
+      );
+
+      const sendTx = new TransactionBuilder(distributorAccountReload, {
+        fee: "10000",
+        networkPassphrase:
+          process.env.STELLAR_NETWORK_PASSPHRASE ||
+          "Test SDF Network ; September 2015",
+      })
+        .addOperation(
+          Operation.payment({
+            destination: user.stellarPubKey,
+            asset: testUSDC,
+            amount: amount,
+          }),
+        )
+        .setTimeout(30)
+        .build();
+
+      sendTx.sign(distributorKeypair);
+      const result = await stellarClient.horizon.submitTransaction(sendTx);
+
+      res.json({
+        success: true,
+        message: `Funded with ${amount} test USDC`,
+        txHash: result.hash,
+        issuer: issuerKeypair.publicKey(),
+        note: "This is test USDC from a temporary issuer for testing purposes",
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 export default router;

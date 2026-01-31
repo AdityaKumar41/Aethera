@@ -39,7 +39,7 @@ export function InvestModal({
   onClose,
   onSuccess,
 }: InvestModalProps) {
-  const [amount, setAmount] = useState(1);
+  const [amount, setAmount] = useState(10); // Start with 10 tokens to meet likely min requirements
   const [step, setStep] = useState<Step>("input");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -105,8 +105,8 @@ export function InvestModal({
   const totalInvestment = amount * (Number(project?.pricePerToken) || 100);
   const hasEnoughBalance = usdcBalance >= totalInvestment;
 
-  // KYC is required for all investments
-  const canInvest = kycStatus?.verificationStatus === "APPROVED";
+  // KYC is required for all investments - check for VERIFIED status
+  const canInvest = kycStatus?.status === "VERIFIED";
 
   const handleInvest = async () => {
     if (!project) return;
@@ -114,7 +114,9 @@ export function InvestModal({
 
     setErrorMessage(null);
     try {
-      const result = await settle(project.id, amount);
+      // The API expects the USDC amount, not the token count
+      // And it will calculate the token count backend side
+      const result = await settle(project.id, totalInvestment);
       if (result.success) {
         setTxHash(result.txHash);
         setStep("success");
@@ -274,6 +276,14 @@ export function InvestModal({
                         ? "..."
                         : `${usdcBalance.toLocaleString()} USDC`}
                     </p>
+                    {totalInvestment < 100 && (
+                      <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-xl border border-yellow-100">
+                        <AlertCircle className="w-3.5 h-3.5 text-yellow-600" />
+                        <p className="text-[9px] font-bold text-yellow-700 leading-tight">
+                          Minimum investment is $100 USDC
+                        </p>
+                      </div>
+                    )}
                     {!hasEnoughBalance && pendingUsdc > 0 && (
                       <div className="flex items-center gap-2 p-2 bg-orange-100/50 rounded-xl border border-orange-200">
                         <AlertCircle className="w-3.5 h-3.5 text-orange-600" />
@@ -316,11 +326,11 @@ export function InvestModal({
               </div>
 
               <button
-                disabled={!hasEnoughBalance || !canInvest}
+                disabled={!hasEnoughBalance || !canInvest || totalInvestment < 100}
                 onClick={() => setStep("confirm")}
                 className={cn(
                   "w-full h-16 rounded-2xl flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] text-sm transition-all shadow-xl active:scale-95",
-                  hasEnoughBalance && canInvest
+                  hasEnoughBalance && canInvest && totalInvestment >= 100
                     ? "bg-zinc-900 text-white hover:bg-orange-600 shadow-orange-500/10"
                     : "bg-zinc-100 text-zinc-300 border border-zinc-200 cursor-not-allowed",
                 )}

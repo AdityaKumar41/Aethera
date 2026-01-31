@@ -25,11 +25,14 @@ import {
   DollarSign,
   Clock,
 } from "lucide-react";
-import { useUserProfile, useWalletBalances, useKyc } from "@/hooks/use-dashboard-data";
+import {
+  useUserProfile,
+  useWalletBalances,
+  useKyc,
+} from "@/hooks/use-dashboard-data";
 import { SumsubWidget } from "@/components/kyc/sumsub-widget";
 import { userApi } from "@/lib/api";
 import { useOnboardingStatus } from "@/hooks/use-onboarding";
-
 
 type SettingsTab = "profile" | "kyc" | "wallet" | "notifications";
 
@@ -43,10 +46,30 @@ interface TabConfig {
 }
 
 const allTabs: TabConfig[] = [
-  { id: "profile", label: "Profile", icon: User, roles: ["INVESTOR", "INSTALLER", "ADMIN"] },
-  { id: "kyc", label: "KYC Verification", icon: Shield, roles: ["INVESTOR", "INSTALLER"] }, // Admin doesn't need KYC
-  { id: "wallet", label: "Wallet", icon: Wallet, roles: ["INVESTOR", "INSTALLER"] }, // Admin uses Relayer Wallet instead
-  { id: "notifications", label: "Notifications", icon: Bell, roles: ["INVESTOR", "INSTALLER", "ADMIN"] },
+  {
+    id: "profile",
+    label: "Profile",
+    icon: User,
+    roles: ["INVESTOR", "INSTALLER", "ADMIN"],
+  },
+  {
+    id: "kyc",
+    label: "KYC Verification",
+    icon: Shield,
+    roles: ["INVESTOR", "INSTALLER"],
+  }, // Admin doesn't need KYC
+  {
+    id: "wallet",
+    label: "Wallet",
+    icon: Wallet,
+    roles: ["INVESTOR", "INSTALLER"],
+  }, // Admin uses Relayer Wallet instead
+  {
+    id: "notifications",
+    label: "Notifications",
+    icon: Bell,
+    roles: ["INVESTOR", "INSTALLER", "ADMIN"],
+  },
 ];
 
 interface SettingsSectionProps {
@@ -57,11 +80,13 @@ export function SettingsSection({ userRole: propRole }: SettingsSectionProps) {
   // Get role from hook if not passed as prop
   const { role: hookRole } = useOnboardingStatus();
   const userRole = propRole || (hookRole as UserRole) || "INVESTOR";
-  
+
   // Filter tabs based on user role
-  const tabs = allTabs.filter(tab => tab.roles.includes(userRole));
-  
-  const [activeTab, setActiveTab] = useState<SettingsTab>(tabs[0]?.id || "profile");
+  const tabs = allTabs.filter((tab) => tab.roles.includes(userRole));
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    tabs[0]?.id || "profile",
+  );
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (text: string) => {
@@ -84,7 +109,7 @@ export function SettingsSection({ userRole: propRole }: SettingsSectionProps) {
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200",
                 activeTab === tab.id
                   ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground hover:bg-zinc-100"
+                  : "text-muted-foreground hover:text-foreground hover:bg-zinc-100",
               )}
             >
               <Icon className="w-4 h-4" />
@@ -98,8 +123,12 @@ export function SettingsSection({ userRole: propRole }: SettingsSectionProps) {
       <div className="animate-in fade-in duration-300">
         {activeTab === "profile" && <ProfileTab userRole={userRole} />}
         {activeTab === "kyc" && <KYCTab />}
-        {activeTab === "wallet" && <WalletTab onCopy={handleCopy} copied={copied} />}
-        {activeTab === "notifications" && <NotificationsTab userRole={userRole} />}
+        {activeTab === "wallet" && (
+          <WalletTab onCopy={handleCopy} copied={copied} />
+        )}
+        {activeTab === "notifications" && (
+          <NotificationsTab userRole={userRole} />
+        )}
       </div>
     </div>
   );
@@ -157,7 +186,9 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               className="w-full h-10 px-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             />
           </div>
@@ -171,7 +202,9 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
               disabled
               className="w-full h-10 px-4 rounded-xl bg-zinc-100 border border-zinc-200 text-sm text-muted-foreground"
             />
-            <p className="text-xs text-muted-foreground mt-1">Email is managed by your authentication provider</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Email is managed by your authentication provider
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-muted-foreground mb-1.5">
@@ -180,7 +213,9 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
               placeholder="+1 (555) 123-4567"
               className="w-full h-10 px-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             />
@@ -192,7 +227,9 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
             <input
               type="text"
               value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, company: e.target.value })
+              }
               className="w-full h-10 px-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             />
           </div>
@@ -200,9 +237,11 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
             <label className="block text-sm font-medium text-muted-foreground mb-1.5">
               Country of Residence
             </label>
-            <select 
+            <select
               value={formData.country}
-              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, country: e.target.value })
+              }
               className="w-full h-10 px-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             >
               <option value="">Select a country</option>
@@ -216,7 +255,7 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
           </div>
         </div>
         <div className="mt-6 pt-4 border-t border-border">
-          <button 
+          <button
             onClick={handleSave}
             disabled={saving}
             className="px-6 py-2.5 bg-foreground text-background rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
@@ -240,7 +279,9 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
           <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50">
             <div>
               <p className="text-sm font-medium">Account Type</p>
-              <p className="text-xs text-muted-foreground">Your role on the platform</p>
+              <p className="text-xs text-muted-foreground">
+                Your role on the platform
+              </p>
             </div>
             <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium">
               {profile?.role || "INVESTOR"}
@@ -249,10 +290,14 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
           <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50">
             <div>
               <p className="text-sm font-medium">Member Since</p>
-              <p className="text-xs text-muted-foreground">Account creation date</p>
+              <p className="text-xs text-muted-foreground">
+                Account creation date
+              </p>
             </div>
             <span className="text-sm text-muted-foreground">
-              {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : "--"}
+              {profile?.createdAt
+                ? new Date(profile.createdAt).toLocaleDateString()
+                : "--"}
             </span>
           </div>
         </div>
@@ -264,7 +309,7 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
 function KYCTab() {
   return (
     <div className="max-w-2xl space-y-6">
-      <SumsubWidget 
+      <SumsubWidget
         onComplete={() => {
           console.log("KYC completed!");
         }}
@@ -280,15 +325,69 @@ import { toast } from "sonner";
 
 import { Transaction } from "@/lib/api";
 
-function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied: boolean }) {
+function WalletTab({
+  onCopy,
+  copied,
+}: {
+  onCopy: (text: string) => void;
+  copied: boolean;
+}) {
   const { balances, loading, error, refetch } = useWalletBalances();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txLoading, setTxLoading] = useState(true);
   const [showReceive, setShowReceive] = useState(false);
   const [showSend, setShowSend] = useState(false);
-  const [sendFormData, setSendFormData] = useState({ address: "", amount: "", asset: "XLM" });
+  const [sendFormData, setSendFormData] = useState({
+    address: "",
+    amount: "",
+    asset: "XLM",
+  });
   const [sending, setSending] = useState(false);
-  
+  const [fundingXLM, setFundingXLM] = useState(false);
+  const [fundingUSDC, setFundingUSDC] = useState(false);
+
+  const handleFundWithFriendbot = async () => {
+    setFundingXLM(true);
+    try {
+      const response = await fetch("/api/stellar/friendbot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stellarAddress: walletAddress }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success("Successfully funded with 10,000 XLM from Friendbot!");
+        setTimeout(() => refetch(), 2000);
+      } else {
+        toast.error("Failed to fund from Friendbot: " + data.error);
+      }
+    } catch (error) {
+      toast.error("Error funding from Friendbot");
+    }
+    setFundingXLM(false);
+  };
+
+  const handleFundWithTestUSDC = async () => {
+    setFundingUSDC(true);
+    try {
+      const response = await fetch("/api/stellar/fund-test-usdc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: "10000" }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success("Successfully funded with 10,000 test USDC!");
+        setTimeout(() => refetch(), 2000);
+      } else {
+        toast.error("Failed to fund with test USDC: " + data.error);
+      }
+    } catch (error) {
+      toast.error("Error funding with test USDC");
+    }
+    setFundingUSDC(false);
+  };
+
   const walletAddress = balances?.publicKey || "";
 
   useEffect(() => {
@@ -305,7 +404,7 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (Number(sendFormData.amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
@@ -313,13 +412,16 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
 
     setSending(true);
     // Simulate transaction delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     setSending(false);
     setShowSend(false);
-    toast.success(`Successfully sent ${sendFormData.amount} ${sendFormData.asset}`, {
-      description: `Transaction hash: ${Math.random().toString(36).substring(2, 15)}...`,
-    });
+    toast.success(
+      `Successfully sent ${sendFormData.amount} ${sendFormData.asset}`,
+      {
+        description: `Transaction hash: ${Math.random().toString(36).substring(2, 15)}...`,
+      },
+    );
     setSendFormData({ address: "", amount: "", asset: "XLM" });
     refetch();
   };
@@ -347,13 +449,17 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
               Testnet Active
             </div>
           </div>
-          
+
           {walletAddress ? (
             <>
               <div className="p-6 rounded-2xl bg-white/60 border border-white/60 mb-8 shadow-inner group/address">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Stellar Address</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold border border-amber-200">ED25519</span>
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                    Stellar Address
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold border border-amber-200">
+                    ED25519
+                  </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <code className="flex-1 text-sm font-mono truncate text-zinc-800 font-medium">
@@ -384,16 +490,60 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                   </div>
                 </div>
               </div>
-              
+
+              {/* Testnet Friendbot Section */}
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="w-4 h-4 text-blue-600" />
+                  <h4 className="text-sm font-black text-blue-900 uppercase tracking-widest">
+                    Testnet Funding
+                  </h4>
+                </div>
+                <p className="text-xs text-blue-700 mb-4">
+                  Get free testnet tokens for testing. XLM is needed for gas
+                  fees, USDC for investments.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={handleFundWithFriendbot}
+                    disabled={fundingXLM}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                  >
+                    {fundingXLM ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Get 10,000 XLM
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleFundWithTestUSDC}
+                    disabled={fundingUSDC}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                  >
+                    {fundingUSDC ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <DollarSign className="w-4 h-4" />
+                        Get 10,000 USDC
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
               <div className="flex flex-wrap gap-4">
-                <button 
+                <button
                   onClick={() => setShowReceive(true)}
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-zinc-900 text-white rounded-2xl text-sm font-bold hover:bg-black transition-all hover:shadow-lg active:scale-[0.98]"
                 >
                   <Plus className="w-4 h-4" />
                   Receive
                 </button>
-                <button 
+                <button
                   onClick={() => setShowSend(true)}
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-zinc-900 border border-zinc-200 rounded-2xl text-sm font-bold hover:bg-zinc-50 transition-all hover:shadow-lg active:scale-[0.98]"
                 >
@@ -410,7 +560,9 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
               <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-amber-100">
                 <Wallet className="w-10 h-10 text-amber-500" />
               </div>
-              <p className="text-muted-foreground mb-8 font-medium">No wallet connected</p>
+              <p className="text-muted-foreground mb-8 font-medium">
+                No wallet connected
+              </p>
               <button className="px-10 py-4 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-black transition-all hover:shadow-xl active:scale-95">
                 Connect Wallet
               </button>
@@ -426,37 +578,59 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
             <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
             Asset Holdings
           </h3>
-          <span className="text-xs font-medium text-muted-foreground">Stellar Testnet Assets</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            Stellar Testnet Assets
+          </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {balances?.balances && balances.balances.length > 0 ? (
-            balances.balances.map((balance, index) => (
-              <div key={index} className="group relative overflow-hidden p-5 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-amber-200 transition-all hover:bg-white hover:shadow-md">
-                <div className="absolute inset-0 bg-linear-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-lg",
-                      balance.asset === 'XLM' ? "bg-amber-500 shadow-amber-500/20" : 
-                      balance.asset === 'AET' ? "gradient-solar shadow-orange-500/20" :
-                      "bg-blue-500 shadow-blue-500/20"
-                    )}>
-                      {balance.asset ? balance.asset.slice(0, 3).toUpperCase() : "..."}
+            balances.balances
+              .filter((balance) => {
+                // Only show XLM and USDC with positive balances
+                const asset = (balance.asset || "XLM").toUpperCase();
+                const hasBalance = parseFloat(balance.balance) > 0;
+                return hasBalance && (asset === "XLM" || asset === "USDC");
+              })
+              .map((balance, index) => (
+                <div
+                  key={index}
+                  className="group relative overflow-hidden p-5 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-amber-200 transition-all hover:bg-white hover:shadow-md"
+                >
+                  <div className="absolute inset-0 bg-linear-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={cn(
+                          "w-12 h-12 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-lg",
+                          balance.asset === "XLM"
+                            ? "bg-amber-500 shadow-amber-500/20"
+                            : "bg-blue-500 shadow-blue-500/20",
+                        )}
+                      >
+                        {balance.asset === "XLM" ? "XLM" : "USD"}
+                      </div>
+                      <div>
+                        <p className="font-bold text-zinc-900">
+                          {balance.asset || "Unknown"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                          {balance.asset === "XLM"
+                            ? "Gas Fees"
+                            : "Investment Currency"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-zinc-900">{balance.asset || "Unknown"}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
-                        {balance.asset === 'XLM' ? "Native Asset" : "Stellar Asset"}
+                    <div className="text-right">
+                      <p className="text-lg font-black text-zinc-900">
+                        {balance.balance}
+                      </p>
+                      <p className="text-xs font-bold text-emerald-600">
+                        Available
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-black text-zinc-900">{balance.balance}</p>
-                    <p className="text-xs font-bold text-emerald-600">Available</p>
-                  </div>
                 </div>
-              </div>
-            ))
+              ))
           ) : (
             <>
               <div className="p-5 rounded-2xl bg-zinc-50 border border-zinc-100 hover:bg-white hover:border-amber-200 transition-all group overflow-hidden relative">
@@ -467,26 +641,30 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                       XLM
                     </div>
                     <div>
-                      <p className="font-bold text-zinc-900">Stellar Lumens</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">Native Asset</p>
+                      <p className="font-bold text-zinc-900">XLM</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                        Gas Fees
+                      </p>
                     </div>
                   </div>
                   <p className="text-lg font-black text-zinc-400">0.00</p>
                 </div>
               </div>
-              <div className="p-5 rounded-2xl bg-white border border-orange-100 hover:shadow-md transition-all group relative overflow-hidden">
-                <div className="absolute inset-0 bg-linear-to-br from-orange-500/10 to-transparent opacity-100" />
+              <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100 hover:bg-white hover:border-blue-200 transition-all group relative overflow-hidden">
+                <div className="absolute inset-0 bg-linear-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl gradient-solar flex items-center justify-center text-white text-xs font-black shadow-lg shadow-orange-500/30">
-                      AET
+                    <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center text-white text-xs font-black shadow-lg shadow-blue-500/20">
+                      USD
                     </div>
                     <div>
-                      <p className="font-bold text-orange-900">Aethera Tokens</p>
-                      <p className="text-[10px] text-orange-700/60 uppercase font-black tracking-tighter">Impact Token</p>
+                      <p className="font-bold text-zinc-900">USDC</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                        Investment Currency
+                      </p>
                     </div>
                   </div>
-                  <p className="text-lg font-black text-orange-400">0</p>
+                  <p className="text-lg font-black text-zinc-400">0.00</p>
                 </div>
               </div>
             </>
@@ -501,7 +679,7 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
             <Clock className="w-5 h-5 text-zinc-500" />
             Recent Activity
           </h3>
-          <button 
+          <button
             onClick={() => {
               const fetchTransactions = async () => {
                 setTxLoading(true);
@@ -521,29 +699,35 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
           {txLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mb-2" />
-              <p className="text-xs text-muted-foreground">Loading ledger history...</p>
+              <p className="text-xs text-muted-foreground">
+                Loading ledger history...
+              </p>
             </div>
           ) : transactions.length > 0 ? (
             transactions.map((tx) => (
-              <div 
+              <div
                 key={tx.id}
                 className="flex items-center justify-between p-4 rounded-2xl bg-zinc-50 border border-zinc-100 hover:bg-white hover:border-amber-100 transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center border",
-                    tx.successful 
-                      ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-600" 
-                      : "bg-red-500/5 border-red-500/20 text-red-600"
-                  )}>
-                    <ArrowUpRight className={cn("w-5 h-5", !tx.successful && "rotate-90")} />
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center border",
+                      tx.successful
+                        ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-600"
+                        : "bg-red-500/5 border-red-500/20 text-red-600",
+                    )}
+                  >
+                    <ArrowUpRight
+                      className={cn("w-5 h-5", !tx.successful && "rotate-90")}
+                    />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-bold text-zinc-900 truncate max-w-[120px]">
                         {tx.hash.slice(0, 8)}...{tx.hash.slice(-4)}
                       </p>
-                      <a 
+                      <a
                         href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -553,23 +737,40 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                       </a>
                     </div>
                     <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">
-                      {new Date(tx.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(tx.created_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={cn("text-xs font-black", tx.successful ? "text-emerald-600" : "text-red-600")}>
+                  <p
+                    className={cn(
+                      "text-xs font-black",
+                      tx.successful ? "text-emerald-600" : "text-red-600",
+                    )}
+                  >
                     {tx.successful ? "SUCCESS" : "FAILED"}
                   </p>
-                  <p className="text-[10px] text-muted-foreground font-mono">{tx.fee_charged} XLM Fee</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">
+                    {tx.fee_charged} XLM Fee
+                  </p>
                 </div>
               </div>
             ))
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center bg-zinc-50/50 rounded-2xl border border-dashed border-zinc-200">
               <Clock className="w-8 h-8 text-zinc-300 mb-3" />
-              <p className="text-sm text-zinc-500 font-medium">No ledger activity yet</p>
-              <p className="text-[10px] text-zinc-400 mt-1 max-w-[200px]">Transactions on the Stellar network will appear here automatically.</p>
+              <p className="text-sm text-zinc-500 font-medium">
+                No ledger activity yet
+              </p>
+              <p className="text-[10px] text-zinc-400 mt-1 max-w-[200px]">
+                Transactions on the Stellar network will appear here
+                automatically.
+              </p>
             </div>
           )}
         </div>
@@ -578,8 +779,8 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
       {/* Modals - Animated Overlays */}
       {showReceive && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300" 
+          <div
+            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300"
             onClick={() => setShowReceive(false)}
           />
           <div className="relative bg-white border border-zinc-200 rounded-[32px] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
@@ -588,21 +789,27 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                 <Plus className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-2xl font-black mb-2">Receive Assets</h3>
-              <p className="text-sm text-muted-foreground mb-10">Scan the QR code or share your address to get funded on Aethera.</p>
+              <p className="text-sm text-muted-foreground mb-10">
+                Scan the QR code or share your address to get funded on Aethera.
+              </p>
             </div>
-            
+
             <div className="bg-linear-to-b from-zinc-50 to-white rounded-[24px] p-8 flex flex-col items-center gap-8 mb-8 border border-zinc-100 shadow-inner">
               <div className="w-56 h-56 p-4 bg-white rounded-3xl overflow-hidden shadow-2xl border border-zinc-100 group">
-                <img 
+                <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${walletAddress}`}
-                  alt="Wallet QR Code" 
+                  alt="Wallet QR Code"
                   className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500"
                 />
               </div>
               <div className="w-full">
-                <label className="block text-[10px] font-black text-muted-foreground mb-3 uppercase tracking-[0.2em] text-center">Your Public Identity</label>
+                <label className="block text-[10px] font-black text-muted-foreground mb-3 uppercase tracking-[0.2em] text-center">
+                  Your Public Identity
+                </label>
                 <div className="flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm group/input">
-                  <code className="flex-1 text-xs font-mono truncate text-zinc-900 font-bold">{walletAddress}</code>
+                  <code className="flex-1 text-xs font-mono truncate text-zinc-900 font-bold">
+                    {walletAddress}
+                  </code>
                   <button
                     onClick={() => {
                       onCopy(walletAddress);
@@ -632,24 +839,28 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
 
       {showSend && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300" 
+          <div
+            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300"
             onClick={() => setShowSend(false)}
           />
           <div className="relative bg-white border border-zinc-200 rounded-[32px] w-full max-w-lg p-10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-2xl font-black">Send Assets</h3>
-                <p className="text-sm text-muted-foreground">Move your tokens across the Stellar Network.</p>
+                <p className="text-sm text-muted-foreground">
+                  Move your tokens across the Stellar Network.
+                </p>
               </div>
               <div className="px-3 py-1 bg-amber-100 border border-amber-200 text-amber-900 rounded-full text-[10px] font-black uppercase tracking-widest">
                 Stellar Testnet
               </div>
             </div>
-            
+
             <form onSubmit={handleSend} className="space-y-6">
               <div className="space-y-2">
-                <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">Recipient Address</label>
+                <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">
+                  Recipient Address
+                </label>
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-zinc-900 transition-colors">
                     <User className="w-5 h-5" />
@@ -659,15 +870,22 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                     required
                     placeholder="Enter Stellar address (GR...)"
                     value={sendFormData.address}
-                    onChange={(e) => setSendFormData({ ...sendFormData, address: e.target.value })}
+                    onChange={(e) =>
+                      setSendFormData({
+                        ...sendFormData,
+                        address: e.target.value,
+                      })
+                    }
                     className="w-full h-15 pl-12 pr-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all placeholder:text-zinc-300"
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div className="sm:col-span-2 space-y-2">
-                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">Amount</label>
+                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">
+                    Amount
+                  </label>
                   <div className="relative group">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-zinc-900 transition-colors">
                       <DollarSign className="w-5 h-5" />
@@ -678,16 +896,28 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                       step="0.0000001"
                       placeholder="0.00"
                       value={sendFormData.amount}
-                      onChange={(e) => setSendFormData({ ...sendFormData, amount: e.target.value })}
+                      onChange={(e) =>
+                        setSendFormData({
+                          ...sendFormData,
+                          amount: e.target.value,
+                        })
+                      }
                       className="w-full h-15 pl-12 pr-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm font-black focus:outline-none focus:ring-4 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all placeholder:text-zinc-300"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">Token</label>
-                  <select 
+                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">
+                    Token
+                  </label>
+                  <select
                     value={sendFormData.asset}
-                    onChange={(e) => setSendFormData({ ...sendFormData, asset: e.target.value })}
+                    onChange={(e) =>
+                      setSendFormData({
+                        ...sendFormData,
+                        asset: e.target.value,
+                      })
+                    }
                     className="w-full h-15 px-4 rounded-2xl bg-zinc-900 text-white text-sm font-black focus:outline-none focus:ring-4 focus:ring-zinc-900/20 transition-all cursor-pointer appearance-none hover:bg-black"
                   >
                     <option value="XLM">XLM</option>
@@ -701,8 +931,12 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                   <AlertCircle className="w-5 h-5 text-amber-600" />
                 </div>
                 <p className="text-xs text-amber-900/80 leading-relaxed">
-                  <span className="font-black text-amber-900 block mb-1">Blockchain Security Warning</span>
-                  Stellar transactions are immediate and irreversible. Verify the recipient identity before sending to avoid irreversible loss of assets.
+                  <span className="font-black text-amber-900 block mb-1">
+                    Blockchain Security Warning
+                  </span>
+                  Stellar transactions are immediate and irreversible. Verify
+                  the recipient identity before sending to avoid irreversible
+                  loss of assets.
                 </p>
               </div>
 
@@ -716,7 +950,9 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                 </button>
                 <button
                   type="submit"
-                  disabled={sending || !sendFormData.address || !sendFormData.amount}
+                  disabled={
+                    sending || !sendFormData.address || !sendFormData.amount
+                  }
                   className="flex-2 py-4.5 bg-zinc-900 text-white rounded-[20px] font-black text-sm uppercase tracking-wider hover:bg-black transition-all hover:shadow-xl disabled:opacity-50 active:scale-[0.98]"
                 >
                   {sending ? (
@@ -724,7 +960,9 @@ function WalletTab({ onCopy, copied }: { onCopy: (text: string) => void; copied:
                       <Loader2 className="w-5 h-5 animate-spin" />
                       Processing...
                     </span>
-                  ) : "Confirm & Send"}
+                  ) : (
+                    "Confirm & Send"
+                  )}
                 </button>
               </div>
             </form>
@@ -755,13 +993,36 @@ function NotificationsTab({ userRole }: { userRole?: UserRole }) {
         <h3 className="text-lg font-semibold mb-4">Notification Preferences</h3>
         <div className="space-y-4">
           {[
-            { key: "yieldDistributed" as const, label: "Yield Distributions", desc: "Get notified when yield is ready to claim" },
-            { key: "projectUpdates" as const, label: "Project Updates", desc: "Updates about your invested projects" },
-            { key: "marketplaceAlerts" as const, label: "Marketplace Alerts", desc: "New projects and investment opportunities" },
-            { key: "securityAlerts" as const, label: "Security Alerts", desc: "Important security notifications" },
-            { key: "emailDigest" as const, label: "Weekly Email Digest", desc: "Summary of your portfolio performance" },
+            {
+              key: "yieldDistributed" as const,
+              label: "Yield Distributions",
+              desc: "Get notified when yield is ready to claim",
+            },
+            {
+              key: "projectUpdates" as const,
+              label: "Project Updates",
+              desc: "Updates about your invested projects",
+            },
+            {
+              key: "marketplaceAlerts" as const,
+              label: "Marketplace Alerts",
+              desc: "New projects and investment opportunities",
+            },
+            {
+              key: "securityAlerts" as const,
+              label: "Security Alerts",
+              desc: "Important security notifications",
+            },
+            {
+              key: "emailDigest" as const,
+              label: "Weekly Email Digest",
+              desc: "Summary of your portfolio performance",
+            },
           ].map((item) => (
-            <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-zinc-50">
+            <div
+              key={item.key}
+              className="flex items-center justify-between p-4 rounded-xl bg-zinc-50"
+            >
               <div>
                 <p className="font-medium">{item.label}</p>
                 <p className="text-sm text-muted-foreground">{item.desc}</p>
@@ -770,13 +1031,13 @@ function NotificationsTab({ userRole }: { userRole?: UserRole }) {
                 onClick={() => toggleNotification(item.key)}
                 className={cn(
                   "relative w-12 h-6 rounded-full transition-colors duration-200",
-                  notifications[item.key] ? "bg-emerald-500" : "bg-zinc-300"
+                  notifications[item.key] ? "bg-emerald-500" : "bg-zinc-300",
                 )}
               >
                 <span
                   className={cn(
                     "absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-200",
-                    notifications[item.key] && "translate-x-6"
+                    notifications[item.key] && "translate-x-6",
                   )}
                 />
               </button>
