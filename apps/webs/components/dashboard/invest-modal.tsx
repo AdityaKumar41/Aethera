@@ -40,6 +40,7 @@ export function InvestModal({
     invest,
     status: investStatus,
     loading: investing,
+    confirming,
     error: investError,
   } = useInvestment();
   const { status: kycStatus, loading: kycLoading } = useKyc();
@@ -59,8 +60,11 @@ export function InvestModal({
       setStep("success");
     } else if (investStatus === "failed") {
       setStep("error");
+    } else if (investStatus === "confirming" && step !== "processing") {
+      // Show processing state when waiting for blockchain confirmation
+      setStep("processing");
     }
-  }, [investStatus]);
+  }, [investStatus, step]);
 
   if (!isOpen || !project) return null;
 
@@ -376,16 +380,20 @@ export function InvestModal({
               <Loader2 className="w-10 h-10 text-amber-600 animate-spin" />
             </div>
             <h3 className="text-lg font-semibold mb-2">
-              Processing Investment
+              {confirming
+                ? "Confirming on Blockchain"
+                : "Processing Investment"}
             </h3>
             <p className="text-muted-foreground text-sm mb-4">
-              Your transaction is being submitted to the Stellar blockchain.
-              This may take a few moments.
+              {confirming
+                ? "Waiting for blockchain confirmation..."
+                : "Submitting your transaction to the Stellar network..."}
             </p>
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              Waiting for blockchain confirmation...
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {confirming
+                ? "This usually takes 5-10 seconds. Your tokens will be minted automatically after confirmation."
+                : "Please wait while we process your investment..."}
+            </p>
           </div>
         )}
 

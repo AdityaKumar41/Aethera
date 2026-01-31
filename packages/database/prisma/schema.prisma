@@ -27,6 +27,8 @@ model User {
   investments            Investment[]
   projects               Project[]
   yieldClaims            YieldClaim[]
+  tokenSales             TokenTransfer[]  @relation("TokenSales")
+  tokenPurchases         TokenTransfer[]  @relation("TokenPurchases")
 
   @@index([role])
   @@index([kycStatus])
@@ -69,6 +71,7 @@ model Project {
   investments               Investment[]
   productionData            ProductionData[]
   installer                 User                @relation(fields: [installerId], references: [id])
+  tokenTransfers            TokenTransfer[]
   yieldDistributions        YieldDistribution[]
   iotDevices                IoTDevice[]
 
@@ -240,6 +243,30 @@ model TransactionLog {
   @@index([projectId])
 }
 
+model TokenTransfer {
+  id              String           @id @default(cuid())
+  projectId       String
+  fromUserId      String
+  toUserId        String
+  tokenAmount     Int
+  pricePerToken   Decimal          @db.Decimal(18, 6)
+  totalPrice      Decimal          @db.Decimal(18, 2)
+  status          TransferStatus   @default(PENDING)
+  txHash          String?          @unique
+  completedAt     DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  project         Project          @relation(fields: [projectId], references: [id])
+  seller          User             @relation("TokenSales", fields: [fromUserId], references: [id])
+  buyer           User             @relation("TokenPurchases", fields: [toUserId], references: [id])
+
+  @@index([projectId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([status])
+}
+
 model SystemSettings {
   key         String   @id
   value       Json
@@ -322,4 +349,12 @@ enum DeviceStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+}
+
+enum TransferStatus {
+  PENDING
+  ACCEPTED
+  COMPLETED
+  REJECTED
+  EXPIRED
 }

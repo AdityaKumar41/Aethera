@@ -65,19 +65,19 @@ router.post(
         throw createApiError(
           "Project is not open for funding",
           400,
-          "PROJECT_NOT_FUNDABLE"
+          "PROJECT_NOT_FUNDABLE",
         );
       }
 
       // Calculate tokens
       const tokenAmount = Math.floor(
-        data.amount / Number(project.pricePerToken)
+        data.amount / Number(project.pricePerToken),
       );
 
       if (tokenAmount < 1) {
         throw createApiError(
           "Investment amount too low for at least 1 token",
-          400
+          400,
         );
       }
 
@@ -85,7 +85,7 @@ router.post(
         throw createApiError(
           "Not enough tokens available",
           400,
-          "INSUFFICIENT_TOKENS"
+          "INSUFFICIENT_TOKENS",
         );
       }
 
@@ -145,7 +145,7 @@ router.post(
           amount: data.amount,
           tokenAmount,
           txHash: result.txHash,
-        }
+        },
       );
 
       res.status(201).json({
@@ -154,74 +154,71 @@ router.post(
         data: {
           ...investment,
           status: "PENDING_ONCHAIN",
-          message: "Transaction submitted to blockchain. Awaiting confirmation.",
+          message:
+            "Transaction submitted to blockchain. Awaiting confirmation.",
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
 // Get Investment Status (with on-chain verification)
 // ============================================
 
-router.get(
-  "/:id/status",
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const investmentService = getInvestmentService();
-      const investment = await investmentService.getInvestmentStatus(req.params.id);
+router.get("/:id/status", async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const investmentService = getInvestmentService();
+    const investment = await investmentService.getInvestmentStatus(
+      req.params.id,
+    );
 
-      if (!investment) {
-        throw createApiError("Investment not found", 404);
-      }
-
-      if (investment.investorId !== req.auth?.userId) {
-        throw createApiError("Not authorized", 403);
-      }
-
-      res.json({
-        success: true,
-        data: {
-          id: investment.id,
-          status: investment.status,
-          txHash: investment.txHash,
-          txLedger: investment.txLedger,
-          txConfirmedAt: investment.txConfirmedAt,
-          mintStatus: investment.mintStatus,
-          mintConfirmedAt: investment.mintConfirmedAt,
-          amount: investment.amount,
-          tokenAmount: investment.tokenAmount,
-        },
-      });
-    } catch (error) {
-      next(error);
+    if (!investment) {
+      throw createApiError("Investment not found", 404);
     }
+
+    if (investment.investorId !== req.auth?.userId) {
+      throw createApiError("Not authorized", 403);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: investment.id,
+        status: investment.status,
+        txHash: investment.txHash,
+        txLedger: investment.txLedger,
+        txConfirmedAt: investment.txConfirmedAt,
+        mintStatus: investment.mintStatus,
+        mintConfirmedAt: investment.mintConfirmedAt,
+        amount: investment.amount,
+        tokenAmount: investment.tokenAmount,
+      },
+    });
+  } catch (error) {
+    next(error);
   }
-);
+});
 
 // ============================================
 // Cancel Pending Investment
 // ============================================
 
-router.post(
-  "/:id/cancel",
-  async (req: AuthenticatedRequest, res, next) => {
-    try {
-      const investmentService = getInvestmentService();
-      await investmentService.cancelInvestment(req.params.id, req.auth?.userId!);
+router.post("/:id/cancel", async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const investmentService = getInvestmentService();
+    await investmentService.cancelInvestment(req.params.id, req.auth?.userId!);
 
-      res.json({
-        success: true,
-        message: "Investment cancelled",
-      });
-    } catch (error) {
-      next(error);
-    }
+    res.json({
+      success: true,
+      message: "Investment cancelled",
+    });
+  } catch (error) {
+    next(error);
   }
-);
+});
 
 // ============================================
 // Get My Investments
@@ -277,6 +274,39 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
             location: true,
           },
         },
+      },
+    });
+
+    if (!investment) {
+      throw createApiError("Investment not found", 404);
+    }
+
+    res.json({ success: true, data: investment });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// Get Investment Status (for polling)
+// ============================================
+
+router.get("/:id/status", async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const investment = await prisma.investment.findFirst({
+      where: {
+        id: req.params.id,
+        investorId: req.auth?.userId,
+      },
+      select: {
+        id: true,
+        status: true,
+        mintStatus: true,
+        txHash: true,
+        mintTxHash: true,
+        txConfirmedAt: true,
+        mintConfirmedAt: true,
+        txError: true,
       },
     });
 

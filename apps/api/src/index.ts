@@ -25,6 +25,7 @@ import monitoringRoutes from "./routes/monitoring.js";
 import webhookRoutes from "./routes/webhooks.js";
 import relayerRoutes from "./routes/relayer.js";
 import revenueRoutes from "./routes/revenue.js";
+import tokenTransferRoutes from "./routes/token-transfers.js";
 // import auditRoutes from "./routes/audit.js"; // Removed as file doesn't exist
 
 // Import services
@@ -44,11 +45,12 @@ const PORT = process.env.PORT || 3001;
 // ============================================
 
 // CORS
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3001", // Match dashboard port
-  credentials: true,
-}));
-
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3001", // Match dashboard port
+    credentials: true,
+  }),
+);
 
 app.use(clerkMiddleware());
 
@@ -57,12 +59,14 @@ app.use(helmet());
 
 // Body parsing - capture raw body for webhook signature verification
 // Must be placed before any routes that rely on req.body or req.rawBody
-app.use(express.json({
-  verify: (req: any, res, buf) => {
-    // Store raw body for webhook signature verification
-    req.rawBody = buf.toString();
-  }
-}));
+app.use(
+  express.json({
+    verify: (req: any, res, buf) => {
+      // Store raw body for webhook signature verification
+      req.rawBody = buf.toString();
+    },
+  }),
+);
 
 // Webhook routes - placed before rate limiter to ensure reliable processing
 // from high-volume external providers like Clerk/Sumsub
@@ -79,7 +83,7 @@ app.use(
 
 // General request tracing for debugging
 app.use((req, res, next) => {
-  if (req.path.includes('webhook')) {
+  if (req.path.includes("webhook")) {
     console.log(`[TRACE] Incoming Webhook Request: ${req.method} ${req.path}`);
   }
   next();
@@ -114,14 +118,13 @@ app.use("/api/oracle", oracleRoutes);
 app.use("/api/kyc", kycRoutes);
 app.use("/api/relayer", relayerRoutes);
 app.use("/api/revenue", revenueRoutes);
+app.use("/api/token-transfers", tokenTransferRoutes);
 // app.use("/api/audit", auditRoutes); // Removed
 
 app.use("/api/governance", governanceRoutes);
 app.use("/api/emergency", emergencyRoutes);
 app.use("/api/monitoring", monitoringRoutes);
 // app.use("/api/webhooks", webhookRoutes); // Moved before rate limiter
-
-
 
 // ============================================
 // Error Handling
