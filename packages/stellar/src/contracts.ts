@@ -295,6 +295,25 @@ export class ContractService {
     return await this.invokeContract(contractId, 'release_capital', args, adminKeypair);
   }
 
+  /**
+   * Release funds for a specific milestone (partial release)
+   */
+  async releaseMilestoneFunds(
+    contractId: string,
+    adminKeypair: StellarSdk.Keypair,
+    projectId: string,
+    milestoneIndex: number,
+    amount: bigint
+  ): Promise<ContractInvocationResult> {
+    const args = [
+      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
+      StellarSdk.nativeToScVal(milestoneIndex, { type: 'u32' }),
+      StellarSdk.nativeToScVal(amount, { type: 'i128' }),
+    ];
+
+    return await this.invokeContract(contractId, 'release_milestone', args, adminKeypair);
+  }
+
   // ============================================
   // Yield Distribution Contract Methods
   // ============================================

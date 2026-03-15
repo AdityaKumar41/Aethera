@@ -333,37 +333,4 @@ router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
-// ============================================
-// Get Investment Status (for polling)
-// ============================================
-
-router.get("/:id/status", async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const investment = await prisma.investment.findFirst({
-      where: {
-        id: req.params.id,
-        investorId: req.auth?.userId,
-      },
-      select: {
-        id: true,
-        status: true,
-        mintStatus: true,
-        txHash: true,
-        mintTxHash: true,
-        txConfirmedAt: true,
-        mintConfirmedAt: true,
-        txError: true,
-      },
-    });
-
-    if (!investment) {
-      throw createApiError("Investment not found", 404);
-    }
-
-    res.json({ success: true, data: investment });
-  } catch (error) {
-    next(error);
-  }
-});
-
 export default router;

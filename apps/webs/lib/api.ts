@@ -1,10 +1,10 @@
 /**
  * API Client for Aethera Dashboard
- * 
+ *
  * Handles all API requests with Clerk authentication.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -15,7 +15,7 @@ interface ApiResponse<T> {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   headers?: Record<string, string>;
 }
@@ -25,9 +25,9 @@ interface RequestOptions {
  */
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<ApiResponse<T>> {
-  const { method = 'GET', body, headers = {} } = options;
+  const { method = "GET", body, headers = {} } = options;
 
   try {
     // Get Clerk token from session
@@ -36,12 +36,12 @@ export async function apiRequest<T>(
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
       body: body ? JSON.stringify(body) : undefined,
-      credentials: 'include',
+      credentials: "include",
     });
 
     const data = await response.json();
@@ -56,10 +56,10 @@ export async function apiRequest<T>(
 
     return data;
   } catch (error) {
-    console.error('API request failed:', error);
+    console.error("API request failed:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Request failed',
+      error: error instanceof Error ? error.message : "Request failed",
     };
   }
 }
@@ -68,7 +68,7 @@ export async function apiRequest<T>(
  * Get Clerk session token
  */
 async function getClerkToken(): Promise<string | null> {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   try {
     // @ts-expect-error - Clerk types
@@ -86,12 +86,17 @@ async function getClerkToken(): Promise<string | null> {
 
 // User endpoints
 export const userApi = {
-  getProfile: () => apiRequest<UserProfile>('/api/users/profile'),
+  getProfile: () => apiRequest<UserProfile>("/api/users/profile"),
   updateProfile: (data: Partial<UserProfile>) =>
-    apiRequest<UserProfile>('/api/users/profile', { method: 'PATCH', body: data }),
-  getPortfolio: () => apiRequest<PortfolioData>('/api/users/portfolio'),
-  getWalletBalances: () => apiRequest<WalletBalances>('/api/users/wallet/balances'),
-  getWalletTransactions: () => apiRequest<Transaction[]>('/api/users/wallet/transactions'),
+    apiRequest<UserProfile>("/api/users/profile", {
+      method: "PATCH",
+      body: data,
+    }),
+  getPortfolio: () => apiRequest<PortfolioData>("/api/users/portfolio"),
+  getWalletBalances: () =>
+    apiRequest<WalletBalances>("/api/users/wallet/balances"),
+  getWalletTransactions: () =>
+    apiRequest<Transaction[]>("/api/users/wallet/transactions"),
 };
 
 export interface Transaction {
@@ -106,71 +111,129 @@ export interface Transaction {
 
 // KYC endpoints
 export const kycApi = {
-  start: (level: 'basic' | 'enhanced' | 'accredited' = 'basic') =>
-    apiRequest<KycStartResponse>('/api/kyc/start', { method: 'POST', body: { level } }),
-  getStatus: () => apiRequest<KycStatus>('/api/kyc/status'),
-  getRequirements: () => apiRequest<KycRequirements>('/api/kyc/requirements'),
+  start: (level: "basic" | "enhanced" | "accredited" = "basic") =>
+    apiRequest<KycStartResponse>("/api/kyc/start", {
+      method: "POST",
+      body: { level },
+    }),
+  getStatus: () => apiRequest<KycStatus>("/api/kyc/status"),
+  getRequirements: () => apiRequest<KycRequirements>("/api/kyc/requirements"),
 };
 
 // Project endpoints
 export const projectApi = {
   getMarketplace: (page = 1, limit = 20, status?: string) =>
     apiRequest<{ data: Project[]; pagination: Pagination }>(
-      `/api/projects/marketplace?page=${page}&limit=${limit}${status ? `&status=${status}` : ''}`
+      `/api/projects/marketplace?page=${page}&limit=${limit}${status ? `&status=${status}` : ""}`,
     ),
   getProject: (id: string) => apiRequest<Project>(`/api/projects/${id}`),
-  getMyProjects: () => apiRequest<Project[]>('/api/projects/my/projects'),
-  createProject: (data: Partial<Project>) => 
-    apiRequest<Project>('/api/projects', { method: 'POST', body: data }),
-  
-  reportProduction: (projectId: string, data: { energyProduced: number, recordedAt: string, notes?: string }) =>
-    apiRequest<any>(`/api/projects/${projectId}/production`, { method: 'POST', body: data }),
+  getMyProjects: () => apiRequest<Project[]>("/api/projects/my/projects"),
+  createProject: (data: Partial<Project>) =>
+    apiRequest<Project>("/api/projects", { method: "POST", body: data }),
+
+  reportProduction: (
+    projectId: string,
+    data: { energyProduced: number; recordedAt: string; notes?: string },
+  ) =>
+    apiRequest<any>(`/api/projects/${projectId}/production`, {
+      method: "POST",
+      body: data,
+    }),
 };
 
 export const oracleApi = {
-  registerDevice: (data: { projectId: string; publicKey: string; metadata?: any }) =>
-    apiRequest<any>('/api/oracle/devices/register', { method: 'POST', body: data }),
+  registerDevice: (data: {
+    projectId: string;
+    publicKey: string;
+    metadata?: any;
+  }) =>
+    apiRequest<any>("/api/oracle/devices/register", {
+      method: "POST",
+      body: data,
+    }),
   getProjectDevices: (projectId: string) =>
     apiRequest<any[]>(`/api/oracle/projects/${projectId}/devices`),
   getDeviceTelemetry: (deviceId: string) =>
     apiRequest<any[]>(`/api/oracle/devices/${deviceId}/telemetry`),
+  deleteDevice: (deviceId: string) =>
+    apiRequest<any>(`/api/oracle/devices/${deviceId}`, { method: "DELETE" }),
 };
 
 export const adminApi = {
-  getPendingKYC: () => apiRequest<any[]>('/api/admin/kyc/pending'),
-  approveKYC: (userId: string) => apiRequest<any>(`/api/admin/kyc/${userId}/approve`, { method: 'POST' }),
-  getStats: () => apiRequest<any>('/api/admin/dashboard'),
-  getPendingProjects: () => apiRequest<Project[]>('/api/admin/projects/pending'),
-  getFundedProjects: () => apiRequest<Project[]>('/api/admin/projects/funded'),
-  approveProject: (id: string) => apiRequest<any>(`/api/admin/projects/${id}/approve`, { method: 'POST' }),
-  rejectProject: (id: string, reason: string) => apiRequest<any>(`/api/admin/projects/${id}/reject`, { method: 'POST', body: { reason } }),
-  activateProject: (id: string) => apiRequest<any>(`/api/admin/projects/${id}/activate`, { method: 'POST' }),
-  verifyMilestone: (id: string) => apiRequest<any>(`/api/milestones/${id}/verify`, { method: 'POST' }),
-  rejectMilestone: (id: string, reason: string) => apiRequest<any>(`/api/milestones/${id}/reject`, { method: 'POST', body: { reason } }),
+  getPendingKYC: () => apiRequest<any[]>("/api/admin/kyc/pending"),
+  approveKYC: (userId: string) =>
+    apiRequest<any>(`/api/admin/kyc/${userId}/approve`, { method: "POST" }),
+  getStats: () => apiRequest<any>("/api/admin/dashboard"),
+  getPendingProjects: () =>
+    apiRequest<Project[]>("/api/admin/projects/pending"),
+  getFundedProjects: () => apiRequest<Project[]>("/api/admin/projects/funded"),
+  approveProject: (id: string) =>
+    apiRequest<any>(`/api/admin/projects/${id}/approve`, { method: "POST" }),
+  rejectProject: (id: string, reason: string) =>
+    apiRequest<any>(`/api/admin/projects/${id}/reject`, {
+      method: "POST",
+      body: { reason },
+    }),
+  activateProject: (id: string) =>
+    apiRequest<any>(`/api/admin/projects/${id}/activate`, { method: "POST" }),
+  verifyMilestone: (id: string) =>
+    apiRequest<any>(`/api/milestones/${id}/verify`, { method: "POST" }),
+  rejectMilestone: (id: string, reason: string) =>
+    apiRequest<any>(`/api/milestones/${id}/reject`, {
+      method: "POST",
+      body: { reason },
+    }),
+  getSubmittedMilestones: () => apiRequest<any[]>("/api/milestones/submitted"),
 };
 
 export const milestoneApi = {
-  getProjectMilestones: (projectId: string) => apiRequest<ProjectMilestone[]>(`/api/milestones/project/${projectId}`),
+  getProjectMilestones: (projectId: string) =>
+    apiRequest<ProjectMilestone[]>(`/api/milestones/project/${projectId}`),
   submitProof: (id: string, proofDocuments: any) =>
-    apiRequest<ProjectMilestone>(`/api/milestones/${id}/submit`, { method: 'POST', body: { proofDocuments } }),
+    apiRequest<ProjectMilestone>(`/api/milestones/${id}/submit`, {
+      method: "POST",
+      body: { proofDocuments },
+    }),
+};
+
+// Wallet endpoints
+export const walletApi = {
+  getBalances: () => apiRequest<WalletBalances>("/api/stellar/wallet"),
+  getTransactions: () => apiRequest<any[]>("/api/stellar/transactions"),
+  fundTestnet: () =>
+    apiRequest<{ message: string }>("/api/stellar/wallet/fund-testnet", {
+      method: "POST",
+    }),
+  checkTrustline: () => apiRequest<any>("/api/stellar/trustline/check"),
+  createTrustline: () =>
+    apiRequest<any>("/api/stellar/trustline/create", { method: "POST" }),
+  fundTestUsdc: (amount?: string) =>
+    apiRequest<any>("/api/stellar/fund-test-usdc", {
+      method: "POST",
+      body: JSON.stringify({ amount: amount || "100" }),
+    }),
 };
 
 // Investment endpoints
 export const investmentApi = {
-  getMyInvestments: () => apiRequest<Investment[]>('/api/investments/my'),
-  getInvestment: (id: string) => apiRequest<Investment>(`/api/investments/${id}`),
+  getMyInvestments: () => apiRequest<Investment[]>("/api/investments/my"),
+  getInvestment: (id: string) =>
+    apiRequest<Investment>(`/api/investments/${id}`),
   createInvestment: (data: { projectId: string; amount: number }) =>
-    apiRequest<Investment>('/api/investments', { method: 'POST', body: data }),
+    apiRequest<Investment>("/api/investments", { method: "POST", body: data }),
 };
 
 // Yield endpoints
 export const yieldApi = {
-  getSummary: () => apiRequest<YieldSummary>('/api/yields/summary'),
-  getPending: () => apiRequest<{ claims: YieldClaim[]; totalPending: number }>('/api/yields/pending'),
-  getHistory: () => apiRequest<{ claims: YieldClaim[] }>('/api/yields/history'),
+  getSummary: () => apiRequest<YieldSummary>("/api/yields/summary"),
+  getPending: () =>
+    apiRequest<{ claims: YieldClaim[]; totalPending: number }>(
+      "/api/yields/pending",
+    ),
+  getHistory: () => apiRequest<{ claims: YieldClaim[] }>("/api/yields/history"),
   claimBatch: (claimIds: string[]) =>
-    apiRequest<{ success: number; failed: number }>('/api/yields/claim/batch', {
-      method: 'POST',
+    apiRequest<{ success: number; failed: number }>("/api/yields/claim/batch", {
+      method: "POST",
       body: { claimIds },
     }),
 };
@@ -183,8 +246,8 @@ export interface UserProfile {
   id: string;
   email: string;
   name?: string;
-  role: 'INVESTOR' | 'INSTALLER' | 'ADMIN';
-  kycStatus: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED';
+  role: "INVESTOR" | "INSTALLER" | "ADMIN";
+  kycStatus: "PENDING" | "IN_REVIEW" | "VERIFIED" | "REJECTED";
   stellarPubKey?: string;
   phone?: string;
   company?: string;
@@ -229,7 +292,7 @@ export interface KycStartResponse {
 }
 
 export interface KycStatus {
-  status: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED';
+  status: "PENDING" | "IN_REVIEW" | "VERIFIED" | "REJECTED";
   submittedAt?: string;
   verifiedAt?: string;
   sumsub?: {
@@ -263,7 +326,16 @@ export interface Project {
   totalTokens: number;
   tokensRemaining: number;
   tokenSymbol: string;
-  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'FUNDING' | 'FUNDED' | 'ACTIVE_PENDING_DATA' | 'ACTIVE' | 'COMPLETED';
+  status:
+    | "DRAFT"
+    | "PENDING_APPROVAL"
+    | "APPROVED"
+    | "REJECTED"
+    | "FUNDING"
+    | "FUNDED"
+    | "ACTIVE_PENDING_DATA"
+    | "ACTIVE"
+    | "COMPLETED";
   installer?: {
     id: string;
     name: string;
@@ -272,7 +344,7 @@ export interface Project {
   investorCount?: number;
   fundingPercentage?: number;
   totalEnergyProduced?: number;
-  fundingModel?: 'FULL_UPFRONT' | 'MILESTONE_BASED';
+  fundingModel?: "FULL_UPFRONT" | "MILESTONE_BASED";
   totalEscrowedAmount?: number;
   totalReleasedAmount?: number;
   milestones?: ProjectMilestone[];
@@ -287,8 +359,8 @@ export interface ProjectMilestone {
   order: number;
   releasePercentage: number;
   releaseAmount: number;
-  status: 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED' | 'RELEASED';
-  verificationMethod: 'DOCUMENT' | 'PHOTO' | 'IOT' | 'ORACLE';
+  status: "PENDING" | "SUBMITTED" | "VERIFIED" | "REJECTED" | "RELEASED";
+  verificationMethod: "DOCUMENT" | "PHOTO" | "IOT" | "ORACLE";
   proofDocuments?: any;
   submittedAt?: string;
   verifiedAt?: string;
@@ -301,7 +373,7 @@ export interface Investment {
   id: string;
   amount: number;
   tokenAmount: number;
-  status: 'PENDING' | 'PENDING_ONCHAIN' | 'CONFIRMED' | 'FAILED' | 'CANCELLED';
+  status: "PENDING" | "PENDING_ONCHAIN" | "CONFIRMED" | "FAILED" | "CANCELLED";
   createdAt: string;
   project: {
     id: string;
@@ -341,4 +413,3 @@ export interface Pagination {
   total: number;
   totalPages: number;
 }
-

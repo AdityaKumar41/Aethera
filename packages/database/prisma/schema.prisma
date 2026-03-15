@@ -202,6 +202,7 @@ model YieldDistribution {
   distributed   Boolean      @default(false)
   distributedAt DateTime?
   txHash        String?
+  onChainDistributionId BigInt?
   metadata      Json?
   createdAt     DateTime     @default(now())
   claims        YieldClaim[]
@@ -405,4 +406,20 @@ enum VerificationMethod {
 enum FundingModel {
   FULL_UPFRONT
   MILESTONE_BASED
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  action        String
+  entityType    String
+  entityId      String
+  userId        String?
+  previousState String?
+  newState      String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
 }

@@ -1,6 +1,6 @@
 /**
  * Oracle Service
- * 
+ *
  * Handles oracle provider management, signed data submission, and dispute resolution.
  * Uses Ed25519 signatures for cryptographic verification.
  */
@@ -88,7 +88,7 @@ export class OracleService {
     });
 
     // Return the secret key only once - provider must store it securely
-    console.log(`⚠️ Oracle ${provider.name} secret key (store securely): ${secretKey}`);
+    // Note: secretKey is returned via the API response, never logged
 
     return {
       providerId: provider.id,
@@ -100,7 +100,10 @@ export class OracleService {
   /**
    * Approve an oracle provider (admin only)
    */
-  async approveProvider(providerId: string, adminUserId: string): Promise<void> {
+  async approveProvider(
+    providerId: string,
+    adminUserId: string,
+  ): Promise<void> {
     await prisma.oracleProvider.update({
       where: { id: providerId },
       data: {
@@ -138,9 +141,11 @@ export class OracleService {
   /**
    * Validate API key and return provider
    */
-  async validateApiKey(apiKey: string): Promise<{ id: string; publicKey: string } | null> {
+  async validateApiKey(
+    apiKey: string,
+  ): Promise<{ id: string; publicKey: string } | null> {
     const apiKeyHash = this.hashApiKey(apiKey);
-    
+
     const provider = await prisma.oracleProvider.findUnique({
       where: { apiKeyHash },
       select: { id: true, publicKey: true, status: true },
@@ -210,7 +215,11 @@ export class OracleService {
     }
 
     // 2. Verify signature
-    const isValid = this.verifyDeviceSignature(input.payload, input.signature, input.publicKey);
+    const isValid = this.verifyDeviceSignature(
+      input.payload,
+      input.signature,
+      input.publicKey,
+    );
     if (!isValid) {
       return { success: false, error: "Invalid signature" };
     }
@@ -255,14 +264,19 @@ export class OracleService {
         carbonCredits: { increment: carbonCredits },
         lastProductionUpdate: new Date(),
         // Automatically transition to ACTIVE if in ACTIVE_PENDING_DATA
-        ...(project?.status === ProjectStatus.ACTIVE_PENDING_DATA ? { status: ProjectStatus.ACTIVE } : {}),
+        ...(project?.status === ProjectStatus.ACTIVE_PENDING_DATA
+          ? { status: ProjectStatus.ACTIVE }
+          : {}),
       },
     });
 
     // 7. Auto-anchor to blockchain (background)
-    this.anchorToBlockchain(productionData.id, device.projectId, energyKwh, input.signature).catch(
-      (err) => console.error("Background anchoring failed:", err)
-    );
+    this.anchorToBlockchain(
+      productionData.id,
+      device.projectId,
+      energyKwh,
+      input.signature,
+    ).catch((err) => console.error("Background anchoring failed:", err));
 
     return { success: true, dataId: productionData.id };
   }
@@ -274,7 +288,7 @@ export class OracleService {
     dataId: string,
     projectId: string,
     energyKwh: number,
-    signature: string
+    signature: string,
   ) {
     try {
       const contracts = getContractAddresses();
@@ -284,14 +298,14 @@ export class OracleService {
       if (!adminSecret) return;
 
       const adminKeypair = Keypair.fromSecret(adminSecret);
-        const anchorResult = await contractService.commitProduction(
-          contracts.oracle,
-          adminKeypair,
-          projectId,
-          Math.floor(Date.now() / 1000), // Current time for simplicity
-          Math.floor(Date.now() / 1000),
-          BigInt(Math.floor(energyKwh * 100))
-        );
+      const anchorResult = await contractService.commitProduction(
+        contracts.oracle,
+        adminKeypair,
+        projectId,
+        Math.floor(Date.now() / 1000), // Current time for simplicity
+        Math.floor(Date.now() / 1000),
+        BigInt(Math.floor(energyKwh * 100)),
+      );
 
       if (anchorResult.success) {
         await prisma.productionData.update({
@@ -310,10 +324,17 @@ export class OracleService {
   /**
    * Specialized verification for Stellar-style Ed25519 (hex signatures)
    */
-  private verifyDeviceSignature(payload: string, signatureHex: string, publicKey: string): boolean {
+  private verifyDeviceSignature(
+    payload: string,
+    signatureHex: string,
+    publicKey: string,
+  ): boolean {
     try {
       const keypair = Keypair.fromPublicKey(publicKey);
-      return keypair.verify(Buffer.from(payload), Buffer.from(signatureHex, "hex"));
+      return keypair.verify(
+        Buffer.from(payload),
+        Buffer.from(signatureHex, "hex"),
+      );
     } catch (error) {
       console.error("Device signature verification failed:", error);
       return false;
@@ -329,7 +350,7 @@ export class OracleService {
    */
   async submitSignedData(
     apiKey: string,
-    submission: SignedSubmission
+    submission: SignedSubmission,
   ): Promise<{ success: boolean; dataId?: string; error?: string }> {
     // 1. Validate API key
     const provider = await this.validateApiKey(apiKey);
@@ -351,8 +372,16 @@ export class OracleService {
     }
 
     // 4. Verify signature
-    const payload = this.createSignablePayload(submission.data, submission.timestamp, submission.nonce);
-    const isValid = this.verifySignature(payload, submission.signature, provider.publicKey);
+    const payload = this.createSignablePayload(
+      submission.data,
+      submission.timestamp,
+      submission.nonce,
+    );
+    const isValid = this.verifySignature(
+      payload,
+      submission.signature,
+      provider.publicKey,
+    );
 
     // 5. Check project exists
     const project = await prisma.project.findUnique({
@@ -365,7 +394,9 @@ export class OracleService {
     }
 
     // 7. Calculate impact (Carbon Credits)
-    const carbonCredits = impactService.calculateCarbonCredits(submission.data.energyProduced);
+    const carbonCredits = impactService.calculateCarbonCredits(
+      submission.data.energyProduced,
+    );
 
     // 8. Store production data (initial DB entry)
     const productionData = await prisma.productionData.create({
@@ -374,12 +405,20 @@ export class OracleService {
         energyProduced: submission.data.energyProduced,
         carbonCredits: carbonCredits,
         recordedAt: new Date(submission.data.recordedAt),
-        periodStart: submission.data.periodStart ? new Date(submission.data.periodStart) : null,
-        periodEnd: submission.data.periodEnd ? new Date(submission.data.periodEnd) : null,
+        periodStart: submission.data.periodStart
+          ? new Date(submission.data.periodStart)
+          : null,
+        periodEnd: submission.data.periodEnd
+          ? new Date(submission.data.periodEnd)
+          : null,
         source: "ORACLE",
         oracleProviderId: provider.id,
         signature: submission.signature,
-        signedPayload: JSON.stringify({ ...submission, timestamp: submission.timestamp, nonce: submission.nonce }),
+        signedPayload: JSON.stringify({
+          ...submission,
+          timestamp: submission.timestamp,
+          nonce: submission.nonce,
+        }),
         signatureValid: isValid,
       },
     });
@@ -398,14 +437,22 @@ export class OracleService {
               contracts.oracle,
               adminKeypair,
               submission.data.projectId,
-              Math.floor(new Date(submission.data.periodStart || submission.data.recordedAt).getTime() / 1000),
-              Math.floor(new Date(submission.data.periodEnd || submission.data.recordedAt).getTime() / 1000),
-              BigInt(Math.floor(submission.data.energyProduced * 100)) // Scale to avoid decimals in contract
+              Math.floor(
+                new Date(
+                  submission.data.periodStart || submission.data.recordedAt,
+                ).getTime() / 1000,
+              ),
+              Math.floor(
+                new Date(
+                  submission.data.periodEnd || submission.data.recordedAt,
+                ).getTime() / 1000,
+              ),
+              BigInt(Math.floor(submission.data.energyProduced * 100)), // Scale to avoid decimals in contract
             );
 
             if (anchorResult.success) {
               onChainTxHash = anchorResult.txHash;
-              
+
               // Update record with anchoring info
               await prisma.productionData.update({
                 where: { id: productionData.id },
@@ -448,12 +495,18 @@ export class OracleService {
   /**
    * Create a signable payload string
    */
-  private createSignablePayload(data: OracleDataSubmission, timestamp: number, nonce: string): string {
+  private createSignablePayload(
+    data: OracleDataSubmission,
+    timestamp: number,
+    nonce: string,
+  ): string {
     const normalized = {
       projectId: data.projectId,
       energyProduced: data.energyProduced.toString(),
       recordedAt: new Date(data.recordedAt).toISOString(),
-      periodStart: data.periodStart ? new Date(data.periodStart).toISOString() : null,
+      periodStart: data.periodStart
+        ? new Date(data.periodStart).toISOString()
+        : null,
       periodEnd: data.periodEnd ? new Date(data.periodEnd).toISOString() : null,
       timestamp,
       nonce,
@@ -464,12 +517,16 @@ export class OracleService {
   /**
    * Verify Ed25519 signature
    */
-  private verifySignature(payload: string, signatureBase64: string, publicKeyBase64: string): boolean {
+  private verifySignature(
+    payload: string,
+    signatureBase64: string,
+    publicKeyBase64: string,
+  ): boolean {
     try {
       const message = naclUtil.decodeUTF8(payload);
       const signature = naclUtil.decodeBase64(signatureBase64);
       const publicKey = naclUtil.decodeBase64(publicKeyBase64);
-      
+
       return nacl.sign.detached.verify(message, signature, publicKey);
     } catch (error) {
       console.error("Signature verification failed:", error);
@@ -553,7 +610,7 @@ export class OracleService {
       valid: boolean;
       notes: string;
       trustScoreChange?: number; // -10 to +10
-    }
+    },
   ): Promise<void> {
     const dispute = await prisma.oracleDispute.findUnique({
       where: { id: disputeId },
@@ -575,13 +632,15 @@ export class OracleService {
         resolvedBy: adminUserId,
         resolution: resolution.notes,
         resolvedAt: new Date(),
-        trustScoreChange: resolution.trustScoreChange ?? (resolution.valid ? 2 : -5),
+        trustScoreChange:
+          resolution.trustScoreChange ?? (resolution.valid ? 2 : -5),
         dataInvalidated: !resolution.valid,
       },
     });
 
     // Update oracle's trust score
-    const trustChange = resolution.trustScoreChange ?? (resolution.valid ? 2 : -5);
+    const trustChange =
+      resolution.trustScoreChange ?? (resolution.valid ? 2 : -5);
     await prisma.oracleProvider.update({
       where: { id: dispute.oracleProviderId },
       data: {
@@ -595,7 +654,9 @@ export class OracleService {
     if (!resolution.valid) {
       // Note: The production data should be marked - we need disputeId reference
       // This is handled by the dispute record itself
-      console.log(`Production data ${dispute.productionDataId} invalidated by dispute resolution`);
+      console.log(
+        `Production data ${dispute.productionDataId} invalidated by dispute resolution`,
+      );
     }
 
     // Notify oracle via webhook
@@ -624,7 +685,11 @@ export class OracleService {
   private async checkRateLimit(providerId: string): Promise<boolean> {
     const provider = await prisma.oracleProvider.findUnique({
       where: { id: providerId },
-      select: { rateLimit: true, lastSubmissionAt: true, totalSubmissions: true },
+      select: {
+        rateLimit: true,
+        lastSubmissionAt: true,
+        totalSubmissions: true,
+      },
     });
 
     if (!provider) return true;
@@ -641,7 +706,10 @@ export class OracleService {
     return recentSubmissions >= provider.rateLimit;
   }
 
-  private async sendWebhook(url: string, payload: Record<string, any>): Promise<void> {
+  private async sendWebhook(
+    url: string,
+    payload: Record<string, any>,
+  ): Promise<void> {
     try {
       await fetch(url, {
         method: "POST",
@@ -691,13 +759,14 @@ export class OracleService {
 
     // Adjust for dispute ratio
     if (provider.totalSubmissions > 0) {
-      const disputeRatio = provider.disputedSubmissions / provider.totalSubmissions;
+      const disputeRatio =
+        provider.disputedSubmissions / provider.totalSubmissions;
       score -= Math.round(disputeRatio * 30); // Up to -30 for high dispute ratio
     }
 
     // Bonus for longevity (max +20)
     const daysActive = Math.floor(
-      (Date.now() - provider.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - provider.createdAt.getTime()) / (1000 * 60 * 60 * 24),
     );
     score += Math.min(20, Math.floor(daysActive / 30)); // +1 per month, max 20
 

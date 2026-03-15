@@ -1,20 +1,23 @@
 /**
  * Yield Service
- * 
+ *
  * Handles the on-chain logic for yield distribution and claims.
  * Bridges the database records with Soroban contract interactions.
  */
 
 import Decimal, { prisma, YieldDistributionService } from "@aethera/database";
 import { createHash, createHmac, randomBytes } from "crypto";
-import { 
-  contractService, 
-  getContractAddresses, 
+import {
+  contractService,
+  getContractAddresses,
   stellarClient,
-  ContractInvocationResult 
+  ContractInvocationResult,
 } from "@aethera/stellar";
-import { Keypair } from "@stellar/stellar-sdk";
-import { investmentService } from "./investmentService.js"; // Reuse decryption logic
+import { Keypair, scValToNative, xdr } from "@stellar/stellar-sdk";
+import {
+  investmentService,
+  getInvestmentService,
+} from "./investmentService.js";
 
 export class YieldService {
   private static instance: YieldService | null = null;
@@ -43,51 +46,79 @@ export class YieldService {
     // 1. Create DB distribution and claims
     const distribution = await YieldDistributionService.createDistribution({
       ...params,
-      triggeredBy: params.adminId
+      triggeredBy: params.adminId,
     });
-    
+
+    const project = await prisma.project.findUnique({
+      where: { id: params.projectId },
+      select: { tokenContractId: true },
+    });
+
     // 2. Perform on-chain distribution logic
     try {
       const contracts = getContractAddresses();
-      if (contracts.yieldDistributor) {
+      if (contracts.yieldDistributor && project?.tokenContractId) {
         const adminSecret = process.env.STAT_RELAYER_SECRET;
         if (!adminSecret) throw new Error("Admin secret not configured");
-        
+
         const adminKeypair = Keypair.fromSecret(adminSecret);
-        
-        // Total energy and revenue per kWh should be extracted from distribution logic
-        // For now we calculate defaults based on the distribution record
-        const energyKwhScaled = BigInt(Math.round(distribution.totalEnergyProduced * 10000));
-        const revenuePerKwhScaled = BigInt(Math.round(params.revenuePerKwh * 10_000_000));
-        
+
+        // Extract energy produced from distribution metadata
+        const metadata = distribution.metadata as Record<
+          string,
+          unknown
+        > | null;
+        const energyProduced = Number(metadata?.energyProduced || 0);
+        const energyKwhScaled = BigInt(Math.round(energyProduced * 10000));
+        const revenuePerKwhScaled = BigInt(
+          Math.round(params.revenuePerKwh * 10_000_000),
+        );
+
         const result = await contractService.createYieldDistribution(
           contracts.yieldDistributor,
           adminKeypair,
           params.projectId,
-          (distribution as any).project?.tokenContractId || "",
+          project.tokenContractId,
           Math.floor(params.periodStart.getTime() / 1000),
           Math.floor(params.periodEnd.getTime() / 1000),
           energyKwhScaled,
-          revenuePerKwhScaled
+          revenuePerKwhScaled,
         );
-        
+
         if (result.success && result.txHash) {
+          let onChainDistributionId: bigint | undefined;
+          if (result.result) {
+            const native = scValToNative(result.result as xdr.ScVal);
+            if (typeof native === "bigint") onChainDistributionId = native;
+            else if (typeof native === "number")
+              onChainDistributionId = BigInt(native);
+          }
+
           // Update DB distribution with tx hash
           await YieldDistributionService.markAsDistributed(
             distribution.id,
             result.txHash,
-            params.adminId
+            params.adminId,
+            onChainDistributionId,
           );
-          
-          return { success: true, distributionId: distribution.id, txHash: result.txHash };
+
+          return {
+            success: true,
+            distributionId: distribution.id,
+            txHash: result.txHash,
+          };
         }
       }
     } catch (error: any) {
       console.error("On-chain distribution failed:", error);
       // We still return the DB distribution, but marked as not on-chain yet
     }
-    
-    return { success: true, distributionId: distribution.id, notice: "On-chain anchoring failed or skipped" };
+
+    return {
+      success: true,
+      distributionId: distribution.id,
+      notice: "On-chain anchoring failed or skipped",
+    };
   }
 
   /**
@@ -97,34 +128,42 @@ export class YieldService {
     // 1. Get claim and validate
     const claim = await prisma.yieldClaim.findUnique({
       where: { id: claimId },
-      include: { 
-        distribution: { 
-          include: { project: true } 
+      include: {
+        distribution: {
+          include: { project: true },
         },
-        investor: true
-      }
+        investor: true,
+      },
     });
 
     if (!claim || claim.investorId !== userId || claim.claimed) {
       throw new Error("Invalid or already processed claim");
     }
 
+    if (!claim.distribution.onChainDistributionId) {
+      throw new Error("On-chain distribution not anchored yet");
+    }
+
     // 2. Perform on-chain claim
     try {
       const contracts = getContractAddresses();
       if (contracts.yieldDistributor) {
-        // Reuse decryption logic from investmentService
-        const investorKeypair = await (investmentService as any).getInvestorKeypair(claim.investor);
-        
+        const investorKeypair = await investmentService.getInvestorKeypair(
+          claim.investor,
+        );
+
         const result = await contractService.claimYield(
           contracts.yieldDistributor,
           investorKeypair,
-          BigInt(claim.distribution.id)
+          claim.distribution.onChainDistributionId,
         );
-        
+
         if (result.success && result.txHash) {
           // 3. Mark in DB as claimed
-          const updated = await YieldDistributionService.processClaim(claim.id, result.txHash);
+          const updated = await YieldDistributionService.processClaim(
+            claim.id,
+            result.txHash,
+          );
           return { success: true, claim: updated, txHash: result.txHash };
         } else {
           throw new Error(result.error || "On-chain claim failed");
@@ -134,7 +173,7 @@ export class YieldService {
       console.error("Yield claim failed:", error);
       throw error;
     }
-    
+
     throw new Error("Yield distributor contract not configured");
   }
 
@@ -151,12 +190,12 @@ export class YieldService {
         results.push({ success: false, claimId, error: error.message });
       }
     }
-    
-    const successCount = results.filter(r => r.success).length;
+
+    const successCount = results.filter((r) => r.success).length;
     return {
       success: successCount,
       failed: claimIds.length - successCount,
-      details: results
+      details: results,
     };
   }
 }

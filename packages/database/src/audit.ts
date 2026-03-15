@@ -23,30 +23,18 @@ export class AuditLogger {
    */
   static async logStateChange(event: StateChangeEvent): Promise<void> {
     try {
-      // For now, console log - will add to database in future
-      console.log("[AUDIT]", {
-        type: "STATE_TRANSITION",
-        entityType: event.entityType,
-        entityId: event.entityId,
-        transition: `${event.fromState} → ${event.toState}`,
-        triggeredBy: event.triggeredBy,
-        timestamp: event.timestamp.toISOString(),
-        metadata: event.metadata,
+      await prisma.auditLog.create({
+        data: {
+          action: "STATE_TRANSITION",
+          entityType: event.entityType,
+          entityId: event.entityId,
+          userId: event.triggeredBy,
+          previousState: event.fromState,
+          newState: event.toState,
+          metadata: event.metadata ?? undefined,
+          createdAt: event.timestamp,
+        },
       });
-
-      // TODO: Store in audit log table
-      // await prisma.auditLog.create({
-      //   data: {
-      //     eventType: 'STATE_TRANSITION',
-      //     entityType: event.entityType,
-      //     entityId: event.entityId,
-      //     fromState: event.fromState,
-      //     toState: event.toState,
-      //     triggeredBy: event.triggeredBy,
-      //     metadata: event.metadata,
-      //     timestamp: event.timestamp,
-      //   },
-      // });
     } catch (error) {
       console.error("[AUDIT ERROR]", error);
       // Never fail the operation due to audit logging
@@ -123,11 +111,9 @@ export class AuditLogger {
     entityType: string,
     entityId: string,
   ): Promise<any[]> {
-    // TODO: Implement database query once audit log table exists
-    // return await prisma.auditLog.findMany({
-    //   where: { entityType, entityId },
-    //   orderBy: { timestamp: 'desc' },
-    // });
-    return [];
+    return await prisma.auditLog.findMany({
+      where: { entityType, entityId },
+      orderBy: { createdAt: "desc" },
+    });
   }
 }

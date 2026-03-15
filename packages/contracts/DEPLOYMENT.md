@@ -28,6 +28,24 @@
 - **Size:** 6,372 bytes (optimized)
 - **Purpose:** Investment pool and yield distribution management
 
+#### 3. Yield Distributor Contract
+
+- **Contract ID:** `TBD`
+- **Wasm Hash:** `TBD`
+- **Purpose:** Yield distribution and claims
+
+#### 4. Governance Contract
+
+- **Contract ID:** `TBD`
+- **Wasm Hash:** `TBD`
+- **Purpose:** On-chain governance and voting
+
+#### 5. Oracle Contract
+
+- **Contract ID:** `TBD`
+- **Wasm Hash:** `TBD`
+- **Purpose:** Production data anchoring
+
 ---
 
 ## Contract Configuration
@@ -38,6 +56,9 @@
 # Testnet Contract Addresses
 ASSET_TOKEN_CONTRACT_ID=CBRCDA3COGVNJJEM22MC7V5KZCF3OTNJ2CYHT4OFDJO5SRHFNVDSQJ3N
 TREASURY_CONTRACT_ID=CDTQZM37IUOU7KDQZVDVWFLO2FSF2OPL2KTRABH7Y5UUGXKA5XCSRX3Q
+YIELD_DISTRIBUTOR_CONTRACT_ID=
+GOVERNANCE_CONTRACT_ID=
+ORACLE_CONTRACT_ID=
 DEPLOYER_PUBLIC_KEY=GCCB36VEX2CCGBLACLH5PYUGEFFL6DIJZBLFEOUBGUSBFTXPECZNPWTA
 
 # Network
@@ -77,9 +98,9 @@ stellar contract inspect \
 
 1. ✅ Contracts built and optimized
 2. ✅ Contracts deployed to testnet
-3. ⏳ Initialize contracts with admin addresses
-4. ⏳ Update backend to use deployed contract IDs
-5. ⏳ Implement real contract invocation in API routes
+3. ⏳ Deploy yield distributor, governance, and oracle
+4. ⏳ Initialize contracts with admin addresses
+5. ⏳ Update backend to use deployed contract IDs
 6. ⏳ Test token minting and transfers
 7. ⏳ Test investment pool operations
 
@@ -93,6 +114,9 @@ stellar contract inspect \
 - [x] Fund deployer account
 - [x] Deploy asset-token contract
 - [x] Deploy treasury contract
+- [ ] Deploy yield distributor contract
+- [ ] Deploy governance contract
+- [ ] Deploy oracle contract
 - [ ] Initialize contracts
 - [ ] Update environment variables
 - [ ] Update stellar package configuration

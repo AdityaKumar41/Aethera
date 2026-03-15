@@ -6,7 +6,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, Address, Env, IntoVal, String, Symbol, Vec,
 };
 
 // ============================================
@@ -514,15 +514,20 @@ impl GovernanceContract {
 
     fn get_token_balance(env: &Env, token_contract: &Address, holder: &Address) -> i128 {
         // Cross-contract call to token contract
-        // For now, return a mock value - in production this would call the token contract
-        // env.invoke_contract(token_contract, &Symbol::new(env, "balance"), vec![holder.into()])
-        1000i128 // Mock value for testing
+        env.invoke_contract::<i128>(
+            token_contract,
+            &Symbol::new(env, "balance"),
+            (holder.clone(),).into_val(env),
+        )
     }
 
     fn get_total_supply(env: &Env, token_contract: &Address) -> i128 {
         // Cross-contract call to get total supply
-        // For now, return a mock value
-        1_000_000i128 // Mock value for testing
+        env.invoke_contract::<i128>(
+            token_contract,
+            &Symbol::new(env, "total_supply"),
+            Vec::new(env),
+        )
     }
 }
 
@@ -534,6 +539,21 @@ impl GovernanceContract {
 mod tests {
     use super::*;
     use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::{contract, contractimpl};
+
+    #[contract]
+    struct MockToken;
+
+    #[contractimpl]
+    impl MockToken {
+        pub fn balance(_env: Env, _holder: Address) -> i128 {
+            1000i128
+        }
+
+        pub fn total_supply(_env: Env) -> i128 {
+            1_000_000i128
+        }
+    }
 
     #[test]
     fn test_initialize() {
@@ -542,7 +562,7 @@ mod tests {
         let client = GovernanceContractClient::new(&env, &contract_id);
         
         let admin = Address::generate(&env);
-        let token = Address::generate(&env);
+        let token = env.register_contract(None, MockToken);
 
         client.initialize(
             &admin,
@@ -568,7 +588,7 @@ mod tests {
         let client = GovernanceContractClient::new(&env, &contract_id);
         
         let admin = Address::generate(&env);
-        let token = Address::generate(&env);
+        let token = env.register_contract(None, MockToken);
         let proposer = Address::generate(&env);
 
         client.initialize(
@@ -604,7 +624,7 @@ mod tests {
         let client = GovernanceContractClient::new(&env, &contract_id);
         
         let admin = Address::generate(&env);
-        let token = Address::generate(&env);
+        let token = env.register_contract(None, MockToken);
         let proposer = Address::generate(&env);
         let voter = Address::generate(&env);
 
@@ -635,7 +655,7 @@ mod tests {
         let client = GovernanceContractClient::new(&env, &contract_id);
         
         let admin = Address::generate(&env);
-        let token = Address::generate(&env);
+        let token = env.register_contract(None, MockToken);
 
         client.initialize(&admin, &token, &100i128, &86400u64, &172800u64, &500u32);
         

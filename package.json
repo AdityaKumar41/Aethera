@@ -14,7 +14,10 @@
     "db:push": "pnpm --filter database db:push",
     "db:migrate": "pnpm --filter database db:migrate",
     "contracts:build": "pnpm --filter contracts build",
-    "contracts:test": "pnpm --filter contracts test"
+    "contracts:test": "pnpm --filter contracts test",
+    "contracts:deploy-core": "node scripts/contracts/deploy-core.js",
+    "contracts:init-core": "node scripts/contracts/init-core.js",
+    "env:check": "node scripts/validate-env.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

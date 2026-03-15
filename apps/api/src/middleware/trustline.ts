@@ -19,17 +19,13 @@ export async function requireTrustline(
   next: NextFunction,
 ) {
   try {
-    console.log("\n🔵 ========== TRUSTLINE MIDDLEWARE START ==========");
     const userId = req.auth?.userId;
-    console.log("👤 User ID:", userId);
 
     if (!userId) {
-      console.error("❌ No user ID found");
       throw createApiError("Authentication required", 401);
     }
 
     // Get user's Stellar wallet
-    console.log("🔍 Fetching user wallet from database...");
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -37,16 +33,8 @@ export async function requireTrustline(
         stellarSecretEncrypted: true,
       },
     });
-    console.log(
-      "💼 Wallet public key:",
-      user?.stellarPubKey
-        ? `${user.stellarPubKey.slice(0, 10)}...${user.stellarPubKey.slice(-4)}`
-        : "NULL",
-    );
-    console.log("🔐 Encrypted secret exists:", !!user?.stellarSecretEncrypted);
 
     if (!user?.stellarPubKey) {
-      console.error("❌ No wallet found for user");
       throw createApiError(
         "Stellar wallet not found. Please create a wallet first.",
         400,
@@ -55,7 +43,6 @@ export async function requireTrustline(
     }
 
     if (!user.stellarSecretEncrypted) {
-      console.error("❌ No encrypted secret found");
       throw createApiError(
         "Wallet secret not found. Please contact support.",
         400,
@@ -64,58 +51,39 @@ export async function requireTrustline(
     }
 
     // Check if user has USDC trustline
-    console.log("🔍 Checking for USDC trustline...");
     const hasTrustline = await trustlineService.hasTrustline(
       user.stellarPubKey,
     );
-    console.log("📋 Has trustline:", hasTrustline);
 
     if (!hasTrustline) {
       console.log(
-        `⚠️  No trustline found - attempting auto-creation for user ${userId}...`,
+        `Trustline missing for user ${userId}, attempting auto-creation`,
       );
 
       try {
-        // Decrypt user's secret and create trustline
-        console.log("🔓 Decrypting wallet secret...");
         const secret = walletService.decryptSecret(user.stellarSecretEncrypted);
-        console.log("✅ Secret decrypted successfully");
-
         const userKeypair = Keypair.fromSecret(secret);
-        console.log("🔑 Keypair created from secret");
-
-        // Create trustline automatically
-        console.log("🔗 Creating USDC trustline...");
         const result = await trustlineService.createTrustline(userKeypair);
-        console.log(
-          "📊 Trustline creation result:",
-          JSON.stringify(result, null, 2),
-        );
-        console.log(`✅ USDC trustline created for user ${userId}`);
+        console.log(`Trustline created for user ${userId}, tx: ${result}`);
       } catch (trustlineError: any) {
-        console.error("❌ Failed to create trustline:", trustlineError.message);
-        console.error("Stack:", trustlineError.stack);
+        console.error(
+          `Trustline creation failed for user ${userId}:`,
+          trustlineError.message,
+        );
         throw createApiError(
           "Failed to create USDC trustline. Please try enabling USDC in your wallet settings first.",
           400,
           "TRUSTLINE_CREATION_FAILED",
         );
       }
-    } else {
-      console.log("✅ USDC trustline already exists");
     }
 
-    // Trustline verified or created - continue
-    console.log("✅ ========== TRUSTLINE MIDDLEWARE COMPLETE ==========\n");
     next();
   } catch (error: any) {
-    console.error("\n❌ ========== TRUSTLINE MIDDLEWARE FAILED ==========");
-    console.error("Error type:", error.constructor?.name);
-    console.error("Error message:", error.message);
-    console.error("Error code:", error.code);
-    console.error("Status code:", error.statusCode);
-    console.error("Stack:", error.stack);
-    console.error("=================================================\n");
+    console.error(
+      `Trustline middleware error for ${req.auth?.userId}:`,
+      error.message,
+    );
     next(error);
   }
 }
@@ -149,7 +117,7 @@ export async function checkTrustline(
       (req as any).hasTrustline = hasTrustline;
 
       if (!hasTrustline) {
-        console.warn(`⚠️ User ${userId} does not have USDC trustline set up`);
+        console.warn(`User ${userId} does not have USDC trustline set up`);
       }
     }
 

@@ -1,4 +1,9 @@
-import { prisma, ProjectStatus, MilestoneStatus, VerificationMethod } from "@aethera/database";
+import {
+  prisma,
+  ProjectStatus,
+  MilestoneStatus,
+  VerificationMethod,
+} from "@aethera/database";
 import { contractService, getContractAddresses } from "@aethera/stellar";
 import { Keypair } from "@stellar/stellar-sdk";
 
@@ -19,8 +24,12 @@ export class MilestoneService {
     });
 
     if (!milestone) throw new Error("Milestone not found");
-    if (milestone.project.installerId !== installerId) throw new Error("Unauthorized");
-    if (milestone.status !== MilestoneStatus.PENDING && milestone.status !== MilestoneStatus.REJECTED) {
+    if (milestone.project.installerId !== installerId)
+      throw new Error("Unauthorized");
+    if (
+      milestone.status !== MilestoneStatus.PENDING &&
+      milestone.status !== MilestoneStatus.REJECTED
+    ) {
       throw new Error(`Cannot submit milestone in ${milestone.status} status`);
     }
 
@@ -37,10 +46,7 @@ export class MilestoneService {
   /**
    * Verify a milestone (Admin only)
    */
-  async verifyMilestone(params: {
-    milestoneId: string;
-    adminId: string;
-  }) {
+  async verifyMilestone(params: { milestoneId: string; adminId: string }) {
     const { milestoneId, adminId } = params;
 
     const milestone = await prisma.projectMilestone.findUnique({
@@ -102,40 +108,63 @@ export class MilestoneService {
 
     if (!milestone) throw new Error("Milestone not found");
     if (milestone.status !== MilestoneStatus.VERIFIED) {
-      throw new Error("Milestone must be VERIFIED before funds can be released");
+      throw new Error(
+        "Milestone must be VERIFIED before funds can be released",
+      );
     }
 
     const { project } = milestone;
 
-    console.log(`💰 Releasing funds for milestone: ${milestone.name} (${milestone.releaseAmount})`);
+    console.log(
+      `💰 Releasing funds for milestone: ${milestone.name} (${milestone.releaseAmount})`,
+    );
 
     // In a real scenario, we would call the Soroban contract here
     // For now, we simulate the on-chain part and update the DB
-    
-    let txHash = "SIMULATED_TX_HASH_" + Math.random().toString(36).substring(7);
 
-    // If we have a relayer secret, we could try a real transaction
+    let txHash: string | null = null;
+
+    // Attempt real on-chain milestone fund release
     const relayerSecret = process.env.STAT_RELAYER_SECRET;
     const contracts = getContractAddresses();
-    
-    if (relayerSecret && contracts.treasury && project.installer?.stellarPubKey) {
+
+    if (
+      relayerSecret &&
+      contracts.treasury &&
+      project.installer?.stellarPubKey
+    ) {
       try {
         const relayerKeypair = Keypair.fromSecret(relayerSecret);
-        // Note: Using releaseEscrow for now as a fallback if release_milestone isn't available
-        // In production, we'd call the specific milestone release method
-        const result = await contractService.releaseCapital(
+        const milestoneIndex = Math.max(0, milestone.order - 1);
+        const amountScaled = BigInt(
+          Math.round(Number(milestone.releaseAmount) * 10_000_000),
+        );
+        const result = await contractService.releaseMilestoneFunds(
           contracts.treasury,
           relayerKeypair,
-          project.id
+          project.id,
+          milestoneIndex,
+          amountScaled,
         );
-        
+
         if (result.success) {
-          txHash = result.txHash || txHash;
+          txHash = result.txHash || null;
+        } else {
+          console.warn(
+            `On-chain milestone release returned non-success for milestone ${milestoneId}:`,
+            result.error,
+          );
         }
       } catch (error) {
-        console.error("On-chain milestone release failed:", error);
-        // We continue with simulated hash for demo purposes if it fails
+        console.warn(
+          `On-chain milestone release failed for milestone ${milestoneId}, proceeding with DB update only:`,
+          error,
+        );
       }
+    } else {
+      console.warn(
+        `Skipping on-chain milestone release: missing relayer secret, treasury contract, or installer public key`,
+      );
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -167,7 +196,10 @@ export class MilestoneService {
         },
       });
 
-      if (remainingMilestones === 0 && project.status !== ProjectStatus.ACTIVE) {
+      if (
+        remainingMilestones === 0 &&
+        project.status !== ProjectStatus.ACTIVE
+      ) {
         await tx.project.update({
           where: { id: project.id },
           data: { status: ProjectStatus.ACTIVE_PENDING_DATA },

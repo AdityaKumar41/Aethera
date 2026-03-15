@@ -22,6 +22,8 @@ pub struct ProjectEscrow {
     pub installer: Address,         // Installer receiving funds
     pub funding_target: i128,       // Target amount in USDC (7 decimals)
     pub current_funding: i128,      // Current amount funded
+    pub total_released: i128,       // Total amount released to installer
+    pub current_milestone_index: u32, // Next expected milestone index (0-based)
     pub status: ProjectStatus,
     pub platform_fee_bps: u32,      // Platform fee in basis points (250 = 2.5%)
     pub price_per_token: i128,      // USDC per token (7 decimals)
@@ -90,6 +92,8 @@ impl TreasuryContract {
             installer,
             funding_target,
             current_funding: 0,
+            total_released: 0,
+            current_milestone_index: 0,
             status: ProjectStatus::Funding,
             platform_fee_bps,
             price_per_token,
@@ -212,6 +216,82 @@ impl TreasuryContract {
 
         // Update escrow status
         escrow.status = ProjectStatus::Active;
+        escrow.total_released = escrow.current_funding;
+        env.storage()
+            .persistent()
+            .set(&DataKey::Project(project_id), &escrow);
+    }
+
+    /// Release funds for a verified milestone (partial release)
+    pub fn release_milestone(
+        env: Env,
+        project_id: String,
+        milestone_index: u32,
+        amount: i128,
+    ) {
+        // Check if paused
+        if env.storage().instance().get::<_, bool>(&DataKey::Paused).unwrap_or(false) {
+            panic!("Contract is paused");
+        }
+
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        if amount <= 0 {
+            panic!("Invalid release amount");
+        }
+
+        let mut escrow: ProjectEscrow = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Project(project_id.clone()))
+            .expect("Project not found");
+
+        if escrow.status != ProjectStatus::Funded && escrow.status != ProjectStatus::Active {
+            panic!("Project not ready for milestone release");
+        }
+
+        if milestone_index != escrow.current_milestone_index {
+            panic!("Invalid milestone order");
+        }
+
+        let remaining = escrow.current_funding - escrow.total_released;
+        if amount > remaining {
+            panic!("Release exceeds escrowed funds");
+        }
+
+        // Calculate platform fee for this release
+        let platform_fee = (amount * escrow.platform_fee_bps as i128) / 10000;
+        let installer_amount = amount - platform_fee;
+
+        // Transfer to installer
+        let usdc: Address = env.storage().instance().get(&DataKey::UsdcToken).unwrap();
+        let token_client = token::Client::new(&env, &usdc);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &escrow.installer,
+            &installer_amount,
+        );
+
+        // Update platform balance
+        let mut platform_balance: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::PlatformBalance)
+            .unwrap_or(0);
+        platform_balance += platform_fee;
+        env.storage()
+            .instance()
+            .set(&DataKey::PlatformBalance, &platform_balance);
+
+        // Update escrow tracking
+        escrow.total_released += amount;
+        escrow.current_milestone_index += 1;
+
+        if escrow.total_released >= escrow.current_funding {
+            escrow.status = ProjectStatus::Active;
+        }
+
         env.storage()
             .persistent()
             .set(&DataKey::Project(project_id), &escrow);

@@ -1,151 +1,160 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { cn } from "@/lib/utils";
+import { useMemo } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import { Zap } from "lucide-react";
 
-const defaultHourlyData = [
-    { hour: "6am", generation: 0 },
-    { hour: "8am", generation: 0 },
-    { hour: "10am", generation: 0 },
-    { hour: "12pm", generation: 0 },
-    { hour: "2pm", generation: 0 },
-    { hour: "4pm", generation: 0 },
-    { hour: "6pm", generation: 0 },
-    { hour: "8pm", generation: 0 },
-];
-
-type TimeRange = "today" | "week" | "month";
-
 interface EnergyProductionChartProps {
-    projectName: string;
+  data?: { date: string; energy: number }[];
+  expectedCapacity?: number;
 }
 
-export function EnergyProductionChart({ projectName }: EnergyProductionChartProps) {
-    const [data, setData] = useState(defaultHourlyData);
-    const [timeRange, setTimeRange] = useState<TimeRange>("today");
-    const [highlightedBar, setHighlightedBar] = useState(4);
-    const [totalEnergy, setTotalEnergy] = useState(0);
+/** Standard grid emission factor: 0.435 kg CO2 per kWh */
+const CO2_KG_PER_KWH = 0.435;
 
-    // Animate data
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setData((prev) =>
-                prev.map((item) => ({
-                    ...item,
-                    generation: Math.max(50, item.generation + Math.floor(Math.random() * 40) - 20),
-                }))
-            );
-            setTotalEnergy((prev) => prev + Math.floor(Math.random() * 5));
-        }, 3000);
-        return () => clearInterval(interval);
-    }, []);
+export function EnergyProductionChart({
+  data,
+  expectedCapacity,
+}: EnergyProductionChartProps) {
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return data.map((d) => ({
+      date: d.date,
+      energy: d.energy,
+    }));
+  }, [data]);
 
-    // Animate highlight
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setHighlightedBar((prev) => (prev + 1) % data.length);
-        }, 2000);
-        return () => clearInterval(interval);
-    }, [data.length]);
+  const totalEnergy = useMemo(() => {
+    return chartData.reduce((sum, d) => sum + d.energy, 0);
+  }, [chartData]);
 
-    const maxGeneration = Math.max(...data.map((d) => d.generation));
+  const peakOutput = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return Math.max(...chartData.map((d) => d.energy));
+  }, [chartData]);
 
+  const efficiency = useMemo(() => {
+    if (!expectedCapacity || expectedCapacity <= 0 || chartData.length === 0)
+      return null;
+    const expectedTotal = expectedCapacity * chartData.length;
+    return Math.min((totalEnergy / expectedTotal) * 100, 100);
+  }, [totalEnergy, expectedCapacity, chartData.length]);
+
+  const co2OffsetKg = useMemo(() => {
+    return totalEnergy * CO2_KG_PER_KWH;
+  }, [totalEnergy]);
+
+  /** Format CO2 as tons when >= 1000 kg, otherwise kg */
+  const formattedCo2 = useMemo(() => {
+    if (co2OffsetKg >= 1000) {
+      return `${(co2OffsetKg / 1000).toFixed(2)} tons`;
+    }
+    return `${co2OffsetKg.toFixed(1)} kg`;
+  }, [co2OffsetKg]);
+
+  if (!data || data.length === 0) {
     return (
-        <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="flex items-start justify-between mb-6">
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-medium text-muted-foreground">Energy Production</h3>
-                        <span className="relative flex h-2 w-2">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                        </span>
-                        <span className="text-xs text-muted-foreground">Live</span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold">{totalEnergy.toLocaleString()}</span>
-                        <span className="text-sm text-muted-foreground">kWh</span>
-                    </div>
-                </div>
-                <div className="flex gap-1 bg-secondary rounded-lg p-1">
-                    {(["today", "week", "month"] as TimeRange[]).map((range) => (
-                        <button
-                            key={range}
-                            onClick={() => setTimeRange(range)}
-                            className={cn(
-                                "px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors",
-                                timeRange === range
-                                    ? "bg-background text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            {range}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                        <XAxis
-                            dataKey="hour"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                        />
-                        <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                            tickFormatter={(value) => `${value}`}
-                        />
-                        <Tooltip
-                            contentStyle={{
-                                backgroundColor: "hsl(var(--card))",
-                                border: "1px solid hsl(var(--border))",
-                                borderRadius: "12px",
-                            }}
-                            formatter={(value: number) => [`${value} kWh`, "Generation"]}
-                        />
-                        <Bar dataKey="generation" radius={[6, 6, 0, 0]}>
-                            {data.map((entry, index) => (
-                                <Cell
-                                    key={`cell-${index}`}
-                                    fill={
-                                        index === highlightedBar
-                                            ? "hsl(var(--accent))"
-                                            : entry.generation === maxGeneration
-                                                ? "hsl(var(--chart-2))"
-                                                : "hsl(var(--secondary))"
-                                    }
-                                    style={{
-                                        transition: "fill 0.3s ease",
-                                    }}
-                                />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-
-            {/* Stats row */}
-            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
-                <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Peak Output</p>
-                    <p className="font-semibold">{maxGeneration} kWh</p>
-                </div>
-                <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Efficiency</p>
-                    <p className="font-semibold text-muted-foreground">0%</p>
-                </div>
-                <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">CO₂ Offset</p>
-                    <p className="font-semibold">0 tons</p>
-                </div>
-            </div>
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Energy Production
+          </h3>
         </div>
+        <div className="h-48 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Zap className="w-8 h-8 opacity-40" />
+            <p className="text-sm">No production data available</p>
+          </div>
+        </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-5">
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Energy Production
+            </h3>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold">
+              {totalEnergy.toLocaleString()}
+            </span>
+            <span className="text-sm text-muted-foreground">kWh</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="h-48">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
+          >
+            <XAxis
+              dataKey="date"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              tickFormatter={(value) => `${value}`}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "12px",
+              }}
+              formatter={(value: number) => [`${value} kWh`, "Energy"]}
+            />
+            <Bar dataKey="energy" radius={[6, 6, 0, 0]}>
+              {chartData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={
+                    entry.energy === peakOutput
+                      ? "hsl(var(--chart-2))"
+                      : "hsl(var(--secondary))"
+                  }
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground mb-1">Peak Output</p>
+          <p className="font-semibold">{peakOutput} kWh</p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground mb-1">Efficiency</p>
+          <p className="font-semibold">
+            {efficiency !== null ? `${efficiency.toFixed(1)}%` : "N/A"}
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground mb-1">CO2 Offset</p>
+          <p className="font-semibold">{formattedCo2}</p>
+        </div>
+      </div>
+    </div>
+  );
 }

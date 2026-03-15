@@ -98,43 +98,48 @@ export function ProjectsSection() {
 
     acc[pid].tokensOwned += inv.tokenAmount;
     acc[pid].purchasePrice += Number(inv.amount);
-    
+
     // Update display status priority
     if (inv.status === "CONFIRMED") acc[pid].investmentStatus = "CONFIRMED";
-    else if (inv.status === "PENDING_ONCHAIN" && acc[pid].investmentStatus !== "CONFIRMED") {
+    else if (
+      inv.status === "PENDING_ONCHAIN" &&
+      acc[pid].investmentStatus !== "CONFIRMED"
+    ) {
       acc[pid].investmentStatus = "PENDING_ONCHAIN";
     }
 
     return acc;
   }, {});
 
-  const myProjects: MappedProject[] = Object.values(projectGroups).map((group: any) => ({
-    id: group.id,
-    projectId: group.projectId,
-    name: group.name,
-    location: group.location,
-    tokensOwned: group.tokensOwned,
-    tokenValue: group.tokensOwned * group.currentPricePerToken,
-    purchasePrice: group.purchasePrice,
-    pricePerToken: group.purchasePrice / Math.max(group.tokensOwned, 1),
-    cumulativeYield: 0,
-    status: (() => {
-      const pStatus = group.projectStatus?.toLowerCase();
-      const iStatus = group.investmentStatus.toLowerCase();
-      
-      if (pStatus === "active" || pStatus === "producing") return "producing";
-      if (iStatus === "pending_onchain") return "pending_onchain";
-      if (iStatus === "pending") return "pending";
-      if (pStatus === "funded") return "funded";
-      if (pStatus === "funding") return "funding";
-      
-      return "confirmed";
-    })() as keyof typeof statusConfig,
-    energyToday: 0,
-    energyMonth: 0,
-    lastYieldDate: null,
-    lastYieldAmount: 0,
-  }));
+  const myProjects: MappedProject[] = Object.values(projectGroups).map(
+    (group: any) => ({
+      id: group.id,
+      projectId: group.projectId,
+      name: group.name,
+      location: group.location,
+      tokensOwned: group.tokensOwned,
+      tokenValue: group.tokensOwned * group.currentPricePerToken,
+      purchasePrice: group.purchasePrice,
+      pricePerToken: group.purchasePrice / Math.max(group.tokensOwned, 1),
+      cumulativeYield: 0,
+      status: (() => {
+        const pStatus = group.projectStatus?.toLowerCase();
+        const iStatus = group.investmentStatus.toLowerCase();
+
+        if (pStatus === "active" || pStatus === "producing") return "producing";
+        if (iStatus === "pending_onchain") return "pending_onchain";
+        if (iStatus === "pending") return "pending";
+        if (pStatus === "funded") return "funded";
+        if (pStatus === "funding") return "funding";
+
+        return "confirmed";
+      })() as keyof typeof statusConfig,
+      energyToday: 0,
+      energyMonth: 0,
+      lastYieldDate: null,
+      lastYieldAmount: 0,
+    }),
+  );
 
   const selectedProject =
     myProjects.find((p) => p.id === selectedProjectId) || myProjects[0] || null;
@@ -370,7 +375,7 @@ export function ProjectsSection() {
 
               {/* Energy production chart */}
               {selectedProject.status === "producing" && (
-                <EnergyProductionChart projectName={selectedProject.name} />
+                <EnergyProductionChart />
               )}
 
               {(selectedProject.status === "funding" ||

@@ -3,11 +3,14 @@
 // ============================================
 
 import "./env.js";
+import { validateEnv } from "./env.js";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { API_CONFIG } from "@aethera/config";
+import { prisma } from "@aethera/database";
+import { getContractAddresses } from "@aethera/stellar";
 
 // Import routes
 import authRoutes from "./routes/auth.js";
@@ -39,6 +42,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { errorHandler } from "./middleware/error.js";
 
 const app = express();
+validateEnv();
 const PORT = process.env.PORT || 3001;
 
 // ============================================
@@ -48,7 +52,7 @@ const PORT = process.env.PORT || 3001;
 // CORS
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3001", // Match dashboard port
+    origin: process.env.FRONTEND_URL || "http://localhost:3000", // Match dashboard port
     credentials: true,
   }),
 );
@@ -99,6 +103,36 @@ app.get("/health", (req, res) => {
     status: "healthy",
     timestamp: new Date().toISOString(),
     version: "0.1.0",
+  });
+});
+
+app.get("/ready", async (req, res) => {
+  const checks: Record<string, any> = {};
+  let dbOk = false;
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbOk = true;
+  } catch (error: any) {
+    checks.dbError = error?.message || "DB check failed";
+  }
+
+  const contracts = getContractAddresses();
+  const missingContracts = Object.entries(contracts)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  checks.database = dbOk;
+  checks.contracts = {
+    configured: missingContracts.length === 0,
+    missing: missingContracts,
+  };
+
+  const ready = dbOk && missingContracts.length === 0;
+  res.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "not_ready",
+    timestamp: new Date().toISOString(),
+    checks,
   });
 });
 

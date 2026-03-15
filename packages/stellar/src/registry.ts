@@ -29,7 +29,7 @@ const TESTNET_CONTRACTS: ContractAddresses = {
   treasury: "CAWNBL27F7F7CRBK4XYN7JE6UUK7YMVUDOAI25E4UEVGLQRCBE3CIKVU",
   yieldDistributor: "CAVPHTDZJKOPAMEI474ABMX75VIC5GXG4N53V6D5VX6AZHMHYNA6FPVQ",
   governance: "CAMQSYAH6YL7NMMSGWTZ4VDS6WLDDPEIT6TGUQY5DPCPIAKN57AUEJN5",
-  oracle: "CBJ5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5K5",
+  oracle: "",
 };
 
 /**
@@ -83,7 +83,15 @@ export function getNetworkConfig(): NetworkConfig {
  * Get contract addresses for the current environment
  */
 export function getContractAddresses(): ContractAddresses {
-  return getNetworkConfig().contracts;
+  const contracts = getNetworkConfig().contracts;
+  return {
+    assetToken: process.env.ASSET_TOKEN_CONTRACT_ID || contracts.assetToken,
+    treasury: process.env.TREASURY_CONTRACT_ID || contracts.treasury,
+    yieldDistributor:
+      process.env.YIELD_DISTRIBUTOR_CONTRACT_ID || contracts.yieldDistributor,
+    governance: process.env.GOVERNANCE_CONTRACT_ID || contracts.governance,
+    oracle: process.env.ORACLE_CONTRACT_ID || contracts.oracle,
+  };
 }
 
 /**

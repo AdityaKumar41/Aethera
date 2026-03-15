@@ -136,7 +136,7 @@ export function SellTokensModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pricePerToken">Price per Token (XLM)</Label>
+              <Label htmlFor="pricePerToken">Price per Token (USDC)</Label>
               <Input
                 id="pricePerToken"
                 type="number"
@@ -147,7 +147,7 @@ export function SellTokensModal({
                 required
               />
               <div className="text-xs text-muted-foreground">
-                Current market price: {currentPrice.toFixed(2)} XLM
+                Current market price: {currentPrice.toFixed(2)} USDC
               </div>
             </div>
 
@@ -156,7 +156,7 @@ export function SellTokensModal({
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Value</span>
                   <span className="font-medium">
-                    {totalValue.toFixed(2)} XLM
+                    {totalValue.toFixed(2)} USDC
                   </span>
                 </div>
               </div>
@@ -202,12 +202,12 @@ export function SellTokensModal({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Price per Token</span>
                   <span className="font-medium">
-                    {parseFloat(pricePerToken).toFixed(2)} XLM
+                    {parseFloat(pricePerToken).toFixed(2)} USDC
                   </span>
                 </div>
                 <div className="flex justify-between pt-2 border-t">
                   <span className="font-medium">Total Value</span>
-                  <span className="font-bold">{totalValue.toFixed(2)} XLM</span>
+                  <span className="font-bold">{totalValue.toFixed(2)} USDC</span>
                 </div>
               </div>
             </div>

@@ -1,13 +1,21 @@
 /**
  * Emergency Pause Dashboard API Routes
- * 
+ *
  * Admin-only endpoints for emergency contract management.
- * Provides pause/unpause controls for all deployed contracts.
+ * Uses real on-chain pause()/unpause()/is_paused() calls against
+ * all deployed Soroban contracts, with TransactionLog persistence.
  */
 
 import { Router } from "express";
 import { z } from "zod";
-import { getContractAddresses } from "@aethera/stellar";
+import { prisma } from "@aethera/database";
+import { contractService, getContractAddresses } from "@aethera/stellar";
+import {
+  Keypair,
+  nativeToScVal,
+  scValToNative,
+  xdr,
+} from "@stellar/stellar-sdk";
 import {
   authenticate,
   requireRole,
@@ -41,48 +49,90 @@ interface PauseEvent {
   txHash?: string;
 }
 
-// In-memory store for demo (would be database in production)
-const pauseHistory: PauseEvent[] = [];
-const contractStatuses: Map<string, ContractStatus> = new Map();
+// ============================================
+// Helpers
+// ============================================
 
-// Initialize contract statuses
-function initializeContractStatuses() {
-  const contracts = getContractAddresses();
-  
-  if (contracts.assetToken) {
-    contractStatuses.set("assetToken", {
-      name: "Asset Token",
-      address: contracts.assetToken,
-      paused: false,
-    });
+/** Canonical mapping from contract registry keys to display names. */
+const CONTRACT_DISPLAY_NAMES: Record<string, string> = {
+  assetToken: "Asset Token",
+  treasury: "Treasury",
+  yieldDistributor: "Yield Distributor",
+  governance: "Governance",
+};
+
+/**
+ * Retrieve the admin keypair from STAT_RELAYER_SECRET.
+ */
+function getAdminKeypair(): Keypair {
+  const adminSecret = process.env.STAT_RELAYER_SECRET;
+  if (!adminSecret) {
+    throw createApiError("Admin relayer secret not configured", 500);
   }
-  
-  if (contracts.treasury) {
-    contractStatuses.set("treasury", {
-      name: "Treasury",
-      address: contracts.treasury,
-      paused: false,
-    });
-  }
-  
-  if (contracts.yieldDistributor) {
-    contractStatuses.set("yieldDistributor", {
-      name: "Yield Distributor",
-      address: contracts.yieldDistributor,
-      paused: false,
-    });
-  }
-  
-  if (contracts.governance) {
-    contractStatuses.set("governance", {
-      name: "Governance",
-      address: contracts.governance,
-      paused: false,
-    });
-  }
+  return Keypair.fromSecret(adminSecret);
 }
 
-initializeContractStatuses();
+/**
+ * Build a map of { key -> { name, address } } for every deployed contract.
+ */
+function getDeployedContracts(): Map<
+  string,
+  { name: string; address: string }
+> {
+  const contracts = getContractAddresses();
+  const map = new Map<string, { name: string; address: string }>();
+
+  for (const [key, displayName] of Object.entries(CONTRACT_DISPLAY_NAMES)) {
+    const address = (contracts as unknown as Record<string, string | undefined>)[key];
+    if (address) {
+      map.set(key, { name: displayName, address });
+    }
+  }
+
+  return map;
+}
+
+/**
+ * Query the on-chain is_paused() view function for a single contract.
+ * Falls back to the most recent TransactionLog entry if the call fails.
+ */
+async function getContractPausedStatus(
+  contractAddress: string,
+  contractKey: string,
+  adminPubKey: string,
+): Promise<{ paused: boolean; source: "chain" | "db" }> {
+  // 1. Try on-chain is_paused()
+  try {
+    const result = await contractService.simulateContractCall(
+      contractAddress,
+      "is_paused",
+      [],
+      adminPubKey,
+    );
+    if (result.success && result.result != null) {
+      const paused = scValToNative(result.result as xdr.ScVal) as boolean;
+      return { paused, source: "chain" };
+    }
+  } catch {
+    // Fall through to DB fallback
+  }
+
+  // 2. Fallback: check last TransactionLog for this contract
+  const lastLog = await prisma.transactionLog.findFirst({
+    where: {
+      type: { in: ["CONTRACT_PAUSE", "CONTRACT_UNPAUSE"] },
+      metadata: { path: ["contractKey"], equals: contractKey },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (lastLog) {
+    return { paused: lastLog.type === "CONTRACT_PAUSE", source: "db" };
+  }
+
+  // Default: assume not paused
+  return { paused: false, source: "db" };
+}
 
 // ============================================
 // Dashboard Overview
@@ -94,22 +144,65 @@ router.get(
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const contracts = Array.from(contractStatuses.values());
-      const anyPaused = contracts.some(c => c.paused);
-      
+      const deployed = getDeployedContracts();
+      const adminKeypair = getAdminKeypair();
+      const adminPubKey = adminKeypair.publicKey();
+
+      const contractStatuses: ContractStatus[] = [];
+
+      for (const [key, { name, address }] of deployed.entries()) {
+        const { paused } = await getContractPausedStatus(
+          address,
+          key,
+          adminPubKey,
+        );
+
+        // Optionally enrich with last pause event from DB
+        let lastPausedAt: Date | undefined;
+        let lastPausedBy: string | undefined;
+        let pauseReason: string | undefined;
+
+        if (paused) {
+          const lastEvent = await prisma.transactionLog.findFirst({
+            where: {
+              type: "CONTRACT_PAUSE",
+              metadata: { path: ["contractKey"], equals: key },
+            },
+            orderBy: { createdAt: "desc" },
+          });
+          if (lastEvent) {
+            lastPausedAt = lastEvent.createdAt;
+            lastPausedBy = lastEvent.userId ?? undefined;
+            const meta = lastEvent.metadata as Record<string, unknown> | null;
+            pauseReason = (meta?.reason as string) ?? undefined;
+          }
+        }
+
+        contractStatuses.push({
+          name,
+          address,
+          paused,
+          lastPausedAt,
+          lastPausedBy,
+          pauseReason,
+        });
+      }
+
+      const anyPaused = contractStatuses.some((c) => c.paused);
+
       res.json({
         success: true,
         data: {
           systemStatus: anyPaused ? "PARTIAL_PAUSE" : "OPERATIONAL",
-          contracts,
-          pausedCount: contracts.filter(c => c.paused).length,
-          totalContracts: contracts.length,
+          contracts: contractStatuses,
+          pausedCount: contractStatuses.filter((c) => c.paused).length,
+          totalContracts: contractStatuses.length,
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
@@ -129,47 +222,91 @@ router.post(
       const { contractKey } = req.params;
       const { reason } = pauseSchema.parse(req.body);
       const adminId = req.auth?.userId!;
-      
-      const status = contractStatuses.get(contractKey);
-      if (!status) {
+
+      const deployed = getDeployedContracts();
+      const contractInfo = deployed.get(contractKey);
+      if (!contractInfo) {
         throw createApiError(`Unknown contract: ${contractKey}`, 404);
       }
-      
-      if (status.paused) {
-        throw createApiError(`${status.name} is already paused`, 400);
+
+      const adminKeypair = getAdminKeypair();
+      const adminPubKey = adminKeypair.publicKey();
+
+      // Check current status
+      const { paused: alreadyPaused } = await getContractPausedStatus(
+        contractInfo.address,
+        contractKey,
+        adminPubKey,
+      );
+      if (alreadyPaused) {
+        throw createApiError(`${contractInfo.name} is already paused`, 400);
       }
-      
-      // In production: Submit pause transaction to contract
-      // For now, update local state
-      status.paused = true;
-      status.lastPausedAt = new Date();
-      status.lastPausedBy = adminId;
-      status.pauseReason = reason;
-      
-      // Log event
+
+      // Submit on-chain pause(admin)
+      const result = await contractService.invokeContract(
+        contractInfo.address,
+        "pause",
+        [nativeToScVal(adminPubKey, { type: "address" })],
+        adminKeypair,
+      );
+
+      if (!result.success) {
+        throw createApiError(
+          `On-chain pause failed for ${contractInfo.name}: ${result.error}`,
+          500,
+        );
+      }
+
+      // Log to TransactionLog
+      const logEntry = await prisma.transactionLog.create({
+        data: {
+          type: "CONTRACT_PAUSE",
+          userId: adminId,
+          txHash:
+            result.txHash || `contract_pause_${contractKey}_${Date.now()}`,
+          status: "CONFIRMED",
+          sourceAccount: adminPubKey,
+          destAccount: contractInfo.address,
+          metadata: {
+            contractKey,
+            contractName: contractInfo.name,
+            contractAddress: contractInfo.address,
+            action: "PAUSE",
+            reason,
+          },
+        },
+      });
+
       const event: PauseEvent = {
-        id: `pause-${Date.now()}`,
-        contractName: status.name,
-        contractAddress: status.address,
+        id: logEntry.id,
+        contractName: contractInfo.name,
+        contractAddress: contractInfo.address,
         action: "PAUSE",
         initiatedBy: adminId,
         reason,
-        timestamp: new Date(),
+        timestamp: logEntry.createdAt,
+        txHash: result.txHash ?? undefined,
       };
-      pauseHistory.unshift(event);
-      
+
       res.json({
         success: true,
-        message: `${status.name} paused successfully`,
+        message: `${contractInfo.name} paused successfully`,
         data: {
-          contract: status,
+          contract: {
+            name: contractInfo.name,
+            address: contractInfo.address,
+            paused: true,
+            lastPausedAt: logEntry.createdAt,
+            lastPausedBy: adminId,
+            pauseReason: reason,
+          } as ContractStatus,
           event,
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
@@ -185,43 +322,88 @@ router.post(
       const { contractKey } = req.params;
       const { reason } = pauseSchema.parse(req.body);
       const adminId = req.auth?.userId!;
-      
-      const status = contractStatuses.get(contractKey);
-      if (!status) {
+
+      const deployed = getDeployedContracts();
+      const contractInfo = deployed.get(contractKey);
+      if (!contractInfo) {
         throw createApiError(`Unknown contract: ${contractKey}`, 404);
       }
-      
-      if (!status.paused) {
-        throw createApiError(`${status.name} is not paused`, 400);
+
+      const adminKeypair = getAdminKeypair();
+      const adminPubKey = adminKeypair.publicKey();
+
+      // Check current status
+      const { paused: currentlyPaused } = await getContractPausedStatus(
+        contractInfo.address,
+        contractKey,
+        adminPubKey,
+      );
+      if (!currentlyPaused) {
+        throw createApiError(`${contractInfo.name} is not paused`, 400);
       }
-      
-      // In production: Submit unpause transaction to contract
-      status.paused = false;
-      status.pauseReason = undefined;
-      
+
+      // Submit on-chain unpause(admin)
+      const result = await contractService.invokeContract(
+        contractInfo.address,
+        "unpause",
+        [nativeToScVal(adminPubKey, { type: "address" })],
+        adminKeypair,
+      );
+
+      if (!result.success) {
+        throw createApiError(
+          `On-chain unpause failed for ${contractInfo.name}: ${result.error}`,
+          500,
+        );
+      }
+
+      // Log to TransactionLog
+      const logEntry = await prisma.transactionLog.create({
+        data: {
+          type: "CONTRACT_UNPAUSE",
+          userId: adminId,
+          txHash:
+            result.txHash || `contract_unpause_${contractKey}_${Date.now()}`,
+          status: "CONFIRMED",
+          sourceAccount: adminPubKey,
+          destAccount: contractInfo.address,
+          metadata: {
+            contractKey,
+            contractName: contractInfo.name,
+            contractAddress: contractInfo.address,
+            action: "UNPAUSE",
+            reason,
+          },
+        },
+      });
+
       const event: PauseEvent = {
-        id: `unpause-${Date.now()}`,
-        contractName: status.name,
-        contractAddress: status.address,
+        id: logEntry.id,
+        contractName: contractInfo.name,
+        contractAddress: contractInfo.address,
         action: "UNPAUSE",
         initiatedBy: adminId,
         reason,
-        timestamp: new Date(),
+        timestamp: logEntry.createdAt,
+        txHash: result.txHash ?? undefined,
       };
-      pauseHistory.unshift(event);
-      
+
       res.json({
         success: true,
-        message: `${status.name} unpaused successfully`,
+        message: `${contractInfo.name} unpaused successfully`,
         data: {
-          contract: status,
+          contract: {
+            name: contractInfo.name,
+            address: contractInfo.address,
+            paused: false,
+          } as ContractStatus,
           event,
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
@@ -236,45 +418,89 @@ router.post(
     try {
       const { reason } = pauseSchema.parse(req.body);
       const adminId = req.auth?.userId!;
-      
-      const results: { contract: string; success: boolean; error?: string }[] = [];
-      
-      for (const [key, status] of contractStatuses.entries()) {
-        if (!status.paused) {
-          // In production: Submit pause transaction
-          status.paused = true;
-          status.lastPausedAt = new Date();
-          status.lastPausedBy = adminId;
-          status.pauseReason = reason;
-          
-          pauseHistory.unshift({
-            id: `pause-${Date.now()}-${key}`,
-            contractName: status.name,
-            contractAddress: status.address,
-            action: "PAUSE",
-            initiatedBy: adminId,
-            reason: `EMERGENCY: ${reason}`,
-            timestamp: new Date(),
+
+      const deployed = getDeployedContracts();
+      const adminKeypair = getAdminKeypair();
+      const adminPubKey = adminKeypair.publicKey();
+
+      const results: {
+        contract: string;
+        success: boolean;
+        txHash?: string;
+        error?: string;
+      }[] = [];
+
+      for (const [key, { name, address }] of deployed.entries()) {
+        // Check if already paused
+        const { paused: alreadyPaused } = await getContractPausedStatus(
+          address,
+          key,
+          adminPubKey,
+        );
+
+        if (alreadyPaused) {
+          results.push({
+            contract: name,
+            success: false,
+            error: "Already paused",
           });
-          
-          results.push({ contract: status.name, success: true });
+          continue;
+        }
+
+        // Submit on-chain pause(admin)
+        const result = await contractService.invokeContract(
+          address,
+          "pause",
+          [nativeToScVal(adminPubKey, { type: "address" })],
+          adminKeypair,
+        );
+
+        if (result.success) {
+          // Log to DB
+          await prisma.transactionLog.create({
+            data: {
+              type: "CONTRACT_PAUSE",
+              userId: adminId,
+              txHash: result.txHash || `contract_pause_${key}_${Date.now()}`,
+              status: "CONFIRMED",
+              sourceAccount: adminPubKey,
+              destAccount: address,
+              metadata: {
+                contractKey: key,
+                contractName: name,
+                contractAddress: address,
+                action: "PAUSE",
+                reason: `EMERGENCY: ${reason}`,
+              },
+            },
+          });
+
+          results.push({
+            contract: name,
+            success: true,
+            txHash: result.txHash,
+          });
         } else {
-          results.push({ contract: status.name, success: false, error: "Already paused" });
+          results.push({
+            contract: name,
+            success: false,
+            error: result.error || "On-chain pause failed",
+          });
         }
       }
-      
+
       res.json({
         success: true,
         message: "Emergency pause initiated",
         data: {
           results,
-          pausedCount: results.filter(r => r.success).length,
+          pausedCount: results.filter((r) => r.success).length,
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
@@ -289,46 +515,88 @@ router.post(
     try {
       const { reason } = pauseSchema.parse(req.body);
       const adminId = req.auth?.userId!;
-      
-      const results: { contract: string; success: boolean; error?: string }[] = [];
-      
-      for (const [key, status] of contractStatuses.entries()) {
-        if (status.paused) {
-          status.paused = false;
-          status.pauseReason = undefined;
-          
-          pauseHistory.unshift({
-            id: `unpause-${Date.now()}-${key}`,
-            contractName: status.name,
-            contractAddress: status.address,
-            action: "UNPAUSE",
-            initiatedBy: adminId,
-            reason,
-            timestamp: new Date(),
+
+      const deployed = getDeployedContracts();
+      const adminKeypair = getAdminKeypair();
+      const adminPubKey = adminKeypair.publicKey();
+
+      const results: {
+        contract: string;
+        success: boolean;
+        txHash?: string;
+        error?: string;
+      }[] = [];
+
+      for (const [key, { name, address }] of deployed.entries()) {
+        // Check if currently paused
+        const { paused: currentlyPaused } = await getContractPausedStatus(
+          address,
+          key,
+          adminPubKey,
+        );
+
+        if (!currentlyPaused) {
+          results.push({ contract: name, success: false, error: "Not paused" });
+          continue;
+        }
+
+        // Submit on-chain unpause(admin)
+        const result = await contractService.invokeContract(
+          address,
+          "unpause",
+          [nativeToScVal(adminPubKey, { type: "address" })],
+          adminKeypair,
+        );
+
+        if (result.success) {
+          await prisma.transactionLog.create({
+            data: {
+              type: "CONTRACT_UNPAUSE",
+              userId: adminId,
+              txHash: result.txHash || `contract_unpause_${key}_${Date.now()}`,
+              status: "CONFIRMED",
+              sourceAccount: adminPubKey,
+              destAccount: address,
+              metadata: {
+                contractKey: key,
+                contractName: name,
+                contractAddress: address,
+                action: "UNPAUSE",
+                reason,
+              },
+            },
           });
-          
-          results.push({ contract: status.name, success: true });
+
+          results.push({
+            contract: name,
+            success: true,
+            txHash: result.txHash,
+          });
         } else {
-          results.push({ contract: status.name, success: false, error: "Not paused" });
+          results.push({
+            contract: name,
+            success: false,
+            error: result.error || "On-chain unpause failed",
+          });
         }
       }
-      
+
       res.json({
         success: true,
         message: "All contracts unpaused",
         data: {
           results,
-          unpausedCount: results.filter(r => r.success).length,
+          unpausedCount: results.filter((r) => r.success).length,
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
-// Get Pause History
+// Get Pause History (DB-backed)
 // ============================================
 
 router.get(
@@ -337,16 +605,41 @@ router.get(
   requireRole("ADMIN"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
-      
-      res.json({
-        success: true,
-        data: pauseHistory.slice(0, limit),
+      const limit = Math.min(
+        parseInt(req.query.limit as string, 10) || 50,
+        200,
+      );
+
+      const logs = await prisma.transactionLog.findMany({
+        where: {
+          type: { in: ["CONTRACT_PAUSE", "CONTRACT_UNPAUSE"] },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit,
       });
+
+      const history: PauseEvent[] = logs.map((log) => {
+        const meta = (log.metadata as Record<string, unknown>) || {};
+        return {
+          id: log.id,
+          contractName: (meta.contractName as string) ?? "",
+          contractAddress:
+            (meta.contractAddress as string) ?? log.destAccount ?? "",
+          action:
+            (meta.action as "PAUSE" | "UNPAUSE") ??
+            (log.type === "CONTRACT_PAUSE" ? "PAUSE" : "UNPAUSE"),
+          initiatedBy: log.userId ?? "",
+          reason: (meta.reason as string) ?? "",
+          timestamp: log.createdAt,
+          txHash: log.txHash,
+        };
+      });
+
+      res.json({ success: true, data: history });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ============================================
@@ -360,27 +653,80 @@ router.get(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const { contractKey } = req.params;
-      
-      const status = contractStatuses.get(contractKey);
-      if (!status) {
+
+      const deployed = getDeployedContracts();
+      const contractInfo = deployed.get(contractKey);
+      if (!contractInfo) {
         throw createApiError(`Unknown contract: ${contractKey}`, 404);
       }
-      
-      const history = pauseHistory.filter(
-        e => e.contractAddress === status.address
+
+      const adminKeypair = getAdminKeypair();
+      const { paused } = await getContractPausedStatus(
+        contractInfo.address,
+        contractKey,
+        adminKeypair.publicKey(),
       );
-      
+
+      // Build status enriched with last pause event
+      const status: ContractStatus = {
+        name: contractInfo.name,
+        address: contractInfo.address,
+        paused,
+      };
+
+      if (paused) {
+        const lastPauseLog = await prisma.transactionLog.findFirst({
+          where: {
+            type: "CONTRACT_PAUSE",
+            metadata: { path: ["contractKey"], equals: contractKey },
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        if (lastPauseLog) {
+          status.lastPausedAt = lastPauseLog.createdAt;
+          status.lastPausedBy = lastPauseLog.userId ?? undefined;
+          const meta = lastPauseLog.metadata as Record<string, unknown> | null;
+          status.pauseReason = (meta?.reason as string) ?? undefined;
+        }
+      }
+
+      // Fetch recent history for this contract
+      const historyLogs = await prisma.transactionLog.findMany({
+        where: {
+          type: { in: ["CONTRACT_PAUSE", "CONTRACT_UNPAUSE"] },
+          metadata: { path: ["contractKey"], equals: contractKey },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      });
+
+      const history: PauseEvent[] = historyLogs.map((log) => {
+        const meta = (log.metadata as Record<string, unknown>) || {};
+        return {
+          id: log.id,
+          contractName: contractInfo.name,
+          contractAddress: contractInfo.address,
+          action:
+            (meta.action as "PAUSE" | "UNPAUSE") ??
+            (log.type === "CONTRACT_PAUSE" ? "PAUSE" : "UNPAUSE"),
+          initiatedBy: log.userId ?? "",
+          reason: (meta.reason as string) ?? "",
+          timestamp: log.createdAt,
+          txHash: log.txHash,
+        };
+      });
+
       res.json({
         success: true,
         data: {
           ...status,
-          history: history.slice(0, 10),
+          history,
         },
       });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 export default router;

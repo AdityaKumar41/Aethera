@@ -1,18 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Cpu, 
-  Plus, 
-  Activity, 
-  Signal, 
+import {
+  Cpu,
+  Plus,
+  Activity,
+  Signal,
   SignalLow,
   Trash2,
   ExternalLink,
   ShieldCheck,
   Zap,
   Loader2,
-  X
+  X,
 } from "lucide-react";
 import { oracleApi } from "@/lib/api";
 import { toast } from "sonner";
@@ -32,12 +32,15 @@ interface IoTDeviceManagerProps {
   onDeviceRegistered?: () => void;
 }
 
-export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceManagerProps) {
+export function IoTDeviceManager({
+  projectId,
+  onDeviceRegistered,
+}: IoTDeviceManagerProps) {
   const [devices, setDevices] = useState<IoTDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  
+
   // Form state
   const [newPublicKey, setNewPublicKey] = useState("");
   const [newModel, setNewModel] = useState("ADA-Sim-v1");
@@ -69,7 +72,7 @@ export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceMan
       const response = await oracleApi.registerDevice({
         projectId,
         publicKey: newPublicKey,
-        metadata: { model: newModel }
+        metadata: { model: newModel },
       });
 
       if (response.success) {
@@ -88,11 +91,34 @@ export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceMan
     }
   };
 
+  const handleDelete = async (deviceId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to remove this device? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const response = await oracleApi.deleteDevice(deviceId);
+      if (response.success) {
+        toast.success("Device removed successfully");
+        setDevices((prev) => prev.filter((d) => d.id !== deviceId));
+      } else {
+        toast.error(response.error || "Failed to remove device");
+      }
+    } catch (err) {
+      toast.error("An error occurred while removing the device");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
-        <span className="text-sm text-muted-foreground">Syncing devices...</span>
+        <span className="text-sm text-muted-foreground">
+          Syncing devices...
+        </span>
       </div>
     );
   }
@@ -104,7 +130,7 @@ export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceMan
           <Cpu className="w-4 h-4 text-solar-orange" />
           IoT Devices
         </h4>
-        <button 
+        <button
           onClick={() => setShowAddForm(true)}
           className="text-xs font-medium flex items-center gap-1 text-emerald-600 hover:text-emerald-700 transition-colors"
         >
@@ -115,7 +141,7 @@ export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceMan
 
       {showAddForm && (
         <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 relative animate-in fade-in slide-in-from-top-2">
-          <button 
+          <button
             onClick={() => setShowAddForm(false)}
             className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground"
           >
@@ -126,7 +152,7 @@ export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceMan
               <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
                 Stellar Public Key
               </label>
-              <input 
+              <input
                 type="text"
                 placeholder="G..."
                 value={newPublicKey}
@@ -140,7 +166,7 @@ export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceMan
                 <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
                   Model
                 </label>
-                <select 
+                <select
                   value={newModel}
                   onChange={(e) => setNewModel(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-xs outline-none"
@@ -151,12 +177,16 @@ export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceMan
                 </select>
               </div>
               <div className="flex items-end">
-                <button 
+                <button
                   type="submit"
                   disabled={registering}
                   className="px-4 py-2 bg-foreground text-background rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
                 >
-                  {registering ? <Loader2 className="w-3 h-3 animate-spin"/> : <ShieldCheck className="w-3 h-3"/>}
+                  {registering ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-3 h-3" />
+                  )}
                   Authorize
                 </button>
               </div>
@@ -168,35 +198,56 @@ export function IoTDeviceManager({ projectId, onDeviceRegistered }: IoTDeviceMan
       {devices.length === 0 ? (
         <div className="text-center py-6 border border-dashed border-zinc-300 rounded-xl">
           <Activity className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground">No devices linked to this project</p>
+          <p className="text-xs text-muted-foreground">
+            No devices linked to this project
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
           {devices.map((device) => {
-            const isOnline = device.lastSeen && (Date.now() - new Date(device.lastSeen).getTime() < 120000); // 2 mins
+            const isOnline =
+              device.lastSeen &&
+              Date.now() - new Date(device.lastSeen).getTime() < 120000; // 2 mins
             return (
-              <div key={device.id} className="bg-white border border-border rounded-xl p-3 flex items-center justify-between group">
+              <div
+                key={device.id}
+                className="bg-white border border-border rounded-xl p-3 flex items-center justify-between group"
+              >
                 <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center",
-                    isOnline ? "bg-emerald-50 text-emerald-600" : "bg-zinc-50 text-zinc-400"
-                  )}>
+                  <div
+                    className={cn(
+                      "w-8 h-8 rounded-lg flex items-center justify-center",
+                      isOnline
+                        ? "bg-emerald-50 text-emerald-600"
+                        : "bg-zinc-50 text-zinc-400",
+                    )}
+                  >
                     <Zap className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-xs font-semibold font-mono">{device.publicKey.slice(0, 4)}...{device.publicKey.slice(-4)}</p>
-                      <span className={cn(
-                        "w-1.5 h-1.5 rounded-full animate-pulse",
-                        isOnline ? "bg-emerald-500" : "bg-zinc-300"
-                      )} />
+                      <p className="text-xs font-semibold font-mono">
+                        {device.publicKey.slice(0, 4)}...
+                        {device.publicKey.slice(-4)}
+                      </p>
+                      <span
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full animate-pulse",
+                          isOnline ? "bg-emerald-500" : "bg-zinc-300",
+                        )}
+                      />
                     </div>
-                    <p className="text-[10px] text-muted-foreground">{device.model} • {isOnline ? 'Online' : 'Offline'}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {device.model} • {isOnline ? "Online" : "Offline"}
+                    </p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-1.5 text-muted-foreground hover:text-red-500 rounded-md hover:bg-red-50 transition-colors">
+                  <button
+                    onClick={() => handleDelete(device.id)}
+                    className="p-1.5 text-muted-foreground hover:text-red-500 rounded-md hover:bg-red-50 transition-colors"
+                  >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                   <button className="p-1.5 text-muted-foreground hover:text-solar-orange rounded-md hover:bg-orange-50 transition-colors">

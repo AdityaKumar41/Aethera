@@ -26,11 +26,11 @@ async function fetchJson(url: string, options: RequestInit = {}) {
     },
   });
   
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({})) as any;
   if (!res.ok) {
     throw new Error(data.error || res.statusText);
   }
-  return { data: data as any, status: res.status };
+  return { data, status: res.status };
 }
 
 async function getAdminUserId() {

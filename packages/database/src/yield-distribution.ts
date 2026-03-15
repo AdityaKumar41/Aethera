@@ -202,6 +202,7 @@ export class YieldDistributionService {
     distributionId: string,
     txHash: string,
     adminId: string,
+    onChainDistributionId?: bigint,
   ): Promise<any> {
     const distribution = await prisma.yieldDistribution.update({
       where: { id: distributionId },
@@ -209,6 +210,7 @@ export class YieldDistributionService {
         distributed: true,
         distributedAt: new Date(),
         txHash,
+        onChainDistributionId,
       },
     });
 

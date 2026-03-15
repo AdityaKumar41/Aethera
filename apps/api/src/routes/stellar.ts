@@ -10,8 +10,10 @@ import {
   walletService,
   stellarClient,
   contractService,
+  contractDeploymentService,
   trustlineService,
   getOrCreateRelayerAccount,
+  getContractAddresses,
   USDC_ASSET_TESTNET,
 } from "@aethera/stellar";
 import {
@@ -297,6 +299,11 @@ router.post(
     try {
       const project = await prisma.project.findUnique({
         where: { id: req.params.projectId },
+        include: {
+          installer: {
+            select: { stellarPubKey: true },
+          },
+        },
       });
 
       if (!project) {
@@ -307,20 +314,63 @@ router.post(
         throw createApiError("Token contract already deployed", 400);
       }
 
-      // TODO: Implement actual Soroban contract deployment
-      // For prototype, mock the contract ID
-      const mockContractId = `C${Date.now().toString(16).toUpperCase().padEnd(54, "0")}`;
+      // 1. Get admin keypair from relayer secret
+      const adminSecret = process.env.STAT_RELAYER_SECRET;
+      if (!adminSecret) {
+        throw createApiError("Admin relayer secret not configured", 500);
+      }
+      const adminKeypair = Keypair.fromSecret(adminSecret);
 
-      const updated = await prisma.project.update({
+      // 2. Deploy the asset token contract on-chain
+      const totalSupply = project.totalTokens
+        ? BigInt(project.totalTokens) * BigInt(1_000_000)
+        : BigInt(
+            Math.floor(
+              Number(project.fundingTarget) / Number(project.pricePerToken),
+            ),
+          ) * BigInt(1_000_000);
+
+      const deployed = await contractDeploymentService.deployAssetToken(
+        adminKeypair,
+        {
+          projectId: project.id,
+          name: project.name,
+          symbol:
+            project.tokenSymbol || `SOL${project.id.slice(0, 4).toUpperCase()}`,
+          capacityKw: Math.floor(project.capacity),
+          expectedYieldBps: Math.floor(project.expectedYield * 100),
+          totalSupply,
+        },
+      );
+
+      // 3. Create escrow in the treasury contract
+      const contractAddresses = getContractAddresses();
+      const installerAddress =
+        project.installer?.stellarPubKey || adminKeypair.publicKey();
+
+      await contractDeploymentService.createProjectEscrow(
+        contractAddresses.treasury,
+        adminKeypair,
+        project.id,
+        deployed.contractId,
+        installerAddress,
+        BigInt(Math.floor(Number(project.fundingTarget) * 1_000_000)),
+        200, // 2% platform fee in basis points
+        BigInt(Math.floor(Number(project.pricePerToken) * 1_000_000)),
+      );
+
+      // 4. Store the real contract ID in the database
+      await prisma.project.update({
         where: { id: req.params.projectId },
-        data: { tokenContractId: mockContractId },
+        data: { tokenContractId: deployed.contractId },
       });
 
       res.json({
         success: true,
-        message: "Token contract deployed",
+        message: "Token contract deployed and escrow created",
         data: {
-          contractId: mockContractId,
+          contractId: deployed.contractId,
+          deploymentTxHash: deployed.deploymentTxHash,
           tokenSymbol: project.tokenSymbol,
         },
       });
@@ -363,25 +413,31 @@ router.post(
       // 1. Get Relayer keypair
       const relayerKeypair = await getOrCreateRelayerAccount();
       const relayerPub = relayerKeypair.publicKey();
-      
+
       const usdcAsset = USDC_ASSET_TESTNET;
 
       // 2. Ensure User Trustline (if custodial)
       if (user.stellarSecretEncrypted) {
-        const userSecret = walletService.decryptSecret(user.stellarSecretEncrypted);
+        const userSecret = walletService.decryptSecret(
+          user.stellarSecretEncrypted,
+        );
         const userKeypair = Keypair.fromSecret(userSecret);
-        
-        const hasTrust = await trustlineService.hasTrustline(user.stellarPubKey);
+
+        const hasTrust = await trustlineService.hasTrustline(
+          user.stellarPubKey,
+        );
         if (!hasTrust) {
-            console.log(`📝 Creating trustline for ${user.stellarPubKey}...`);
-            await trustlineService.createTrustline(userKeypair);
+          console.log(`📝 Creating trustline for ${user.stellarPubKey}...`);
+          await trustlineService.createTrustline(userKeypair);
         }
       }
 
       // 3. Swap XLM for USDC via Path Payment
-      const relayerAccount = await stellarClient.horizon.loadAccount(relayerPub);
-      const { TransactionBuilder, Operation, BASE_FEE, Asset } = await import("@stellar/stellar-sdk");
-      
+      const relayerAccount =
+        await stellarClient.horizon.loadAccount(relayerPub);
+      const { TransactionBuilder, Operation, BASE_FEE, Asset } =
+        await import("@stellar/stellar-sdk");
+
       const swapTx = new TransactionBuilder(relayerAccount, {
         fee: BASE_FEE,
         networkPassphrase: stellarClient.getNetworkPassphrase(),

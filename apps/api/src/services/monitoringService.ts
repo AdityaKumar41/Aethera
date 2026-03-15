@@ -1,10 +1,11 @@
 /**
  * Monitoring and Alerts Service
- * 
+ *
  * Real-time monitoring of contract health, performance metrics, and alerting.
  * Integrates with the event indexer to detect anomalies.
  */
 
+import { prisma } from "@aethera/database";
 import { getContractAddresses, StellarClient } from "@aethera/stellar";
 import { eventIndexer } from "./eventIndexer.js";
 
@@ -71,40 +72,45 @@ interface SystemMetrics {
 
 export class MonitoringService {
   private static instance: MonitoringService | null = null;
-  
+
   private alerts: Alert[] = [];
   private rules: AlertRule[] = [];
   private metrics: SystemMetrics[] = [];
   private webhookUrls: string[] = [];
   private checkInterval: NodeJS.Timeout | null = null;
-  
+
   private constructor() {
     this.initializeDefaultRules();
   }
-  
+
   static getInstance(): MonitoringService {
     if (!MonitoringService.instance) {
       MonitoringService.instance = new MonitoringService();
     }
     return MonitoringService.instance;
   }
-  
+
   // ============================================
   // Lifecycle
   // ============================================
-  
+
   async start(checkIntervalMs: number = 60000): Promise<void> {
     console.log("🔔 Starting Monitoring Service...");
-    
+
     // Run initial check
     await this.runHealthCheck();
-    
+
     // Start periodic checks
-    this.checkInterval = setInterval(() => this.runHealthCheck(), checkIntervalMs);
-    
-    console.log(`📊 Monitoring Service started, checking every ${checkIntervalMs / 1000}s`);
+    this.checkInterval = setInterval(
+      () => this.runHealthCheck(),
+      checkIntervalMs,
+    );
+
+    console.log(
+      `📊 Monitoring Service started, checking every ${checkIntervalMs / 1000}s`,
+    );
   }
-  
+
   async stop(): Promise<void> {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
@@ -112,21 +118,21 @@ export class MonitoringService {
     }
     console.log("Monitoring Service stopped");
   }
-  
+
   // ============================================
   // Health Checks
   // ============================================
-  
+
   private async runHealthCheck(): Promise<void> {
     try {
       const metrics = await this.collectMetrics();
       this.metrics.unshift(metrics);
-      
+
       // Keep last 24 hours of metrics (at 1 min intervals = 1440 entries)
       if (this.metrics.length > 1440) {
         this.metrics.pop();
       }
-      
+
       // Evaluate rules
       for (const rule of this.rules) {
         if (rule.enabled && rule.condition(metrics)) {
@@ -143,34 +149,69 @@ export class MonitoringService {
       });
     }
   }
-  
+
   private async collectMetrics(): Promise<SystemMetrics> {
-    const indexerState = eventIndexer.getState();
     const contracts = getContractAddresses();
-    
-    // In production, these would be actual queries
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
+
+    // Run all DB queries in parallel
+    const [
+      pendingInvestments,
+      failedTransactions,
+      transactionsPerMinute,
+      tvlResult,
+      activeOracles,
+      openDisputes,
+    ] = await Promise.all([
+      prisma.investment.count({
+        where: { status: "PENDING_ONCHAIN" },
+      }),
+      prisma.transactionLog.count({
+        where: { status: "FAILED", createdAt: { gte: oneHourAgo } },
+      }),
+      prisma.transactionLog.count({
+        where: { createdAt: { gte: oneMinuteAgo } },
+      }),
+      prisma.project.aggregate({
+        where: { status: { in: ["FUNDING", "FUNDED", "ACTIVE"] } },
+        _sum: { fundingRaised: true },
+      }),
+      prisma.oracleProvider.count({
+        where: { status: "ACTIVE" },
+      }),
+      prisma.oracleDispute.count({
+        where: { status: { in: ["OPEN", "UNDER_REVIEW"] } },
+      }),
+    ]);
+
+    const totalValueLocked = tvlResult._sum.fundingRaised
+      ? Number(tvlResult._sum.fundingRaised)
+      : 0;
+
     return {
-      timestamp: new Date(),
-      transactionsPerMinute: Math.random() * 10, // Mock
-      failedTransactions: 0,
-      pendingInvestments: 0,
-      totalValueLocked: 0,
-      activeOracles: 1,
-      openDisputes: 0,
+      timestamp: now,
+      transactionsPerMinute,
+      failedTransactions,
+      pendingInvestments,
+      totalValueLocked,
+      activeOracles,
+      openDisputes,
       activeProposals: 0,
       contractStatuses: {
-        assetToken: true,
-        treasury: true,
-        yieldDistributor: true,
-        governance: true,
+        assetToken: !!contracts.assetToken,
+        treasury: !!contracts.treasury,
+        yieldDistributor: !!contracts.yieldDistributor,
+        governance: !!contracts.governance,
       },
     };
   }
-  
+
   // ============================================
   // Alert Management
   // ============================================
-  
+
   private async createAlert(params: {
     type: AlertType;
     severity: AlertSeverity;
@@ -184,33 +225,37 @@ export class MonitoringService {
       createdAt: new Date(),
       acknowledged: false,
     };
-    
+
     this.alerts.unshift(alert);
-    
+
     // Keep last 1000 alerts
     if (this.alerts.length > 1000) {
       this.alerts.pop();
     }
-    
+
     console.log(`🚨 Alert [${alert.severity}]: ${alert.title}`);
-    
+
     // Send webhooks for critical alerts
     if (alert.severity === AlertSeverity.CRITICAL) {
       await this.sendWebhooks(alert);
     }
-    
+
     return alert;
   }
-  
-  private async triggerAlert(rule: AlertRule, metrics: SystemMetrics): Promise<void> {
+
+  private async triggerAlert(
+    rule: AlertRule,
+    metrics: SystemMetrics,
+  ): Promise<void> {
     // Check if similar alert was created recently (debounce)
     const recentSimilar = this.alerts.find(
-      a => a.type === rule.type && 
-           Date.now() - a.createdAt.getTime() < 5 * 60 * 1000 // 5 min
+      (a) =>
+        a.type === rule.type &&
+        Date.now() - a.createdAt.getTime() < 5 * 60 * 1000, // 5 min
     );
-    
+
     if (recentSimilar) return;
-    
+
     await this.createAlert({
       type: rule.type,
       severity: rule.severity,
@@ -219,30 +264,30 @@ export class MonitoringService {
       data: { metrics, ruleId: rule.id },
     });
   }
-  
+
   async acknowledgeAlert(alertId: string, userId: string): Promise<void> {
-    const alert = this.alerts.find(a => a.id === alertId);
+    const alert = this.alerts.find((a) => a.id === alertId);
     if (alert) {
       alert.acknowledged = true;
       alert.acknowledgedAt = new Date();
       alert.acknowledgedBy = userId;
     }
   }
-  
+
   // ============================================
   // Webhooks
   // ============================================
-  
+
   addWebhookUrl(url: string): void {
     if (!this.webhookUrls.includes(url)) {
       this.webhookUrls.push(url);
     }
   }
-  
+
   removeWebhookUrl(url: string): void {
-    this.webhookUrls = this.webhookUrls.filter(u => u !== url);
+    this.webhookUrls = this.webhookUrls.filter((u) => u !== url);
   }
-  
+
   private async sendWebhooks(alert: Alert): Promise<void> {
     for (const url of this.webhookUrls) {
       try {
@@ -266,11 +311,11 @@ export class MonitoringService {
       }
     }
   }
-  
+
   // ============================================
   // Default Rules
   // ============================================
-  
+
   private initializeDefaultRules(): void {
     this.rules = [
       {
@@ -310,15 +355,15 @@ export class MonitoringService {
         enabled: true,
         severity: AlertSeverity.CRITICAL,
         messageTemplate: "One or more contracts are paused",
-        condition: (m) => Object.values(m.contractStatuses).some(s => !s),
+        condition: (m) => Object.values(m.contractStatuses).some((s) => !s),
       },
     ];
   }
-  
+
   // ============================================
   // Queries
   // ============================================
-  
+
   getAlerts(options?: {
     severity?: AlertSeverity;
     type?: AlertType;
@@ -326,35 +371,37 @@ export class MonitoringService {
     limit?: number;
   }): Alert[] {
     let filtered = [...this.alerts];
-    
+
     if (options?.severity) {
-      filtered = filtered.filter(a => a.severity === options.severity);
+      filtered = filtered.filter((a) => a.severity === options.severity);
     }
     if (options?.type) {
-      filtered = filtered.filter(a => a.type === options.type);
+      filtered = filtered.filter((a) => a.type === options.type);
     }
     if (options?.acknowledged !== undefined) {
-      filtered = filtered.filter(a => a.acknowledged === options.acknowledged);
+      filtered = filtered.filter(
+        (a) => a.acknowledged === options.acknowledged,
+      );
     }
-    
+
     return filtered.slice(0, options?.limit || 50);
   }
-  
+
   getMetrics(limit: number = 60): SystemMetrics[] {
     return this.metrics.slice(0, limit);
   }
-  
+
   getRules(): AlertRule[] {
     return [...this.rules];
   }
-  
+
   updateRule(ruleId: string, updates: Partial<AlertRule>): void {
-    const rule = this.rules.find(r => r.id === ruleId);
+    const rule = this.rules.find((r) => r.id === ruleId);
     if (rule) {
       Object.assign(rule, updates);
     }
   }
-  
+
   getStats(): {
     totalAlerts: number;
     unacknowledged: number;
@@ -363,8 +410,9 @@ export class MonitoringService {
   } {
     return {
       totalAlerts: this.alerts.length,
-      unacknowledged: this.alerts.filter(a => !a.acknowledged).length,
-      critical: this.alerts.filter(a => a.severity === AlertSeverity.CRITICAL).length,
+      unacknowledged: this.alerts.filter((a) => !a.acknowledged).length,
+      critical: this.alerts.filter((a) => a.severity === AlertSeverity.CRITICAL)
+        .length,
       lastCheck: this.metrics[0]?.timestamp,
     };
   }

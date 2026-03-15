@@ -10,8 +10,6 @@ import {
   StellarClient,
   stellarClient,
   getContractAddresses,
-  SorobanContractService,
-  getSorobanService,
   contractService,
   getRelayerService,
   walletService,
@@ -44,12 +42,10 @@ interface InvestmentResult {
 
 export class InvestmentService {
   private stellar: StellarClient;
-  private soroban: SorobanContractService;
   private contracts: ReturnType<typeof getContractAddresses>;
 
   constructor() {
     this.stellar = stellarClient;
-    this.soroban = getSorobanService(stellarClient);
     this.contracts = getContractAddresses();
   }
 
@@ -196,6 +192,93 @@ export class InvestmentService {
   }
 
   /**
+   * Retry a failed investment transaction (same investment record)
+   */
+  async retryInvestmentTransaction(
+    investmentId: string,
+  ): Promise<InvestmentResult> {
+    const investment = await prisma.investment.findUnique({
+      where: { id: investmentId },
+      include: {
+        investor: {
+          select: {
+            id: true,
+            kycStatus: true,
+            stellarPubKey: true,
+            stellarSecretEncrypted: true,
+          },
+        },
+        project: {
+          select: {
+            id: true,
+            status: true,
+            pricePerToken: true,
+            tokenContractId: true,
+            fundingTarget: true,
+            fundingRaised: true,
+          },
+        },
+      },
+    });
+
+    if (!investment) {
+      return { success: false, error: "Investment not found" };
+    }
+
+    if (investment.status !== "PENDING") {
+      return { success: false, error: "Investment not eligible for retry" };
+    }
+
+    const investor = investment.investor;
+    const project = investment.project;
+
+    if (!investor) {
+      return { success: false, error: "Investor not found" };
+    }
+    if (!project) {
+      return { success: false, error: "Project not found" };
+    }
+
+    try {
+      const txHash = await this.submitInvestmentTransaction(
+        investor,
+        project,
+        investment.id,
+        Number(investment.amount),
+      );
+
+      await prisma.investment.update({
+        where: { id: investment.id },
+        data: {
+          status: "PENDING_ONCHAIN",
+          txHash,
+          txSubmittedAt: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        investmentId: investment.id,
+        txHash,
+      };
+    } catch (error: any) {
+      await prisma.investment.update({
+        where: { id: investment.id },
+        data: {
+          status: "FAILED",
+          txError: error.message,
+        },
+      });
+
+      return {
+        success: false,
+        investmentId: investment.id,
+        error: `Retry failed: ${error.message}`,
+      };
+    }
+  }
+
+  /**
    * Submit the USDC transfer to Treasury contract
    */
   private async submitInvestmentTransaction(
@@ -225,23 +308,27 @@ export class InvestmentService {
           nativeToScVal(project.id, { type: "string" }),
           nativeToScVal(investor.stellarPubKey, { type: "address" }),
           nativeToScVal(amountScaled, { type: "i128" }),
-        )
+        ),
       )
       .setTimeout(300)
       .build();
 
     // 4. Prepare and sign inner transaction with Investor
-    console.log(`[Investment] Preparing transaction for investor ${investor.stellarPubKey}`);
+    console.log(
+      `[Investment] Preparing transaction for investor ${investor.stellarPubKey}`,
+    );
     const preparedTx = await server.prepareTransaction(tx);
     preparedTx.sign(investorKeypair);
 
     // 5. Sponsorship (Fee Bump)
     const relayer = getRelayerService();
     await relayer.initialize();
-    
+
     let finalTx: any = preparedTx;
     if (await relayer.isReady()) {
-      console.log(`[Investment] Sponsoring gas with relayer for ${investor.stellarPubKey}`);
+      console.log(
+        `[Investment] Sponsoring gas with relayer for ${investor.stellarPubKey}`,
+      );
       finalTx = await relayer.sponsorTransaction(preparedTx);
     }
 

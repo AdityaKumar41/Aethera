@@ -1,12 +1,18 @@
 /**
  * Transaction Monitoring Service
- * 
+ *
  * Monitors pending on-chain transactions and updates their status.
  * Handles transaction finality, retries, and failure states.
  */
 
 import { prisma } from "@aethera/database";
-import { StellarClient, stellarClient, getContractAddresses, contractService } from "@aethera/stellar";
+import {
+  StellarClient,
+  stellarClient,
+  getContractAddresses,
+  contractService,
+} from "@aethera/stellar";
+import { getInvestmentService } from "./investmentService.js";
 import { Horizon, Keypair } from "@stellar/stellar-sdk";
 
 interface TransactionResult {
@@ -35,7 +41,7 @@ export class TransactionMonitorService {
 
     console.log(`Starting transaction monitor (interval: ${intervalMs}ms)`);
     this.isRunning = true;
-    
+
     // Run immediately, then on interval
     this.processAllPendingTransactions();
     this.pollingInterval = setInterval(() => {
@@ -68,12 +74,16 @@ export class TransactionMonitorService {
         },
         include: {
           investor: { select: { id: true, stellarPubKey: true } },
-          project: { select: { id: true, tokenContractId: true, tokenSymbol: true } },
+          project: {
+            select: { id: true, tokenContractId: true, tokenSymbol: true },
+          },
         },
       });
 
       if (pendingInvestments.length > 0) {
-        console.log(`Processing ${pendingInvestments.length} pending transactions`);
+        console.log(
+          `Processing ${pendingInvestments.length} pending transactions`,
+        );
       }
 
       for (const investment of pendingInvestments) {
@@ -117,7 +127,12 @@ export class TransactionMonitorService {
           },
         });
 
-        console.log(`Investment ${investment.id} confirmed at ledger ${result.ledger}`);
+        console.log(
+          `Investment ${investment.id} confirmed at ledger ${result.ledger}`,
+        );
+
+        // Trigger token minting after investment is confirmed
+        await this.triggerTokenMint(investment);
 
         // Log the transaction
         await this.logTransaction({
@@ -135,10 +150,16 @@ export class TransactionMonitorService {
       // If not confirmed and no error, transaction is still pending
     } catch (error: any) {
       console.error(`Error checking transaction ${investment.txHash}:`, error);
-      
+
       // If transaction not found after timeout, mark as failed
-      if (error.message?.includes("not found") && this.isTransactionExpired(investment)) {
-        await this.handleTransactionFailure(investment, "Transaction expired - not found on chain");
+      if (
+        error.message?.includes("not found") &&
+        this.isTransactionExpired(investment)
+      ) {
+        await this.handleTransactionFailure(
+          investment,
+          "Transaction expired - not found on chain",
+        );
       }
     }
   }
@@ -180,22 +201,32 @@ export class TransactionMonitorService {
         });
       }
     } catch (error: any) {
-      console.error(`Error checking mint transaction ${investment.mintTxHash}:`, error);
+      console.error(
+        `Error checking mint transaction ${investment.mintTxHash}:`,
+        error,
+      );
     }
   }
 
   /**
    * Get transaction status from Stellar network
    */
-  private async getTransactionStatus(txHash: string): Promise<TransactionResult> {
+  private async getTransactionStatus(
+    txHash: string,
+  ): Promise<TransactionResult> {
     try {
       const server = this.stellar.getHorizonServer();
-      const transaction = await server.transactions().transaction(txHash).call();
+      const transaction = await server
+        .transactions()
+        .transaction(txHash)
+        .call();
 
       return {
         confirmed: transaction.successful,
         ledger: transaction.ledger_attr as number,
-        error: transaction.successful ? undefined : "Transaction failed on-chain",
+        error: transaction.successful
+          ? undefined
+          : "Transaction failed on-chain",
       };
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -209,14 +240,19 @@ export class TransactionMonitorService {
   /**
    * Handle transaction failure
    */
-  private async handleTransactionFailure(investment: any, error: string): Promise<void> {
+  private async handleTransactionFailure(
+    investment: any,
+    error: string,
+  ): Promise<void> {
     const maxRetries = 3;
     const currentRetries = investment.txRetryCount || 0;
 
     if (currentRetries < maxRetries) {
       // Retry the transaction
-      console.log(`Retrying investment ${investment.id} (attempt ${currentRetries + 1}/${maxRetries})`);
-      
+      console.log(
+        `Retrying investment ${investment.id} (attempt ${currentRetries + 1}/${maxRetries})`,
+      );
+
       await prisma.investment.update({
         where: { id: investment.id },
         data: {
@@ -227,7 +263,23 @@ export class TransactionMonitorService {
         },
       });
 
-      // TODO: Trigger reprocessing through investment queue
+      // Reprocess immediately using the same investment record
+      try {
+        const investmentService = getInvestmentService();
+        const retryResult = await investmentService.retryInvestmentTransaction(
+          investment.id,
+        );
+        if (!retryResult.success) {
+          console.warn(
+            `Retry attempt failed for ${investment.id}: ${retryResult.error}`,
+          );
+        }
+      } catch (retryError: any) {
+        console.error(
+          `Retry processing failed for ${investment.id}:`,
+          retryError?.message || retryError,
+        );
+      }
     } else {
       // Max retries reached - mark as failed
       await prisma.investment.update({
@@ -238,7 +290,9 @@ export class TransactionMonitorService {
         },
       });
 
-      console.error(`Investment ${investment.id} failed after ${maxRetries} retries: ${error}`);
+      console.error(
+        `Investment ${investment.id} failed after ${maxRetries} retries: ${error}`,
+      );
 
       // Log the failure
       await this.logTransaction({
@@ -258,7 +312,9 @@ export class TransactionMonitorService {
   private async triggerTokenMint(investment: any): Promise<void> {
     try {
       if (!investment.project?.tokenContractId) {
-        console.log(`No token contract for project ${investment.projectId}, skipping mint`);
+        console.log(
+          `No token contract for project ${investment.projectId}, skipping mint`,
+        );
         return;
       }
 
@@ -269,7 +325,9 @@ export class TransactionMonitorService {
       }
 
       const adminKeypair = Keypair.fromSecret(relayerSecret);
-      const amountScaled = BigInt(Math.round(investment.tokenAmount * 1_000_000)); // 6 decimals for asset tokens
+      const amountScaled = BigInt(
+        Math.round(investment.tokenAmount * 1_000_000),
+      ); // 6 decimals for asset tokens
 
       console.log(`Initiating token mint for investment ${investment.id}...`);
 
@@ -277,7 +335,7 @@ export class TransactionMonitorService {
         investment.project.tokenContractId,
         adminKeypair,
         investment.investor.stellarPubKey,
-        amountScaled
+        amountScaled,
       );
 
       if (result.success && result.txHash) {
@@ -288,7 +346,9 @@ export class TransactionMonitorService {
             mintTxHash: result.txHash,
           },
         });
-        console.log(`Token mint submitted for ${investment.id}. Tx: ${result.txHash}`);
+        console.log(
+          `Token mint submitted for ${investment.id}. Tx: ${result.txHash}`,
+        );
       } else {
         throw new Error(result.error || "Minting failed");
       }

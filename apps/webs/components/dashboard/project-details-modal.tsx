@@ -33,281 +33,200 @@ export function ProjectDetailsModal({
   const isFunded = fundingPercentage >= 100;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+        className="absolute inset-0 bg-zinc-950/60 backdrop-blur-md animate-in fade-in duration-500"
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-300">
-        {/* Header Ribbon */}
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400" />
-
+      <div className="relative w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-400 border border-zinc-200">
+        {/* Close Button - Premium Glass */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 transition-colors z-20"
+          className="absolute top-8 right-8 p-3.5 rounded-2xl bg-white/10 backdrop-blur-xl hover:bg-zinc-100 text-zinc-400 hover:text-zinc-950 transition-all z-30 active:scale-90 border border-transparent hover:border-zinc-200"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="p-8">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="px-2.5 py-1 rounded-lg bg-orange-100 text-[9px] font-black text-orange-600 uppercase tracking-widest">
-                Solar Investment
-              </span>
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 text-[9px] font-black text-emerald-600 uppercase tracking-widest">
-                <ShieldCheck className="w-3 h-3" />
-                Verified Project
-              </span>
-              {!isFunded && (
-                <span className="px-2.5 py-1 rounded-lg bg-blue-100 text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                  Accepting Investments
-                </span>
-              )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[600px]">
+          {/* Left Column: Media & Core Identity */}
+          <div className="bg-zinc-950 p-10 lg:p-16 text-white space-y-10 relative overflow-hidden flex flex-col justify-center">
+            {/* Advanced Visual Effects */}
+            <div className="absolute inset-0 opacity-20 pointer-events-none">
+              <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.2),transparent_70%)]" />
+              <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_70%_80%,rgba(16,185,129,0.1),transparent_70%)]" />
             </div>
-
-            <h1 className="text-3xl font-black text-zinc-900 tracking-tight leading-none mb-2">
-              {project.name}
-            </h1>
-
-            <div className="flex items-center gap-3 text-zinc-500 text-sm">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" />
-                <span className="font-bold">{project.location}</span>
+            
+            <div className="relative z-10 space-y-8">
+              <div className="flex items-center gap-4">
+                <div className="px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] italic">
+                   Verified Physical Asset
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ring-4 ring-emerald-500/20" />
+                  <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">On-Chain Active</span>
+                </div>
               </div>
-              <div className="w-1 h-1 rounded-full bg-zinc-300" />
-              <div className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-orange-500" />
-                <span className="font-bold">{project.capacity} kW</span>
+
+              <div className="space-y-4">
+                <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-[0.85] italic lowercase underline decoration-white/5 underline-offset-[12px]">
+                  {project.name}.
+                </h1>
+                
+                <div className="flex flex-wrap items-center gap-6 text-zinc-400 font-bold text-[11px] uppercase tracking-[0.2em]">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-orange-500/80" />
+                    {project.location}, {project.country}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-emerald-500/80" />
+                    {project.capacity} kW Grid
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 max-w-md">
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] italic">
+                   Asset Proposition
+                </p>
+                <p className="text-zinc-400 text-sm md:text-base leading-relaxed font-medium opacity-90">
+                  {project.description || "High-performance solar utility asset with institutional-grade certification. This project facilitates direct energy distribution to regional networks with guaranteed off-take agreements and a projected 25-year operational lifespan."}
+                </p>
+              </div>
+
+              {/* Advanced Specs Grid */}
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="p-5 rounded-3xl bg-white/5 border border-white/10 group hover:bg-white/10 transition-colors">
+                   <p className="text-[9px] font-black text-white/20 uppercase mb-2 tracking-widest">Asset Token</p>
+                   <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center">
+                        <Coins className="w-3 h-3 text-orange-500" />
+                      </div>
+                      <p className="text-base font-bold text-white tracking-tight">{project.tokenSymbol}</p>
+                   </div>
+                </div>
+                <div className="p-5 rounded-3xl bg-white/5 border border-white/10 group hover:bg-white/10 transition-colors">
+                   <p className="text-[9px] font-black text-white/20 uppercase mb-2 tracking-widest">Target Alpha</p>
+                   <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center">
+                        <TrendingUp className="w-3 h-3 text-emerald-500" />
+                      </div>
+                      <p className="text-base font-bold text-emerald-400 font-mono tracking-tight">{project.expectedYield}% <span className="text-[10px] opacity-40 uppercase font-bold">apy</span></p>
+                   </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Main Content - Compact Grid */}
-          <div className="grid grid-cols-12 gap-6">
-            {/* Left Side - Project Info */}
-            <div className="col-span-7 space-y-5">
-              {/* Description */}
-              {project.description && (
-                <div className="bg-zinc-50 rounded-2xl p-5 border border-zinc-100">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sun className="w-4 h-4 text-orange-500" />
-                    <h3 className="text-xs font-black text-zinc-900 uppercase tracking-widest">
-                      Project Description
+          {/* Right Column: Economics & Execution */}
+          <div className="p-10 lg:p-16 bg-white flex flex-col justify-between">
+            <div className="space-y-12">
+              {/* Financial Architecture */}
+              <div className="space-y-8">
+                <div className="flex items-center justify-between border-b border-zinc-100 pb-6">
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-black text-zinc-950 uppercase tracking-[0.2em]">
+                      Allocation Ledger
                     </h3>
+                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Stellar Network Consensus</p>
                   </div>
-                  <p className="text-sm text-zinc-600 leading-relaxed">
-                    {project.description}
-                  </p>
+                  <div className="px-3 py-1 bg-zinc-50 rounded-xl border border-zinc-100 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-600" />
+                    <span className="text-[10px] font-black text-zinc-950 uppercase">{fundingPercentage.toFixed(1)}% Bound</span>
+                  </div>
                 </div>
-              )}
 
-              {/* Technical Specs */}
-              <div className="bg-zinc-50 rounded-2xl p-5 border border-zinc-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <Zap className="w-4 h-4 text-orange-500" />
-                  <h3 className="text-xs font-black text-zinc-900 uppercase tracking-widest">
-                    Technical Specifications
-                  </h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-white rounded-xl border border-zinc-100">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
-                      Capacity
-                    </p>
-                    <p className="text-base font-black text-zinc-900">
-                      {project.capacity} kW
-                    </p>
+                <div className="space-y-8">
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">Total Supply</p>
+                      <p className="text-4xl font-black text-zinc-950 font-mono tracking-tighter italic">
+                        ${(Number(project.fundingTarget) || 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">Remaining Cap</p>
+                      <p className="text-4xl font-black text-orange-600 font-mono tracking-tighter italic">
+                        ${(Number(project.fundingTarget) - Number(project.fundingRaised || 0)).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-zinc-100">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
-                      Location
-                    </p>
-                    <p className="text-base font-black text-zinc-900">
-                      {project.location}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-zinc-100">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
-                      Status
-                    </p>
-                    <p className="text-base font-black text-emerald-600 capitalize">
-                      {project.status}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-zinc-100">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
-                      Token
-                    </p>
-                    <p className="text-base font-black text-orange-600">
-                      {project.tokenSymbol}
-                    </p>
+
+                  <div className="relative pt-2">
+                    <div className="h-4 bg-zinc-50 rounded-full overflow-hidden p-[4px] border border-zinc-100">
+                      <div 
+                        className="h-full bg-zinc-950 rounded-full transition-all duration-[2s] ease-out shadow-[0_0_20px_rgba(0,0,0,0.1)] relative overflow-hidden"
+                        style={{ width: `${Math.min(fundingPercentage, 100)}%` }}
+                      >
+                         <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Funding Progress */}
-              <div className="bg-zinc-50 rounded-2xl p-5 border border-zinc-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <DollarSign className="w-4 h-4 text-orange-500" />
-                  <h3 className="text-xs font-black text-zinc-900 uppercase tracking-widest">
-                    Funding Progress
-                  </h3>
+              {/* Economic Units */}
+              <div className="grid grid-cols-1 gap-4">
+                <div className="group flex items-center justify-between p-6 rounded-[2.5rem] bg-zinc-50 border border-zinc-100/50 hover:bg-white hover:shadow-xl hover:shadow-zinc-200/40 transition-all duration-500">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white border border-zinc-200 flex items-center justify-center shadow-sm group-hover:bg-zinc-950 group-hover:text-white transition-colors">
+                      <DollarSign className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-0.5">
+                       <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Entry Price</p>
+                       <p className="text-sm font-bold text-zinc-950 uppercase">Per Dividend Unit</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-black text-zinc-950 font-mono tracking-tight">${project.pricePerToken} <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">usdc</span></p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div>
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
-                      Target
-                    </p>
-                    <p className="text-lg font-black text-zinc-900">
-                      ${Number(project.fundingTarget || 0).toLocaleString()}
-                    </p>
+                <div className="group flex items-center justify-between p-6 rounded-[2.5rem] bg-zinc-50 border border-zinc-100/50 hover:bg-white hover:shadow-xl hover:shadow-zinc-200/40 transition-all duration-500">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white border border-zinc-200 flex items-center justify-center shadow-sm group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-400 transition-colors">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-0.5">
+                       <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Certification</p>
+                       <p className="text-sm font-bold text-zinc-950 uppercase">Securities Status</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
-                      Raised
-                    </p>
-                    <p className="text-lg font-black text-emerald-600">
-                      ${Number(project.fundingRaised || 0).toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
-                      Remaining
-                    </p>
-                    <p className="text-lg font-black text-orange-600">
-                      $
-                      {(
-                        Number(project.fundingTarget || 0) -
-                        Number(project.fundingRaised || 0)
-                      ).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-zinc-500">
-                      Progress
-                    </span>
-                    <span className="text-base font-black text-zinc-900">
-                      {fundingPercentage.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-zinc-200 rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-1000",
-                        isFunded ? "bg-emerald-500" : "bg-orange-500",
-                      )}
-                      style={{ width: `${Math.min(fundingPercentage, 100)}%` }}
-                    />
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">Reg-D Compliant</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Side - Investment Highlights */}
-            <div className="col-span-5 space-y-5">
-              {/* Investment Stats */}
-              <div className="bg-gradient-to-br from-orange-50 to-emerald-50 rounded-2xl p-5 border border-orange-100 space-y-3">
-                <h3 className="text-xs font-black text-zinc-900 uppercase tracking-widest mb-3">
-                  Investment Highlights
-                </h3>
-
-                <div className="p-4 bg-white rounded-xl border border-zinc-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-500" />
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
-                      Expected APY
-                    </p>
-                  </div>
-                  <p className="text-3xl font-black text-emerald-600">
-                    {project.expectedYield}%
-                  </p>
-                </div>
-
-                <div className="p-4 bg-white rounded-xl border border-zinc-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Coins className="w-4 h-4 text-orange-500" />
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
-                      Price per Token
-                    </p>
-                  </div>
-                  <p className="text-3xl font-black text-zinc-900">
-                    ${project.pricePerToken}
-                  </p>
-                  <p className="text-xs font-bold text-zinc-400 mt-1">USDC</p>
-                </div>
-              </div>
-
-              {/* Key Info */}
-              <div className="bg-zinc-50 rounded-2xl p-5 border border-zinc-100 space-y-2.5">
-                <h3 className="text-xs font-black text-zinc-900 uppercase tracking-widest mb-3">
-                  Key Information
-                </h3>
-
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-zinc-100">
-                  <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                  <div>
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
-                      Verification
-                    </p>
-                    <p className="text-xs font-bold text-zinc-900">
-                      KYC Required
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-zinc-100">
-                  <Coins className="w-5 h-5 text-orange-500" />
-                  <div>
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
-                      Settlement
-                    </p>
-                    <p className="text-xs font-bold text-zinc-900">
-                      Instant On-Chain
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-zinc-100">
-                  <TrendingUp className="w-5 h-5 text-blue-500" />
-                  <div>
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
-                      Distribution
-                    </p>
-                    <p className="text-xs font-bold text-zinc-900">
-                      Monthly Yields
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* CTA Button */}
+            {/* Atomic Execution Area */}
+            <div className="pt-12 space-y-6">
               {!isFunded && onInvest && (
                 <button
                   onClick={() => onInvest(project.id)}
-                  className="w-full h-14 rounded-xl bg-zinc-900 text-white font-black uppercase tracking-[0.15em] text-xs hover:bg-orange-600 transition-all active:scale-95 shadow-lg shadow-orange-500/10 flex items-center justify-center gap-2"
+                  className="group/btn relative w-full h-20 rounded-[2rem] bg-zinc-950 text-white font-black uppercase tracking-[0.2em] text-[12px] hover:bg-orange-600 transition-all active:scale-[0.98] shadow-2xl flex items-center justify-center gap-4 overflow-hidden"
                 >
-                  Invest Now
-                  <ArrowRight className="w-4 h-4" />
+                  <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20 scale-x-0 group-hover/btn:scale-x-100 transition-transform duration-500" />
+                  <span className="relative z-10">Commit Strategic Investment</span>
+                  <ArrowRight className="w-5 h-5 relative z-10 transition-transform group-hover/btn:translate-x-1.5" />
                 </button>
               )}
 
               {isFunded && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-                  <p className="text-xs font-black text-emerald-900 uppercase tracking-widest">
-                    Fully Funded
-                  </p>
-                  <p className="text-[10px] text-emerald-700 mt-1">
-                    This project has reached its funding goal
-                  </p>
+                <div className="p-8 bg-emerald-50/50 border border-emerald-100 rounded-[2.5rem] text-center space-y-2 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-3xl -mr-16 -mt-16" />
+                  <p className="text-[11px] font-black text-emerald-900 uppercase tracking-[0.3em] italic">Market fully subscribed</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <p className="text-[10px] font-bold text-emerald-600/60 uppercase tracking-widest">Secondary exchange migration pending</p>
+                  </div>
                 </div>
               )}
+
+              <div className="flex items-center justify-center gap-3 opacity-40 hover:opacity-100 transition-opacity">
+                 <ShieldCheck className="w-3.5 h-3.5" />
+                 <p className="text-[9px] text-zinc-950 uppercase font-black tracking-[0.3em]">
+                   Encrypted via Stellar Distributed Ledger
+                 </p>
+              </div>
             </div>
           </div>
         </div>

@@ -6,13 +6,8 @@
  */
 
 import { prisma } from "@aethera/database";
-import {
-  stellarClient,
-  contractService,
-  getContractAddresses,
-} from "@aethera/stellar";
+import { contractService, walletService } from "@aethera/stellar";
 import { Keypair, nativeToScVal } from "@stellar/stellar-sdk";
-import crypto from "crypto";
 
 interface CreateTransferListingParams {
   sellerId: string;
@@ -109,11 +104,14 @@ export class TokenTransferService {
     const totalPrice = tokenAmount * pricePerToken;
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
+    // Note: toUserId is set to sellerId as a placeholder because the schema
+    // requires a non-nullable FK. It gets replaced with the real buyer ID
+    // when someone calls acceptTransfer().
     const transfer = await prisma.tokenTransfer.create({
       data: {
         projectId,
         fromUserId: sellerId,
-        toUserId: sellerId, // Will be updated when accepted
+        toUserId: sellerId,
         tokenAmount,
         pricePerToken,
         totalPrice,
@@ -148,9 +146,6 @@ export class TokenTransferService {
         seller: {
           select: { stellarPubKey: true, stellarSecretEncrypted: true },
         },
-        buyer: {
-          select: { stellarPubKey: true, stellarSecretEncrypted: true },
-        },
       },
     });
 
@@ -170,7 +165,29 @@ export class TokenTransferService {
       throw new Error("Transfer listing has expired");
     }
 
-    // 2. Update transfer with buyer
+    if (!transfer.project.tokenContractId) {
+      throw new Error("Project token contract not deployed");
+    }
+
+    if (!transfer.seller.stellarSecretEncrypted) {
+      throw new Error("Seller wallet secret not available");
+    }
+
+    if (!transfer.seller.stellarPubKey) {
+      throw new Error("Seller wallet not configured");
+    }
+
+    // 2. Get buyer's public key
+    const buyer = await prisma.user.findUnique({
+      where: { id: buyerId },
+      select: { stellarPubKey: true },
+    });
+
+    if (!buyer?.stellarPubKey) {
+      throw new Error("Buyer wallet not configured");
+    }
+
+    // 3. Mark as ACCEPTED (in-progress)
     await prisma.tokenTransfer.update({
       where: { id: transferId },
       data: {
@@ -179,27 +196,45 @@ export class TokenTransferService {
       },
     });
 
-    // 3. Execute on-chain transfer
+    // 4. Execute on-chain token transfer
     try {
-      // Get decryption key
-      const encryptionKey = process.env.STELLAR_SECRET_ENCRYPTION_KEY;
-      if (!encryptionKey) {
-        throw new Error("Encryption key not configured");
+      // Decrypt seller's secret key and create keypair
+      const sellerSecret = walletService.decryptSecret(
+        transfer.seller.stellarSecretEncrypted,
+      );
+      const sellerKeypair = Keypair.fromSecret(sellerSecret);
+
+      // Build transfer args: from (Address), to (Address), amount (i128)
+      const tokenAmountOnChain =
+        BigInt(transfer.tokenAmount) * BigInt(1_000_000);
+      const args = [
+        nativeToScVal(transfer.seller.stellarPubKey, { type: "address" }),
+        nativeToScVal(buyer.stellarPubKey, { type: "address" }),
+        nativeToScVal(tokenAmountOnChain, { type: "i128" }),
+      ];
+
+      const result = await contractService.invokeContract(
+        transfer.project.tokenContractId,
+        "transfer",
+        args,
+        sellerKeypair,
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "On-chain transfer failed");
       }
 
-      // This would transfer tokens from seller to buyer on-chain
-      // For now, we'll mark it as completed
-      // In production, you'd call the asset token contract's transfer function
-
+      // 5. Mark as COMPLETED with txHash
       await prisma.tokenTransfer.update({
         where: { id: transferId },
         data: {
           status: "COMPLETED",
+          txHash: result.txHash || null,
           completedAt: new Date(),
         },
       });
 
-      // Create investment record for buyer
+      // 6. Create investment record for buyer
       await prisma.investment.create({
         data: {
           investorId: buyerId,
@@ -207,21 +242,26 @@ export class TokenTransferService {
           amount: transfer.totalPrice,
           tokenAmount: transfer.tokenAmount,
           pricePerToken: transfer.pricePerToken,
-          status: "CONFIRMED", // Secondary purchase, no on-chain investment needed
+          status: "CONFIRMED",
+          txHash: result.txHash || null,
         },
       });
 
       console.log(
-        `✅ Token transfer completed: ${transfer.tokenAmount} tokens transferred to buyer`,
+        `Token transfer completed: ${transfer.tokenAmount} tokens transferred on-chain (tx: ${result.txHash})`,
       );
 
       return transfer;
     } catch (error: any) {
+      // Revert to PENDING so the listing is still available
       await prisma.tokenTransfer.update({
         where: { id: transferId },
-        data: { status: "REJECTED" },
+        data: {
+          toUserId: transfer.fromUserId,
+          status: "REJECTED",
+        },
       });
-      throw new Error(`Transfer failed: ${error.message}`);
+      throw new Error(`On-chain transfer failed: ${error.message}`);
     }
   }
 
@@ -240,7 +280,12 @@ export class TokenTransferService {
           select: { id: true, name: true, email: true },
         },
         project: {
-          select: { name: true, tokenSymbol: true, expectedYield: true, pricePerToken: true },
+          select: {
+            name: true,
+            tokenSymbol: true,
+            expectedYield: true,
+            pricePerToken: true,
+          },
         },
       },
       orderBy: { createdAt: "desc" },

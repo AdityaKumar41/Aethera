@@ -40,10 +40,45 @@ router.get("/marketplace", async (req, res, next) => {
     );
     const skip = (page - 1) * limit;
 
-    const status = (req.query.status as string)?.toUpperCase() as ProjectStatus;
-    const where: Prisma.ProjectWhereInput = status && status !== ('ALL' as any)
-      ? { status }
-      : { status: { in: [ProjectStatus.APPROVED, ProjectStatus.FUNDING, ProjectStatus.FUNDED, ProjectStatus.ACTIVE, ProjectStatus.COMPLETED] } };
+    const statusStr = (req.query.status as string)?.toUpperCase();
+    let where: Prisma.ProjectWhereInput;
+
+    if (!statusStr || statusStr === 'ALL') {
+      where = { 
+        status: { 
+          in: [
+            ProjectStatus.APPROVED, 
+            ProjectStatus.FUNDING, 
+            ProjectStatus.FUNDED, 
+            ProjectStatus.ACTIVE_PENDING_DATA,
+            ProjectStatus.ACTIVE, 
+            ProjectStatus.COMPLETED
+          ] 
+        } 
+      };
+    } else if (statusStr === 'FUNDING') {
+      where = { 
+        status: { in: [ProjectStatus.APPROVED, ProjectStatus.FUNDING] },
+        // Double check it's not actually full due to a missing state transition
+        tokensRemaining: { gt: 0 }
+      };
+    } else if (statusStr === 'FUNDED') {
+      where = { 
+        OR: [
+          { status: ProjectStatus.FUNDED },
+          { 
+            status: ProjectStatus.FUNDING,
+            tokensRemaining: 0
+          }
+        ]
+      };
+    } else if (statusStr === 'PRODUCING' || statusStr === 'ACTIVE' || statusStr === 'YIELDING') {
+      where = { 
+        status: { in: [ProjectStatus.ACTIVE, ProjectStatus.ACTIVE_PENDING_DATA, ProjectStatus.COMPLETED] } 
+      };
+    } else {
+      where = { status: statusStr as ProjectStatus };
+    }
 
     const [projects, total] = await Promise.all([
       prisma.project.findMany({

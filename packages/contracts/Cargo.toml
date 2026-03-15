@@ -5,6 +5,7 @@ members = [
     "treasury",
     "yield-distributor",
     "governance",
+    "oracle",
 ]
 
 [profile.release]

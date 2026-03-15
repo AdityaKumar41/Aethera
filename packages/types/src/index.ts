@@ -3,16 +3,17 @@
 // ============================================
 
 export enum UserRole {
-  INVESTOR = 'INVESTOR',
-  INSTALLER = 'INSTALLER',
-  ADMIN = 'ADMIN',
+  UNSET = "UNSET",
+  INVESTOR = "INVESTOR",
+  INSTALLER = "INSTALLER",
+  ADMIN = "ADMIN",
 }
 
 export enum KYCStatus {
-  PENDING = 'PENDING',
-  IN_REVIEW = 'IN_REVIEW',
-  VERIFIED = 'VERIFIED',
-  REJECTED = 'REJECTED',
+  PENDING = "PENDING",
+  IN_REVIEW = "IN_REVIEW",
+  VERIFIED = "VERIFIED",
+  REJECTED = "REJECTED",
 }
 
 export interface User {
@@ -38,15 +39,18 @@ export interface CreateUserInput {
 // ============================================
 
 export enum ProjectStatus {
-  DRAFT = 'DRAFT',
-  PENDING_APPROVAL = 'PENDING_APPROVAL',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-  FUNDING = 'FUNDING',
-  FUNDED = 'FUNDED',
-  ACTIVE = 'ACTIVE',
-  COMPLETED = 'COMPLETED',
+  DRAFT = "DRAFT",
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  FUNDING = "FUNDING",
+  FUNDED = "FUNDED",
+  ACTIVE = "ACTIVE",
+  ACTIVE_PENDING_DATA = "ACTIVE_PENDING_DATA",
+  COMPLETED = "COMPLETED",
 }
+
+export type FundingModel = "FULL_UPFRONT" | "MILESTONE_BASED";
 
 export interface Project {
   id: string;
@@ -89,9 +93,10 @@ export interface ProjectWithInstaller extends Project {
 // ============================================
 
 export enum InvestmentStatus {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
-  FAILED = 'FAILED',
+  PENDING = "PENDING",
+  PENDING_ONCHAIN = "PENDING_ONCHAIN",
+  CONFIRMED = "CONFIRMED",
+  FAILED = "FAILED",
 }
 
 export interface Investment {
@@ -117,6 +122,135 @@ export interface InvestmentWithDetails extends Investment {
 }
 
 // ============================================
+// Milestone Types
+// ============================================
+
+export type MilestoneStatus =
+  | "PENDING"
+  | "SUBMITTED"
+  | "VERIFIED"
+  | "REJECTED"
+  | "RELEASED";
+export type VerificationMethod = "DOCUMENT" | "PHOTO" | "IOT" | "ORACLE";
+
+export interface ProjectMilestone {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  order: number;
+  releasePercentage: number;
+  releaseAmount: number;
+  status: MilestoneStatus;
+  verificationMethod: VerificationMethod;
+  verificationTxHash?: string;
+  proofDocuments?: any;
+  submittedAt?: string;
+  verifiedAt?: string;
+  releasedAt?: string;
+  createdAt: string;
+}
+
+// ============================================
+// IoT Device Types
+// ============================================
+
+export interface IoTDevice {
+  id: string;
+  projectId: string;
+  deviceId: string;
+  publicKey: string;
+  model?: string;
+  status: "PENDING" | "ACTIVE" | "INACTIVE" | "REVOKED";
+  lastSeen?: string;
+  createdAt: string;
+}
+
+// ============================================
+// Oracle Types
+// ============================================
+
+export interface OracleProvider {
+  id: string;
+  name: string;
+  publicKey: string;
+  status: "PENDING" | "ACTIVE" | "SUSPENDED" | "REVOKED";
+  trustScore: number;
+  totalSubmissions: number;
+  verifiedSubmissions: number;
+  createdAt: string;
+}
+
+export interface OracleDispute {
+  id: string;
+  productionDataId: string;
+  projectId: string;
+  disputedBy: string;
+  reason: string;
+  status:
+    | "OPEN"
+    | "UNDER_REVIEW"
+    | "RESOLVED_VALID"
+    | "RESOLVED_INVALID"
+    | "ESCALATED";
+  resolution?: string;
+  createdAt: string;
+}
+
+// ============================================
+// Production Data Types
+// ============================================
+
+export interface ProductionData {
+  id: string;
+  projectId: string;
+  energyProduced: number;
+  recordedAt: string;
+  source: string;
+  verifiedBy?: string;
+  oracleProviderId?: string;
+  iotDeviceId?: string;
+  txHash?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+// ============================================
+// Token Transfer (Secondary Market) Types
+// ============================================
+
+export interface TokenTransfer {
+  id: string;
+  projectId: string;
+  fromUserId: string;
+  toUserId: string;
+  tokenAmount: number;
+  pricePerToken: number;
+  totalPrice: number;
+  status: "PENDING" | "ACCEPTED" | "COMPLETED" | "REJECTED" | "EXPIRED";
+  txHash?: string;
+  expiresAt?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
+// ============================================
+// Transaction Log Types
+// ============================================
+
+export interface TransactionLog {
+  id: string;
+  type: string;
+  userId?: string;
+  projectId?: string;
+  txHash: string;
+  status: string;
+  error?: string;
+  metadata?: any;
+  createdAt: string;
+}
+
+// ============================================
 // Yield Distribution Types
 // ============================================
 
@@ -127,6 +261,7 @@ export interface YieldDistribution {
   period: Date;
   distributed: boolean;
   txHash?: string;
+  onChainDistributionId?: string;
   createdAt: Date;
 }
 

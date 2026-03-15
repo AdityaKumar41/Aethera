@@ -46,9 +46,13 @@ Escrow contract that manages USDC investments and capital distribution.
 - `receive_yield()` - Accept yield payment
 - `withdraw_fees()` - Admin withdraw platform fees
 
-### 3. Yield Distributor Contract (`yield-distributor/`) - TODO
+### 3. Yield Distributor Contract (`yield-distributor/`)
 
-Will handle automated yield distribution to token holders.
+Handles automated yield distribution to token holders.
+
+### 4. Oracle Contract (`oracle/`)
+
+Anchors verified production data on-chain for immutable yield provenance.
 
 ## Building Contracts
 
@@ -232,10 +236,10 @@ cargo test --features testutils
 
 - [x] Asset token contract
 - [x] Treasury escrow contract
-- [ ] Yield distributor contract
-- [ ] Governance contract
+- [x] Yield distributor contract
+- [x] Governance contract
 - [ ] Multi-sig admin controls
-- [ ] Oracle integration
+- [x] Oracle integration
 - [ ] Automated testing suite
 - [ ] Mainnet deployment
 

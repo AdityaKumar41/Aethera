@@ -23,13 +23,33 @@ const pathToSection: Record<string, string> = {
   "/dashboard/admin-stats": "admin-stats",
   "/dashboard/admin-projects": "admin-projects",
   "/dashboard/admin-kyc": "admin-kyc",
+  "/dashboard/governance": "governance",
 };
 
 // Role-to-routes mapping for authorization
 const roleAllowedSections: Record<string, string[]> = {
-  INVESTOR: ["portfolio", "marketplace", "projects", "yield", "settings"],
-  INSTALLER: ["my-projects", "new-project", "production", "revenue", "settings"],
-  ADMIN: ["admin-stats", "admin-projects", "admin-kyc", "admin-relayer", "settings"],
+  INVESTOR: [
+    "portfolio",
+    "marketplace",
+    "projects",
+    "yield",
+    "governance",
+    "settings",
+  ],
+  INSTALLER: [
+    "my-projects",
+    "new-project",
+    "production",
+    "revenue",
+    "settings",
+  ],
+  ADMIN: [
+    "admin-stats",
+    "admin-projects",
+    "admin-kyc",
+    "admin-relayer",
+    "settings",
+  ],
 };
 
 export default function DashboardLayout({
@@ -39,7 +59,14 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isComplete, role, loading, walletAddress, user, kycStatus: initialKycStatus } = useOnboardingStatus();
+  const {
+    isComplete,
+    role,
+    loading,
+    walletAddress,
+    user,
+    kycStatus: initialKycStatus,
+  } = useOnboardingStatus();
   const { status: liveKycStatus } = useKyc();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -58,12 +85,13 @@ export default function DashboardLayout({
       if (activeSection) {
         const allowedSections = roleAllowedSections[role] || [];
         if (!allowedSections.includes(activeSection)) {
-          const defaultRedirect = role === "ADMIN" 
-            ? "/dashboard/admin-stats" 
-            : role === "INSTALLER" 
-            ? "/dashboard/my-projects" 
-            : "/dashboard/portfolio";
-          
+          const defaultRedirect =
+            role === "ADMIN"
+              ? "/dashboard/admin-stats"
+              : role === "INSTALLER"
+                ? "/dashboard/my-projects"
+                : "/dashboard/portfolio";
+
           router.push(defaultRedirect);
         }
       }
@@ -76,19 +104,19 @@ export default function DashboardLayout({
       <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 relative overflow-hidden">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-orange-100/20 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] bg-emerald-100/20 rounded-full blur-[100px] pointer-events-none" />
-        
+
         <div className="relative z-10 flex flex-col items-center">
           <div className="relative mb-8">
             <div className="w-56 h-14 flex items-center justify-center animate-pulse-slow">
-              <img 
-                src="/image.png" 
-                alt="Aethera" 
+              <img
+                src="/image.png"
+                alt="Aethera"
                 className="w-full h-full object-contain filter drop-shadow-2xl"
               />
             </div>
             <div className="absolute inset-0 rounded-full bg-orange-500/10 blur-3xl -z-10 animate-pulse" />
           </div>
-          
+
           <div className="flex flex-col items-center gap-6">
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="w-5 h-5 animate-spin text-emerald-600/50" />
@@ -104,7 +132,10 @@ export default function DashboardLayout({
 
   const activeSection = pathToSection[pathname];
   const allowedSections = role ? roleAllowedSections[role] : [];
-  if (!isComplete || (activeSection && !allowedSections.includes(activeSection))) {
+  if (
+    !isComplete ||
+    (activeSection && !allowedSections.includes(activeSection))
+  ) {
     return null;
   }
 
