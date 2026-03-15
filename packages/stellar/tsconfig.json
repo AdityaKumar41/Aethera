@@ -5,5 +5,16 @@
     "rootDir": "./src",
     "noEmit": false
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "src/fund-user-5000.ts",
+    "src/fund-user-custom.ts",
+    "src/fund-user-usdc-manual.ts",
+    "src/send-usdc-manual.ts",
+    "src/check-treasury-config.ts",
+    "src/check-soroban-balance.ts",
+    "src/check-project-escrow.ts",
+    "src/check-token-symbol.ts",
+    "src/calculate-asset-id.ts"
+  ]
 }
