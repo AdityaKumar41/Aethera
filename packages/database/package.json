@@ -33,5 +33,11 @@
     "@vitest/ui": "^2.1.0",
     "@vitest/coverage-v8": "^2.1.0",
     "vitest-mock-extended": "^2.0.2"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   }
 }
