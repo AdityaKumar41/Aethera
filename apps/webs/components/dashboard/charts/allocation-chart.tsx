@@ -25,7 +25,7 @@ export function AllocationChart({ data: allocationData = [], loading }: Allocati
 
     if (loading) {
         return (
-            <div className="bg-card border border-border rounded-2xl p-5 h-full min-h-[300px] flex items-center justify-center">
+            <div className="bg-white border border-zinc-200 rounded-2xl p-5 h-full min-h-[300px] flex items-center justify-center">
                 <div className="w-32 h-32 rounded-full border-4 border-secondary border-t-accent animate-spin" />
             </div>
         );
@@ -34,8 +34,8 @@ export function AllocationChart({ data: allocationData = [], loading }: Allocati
     const total = allocationData.reduce((sum, item) => sum + item.value, 0);
 
     return (
-        <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">Portfolio Allocation</h3>
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+            <h3 className="text-sm font-medium text-zinc-500 mb-4">Portfolio Allocation</h3>
 
             <div className="h-48 mb-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -89,7 +89,7 @@ export function AllocationChart({ data: allocationData = [], loading }: Allocati
                                 className="w-3 h-3 rounded-full"
                                 style={{ backgroundColor: item.color }}
                             />
-                            <span className={activeIndex === index ? "font-medium" : "text-muted-foreground"}>
+                            <span className={activeIndex === index ? "font-medium" : "text-zinc-500"}>
                                 {item.name}
                             </span>
                         </div>

@@ -115,7 +115,7 @@ function VoteBar({
 }) {
   const total = yes + no + abstain;
   if (total === 0) {
-    return <p className="text-xs text-muted-foreground">No votes yet</p>;
+    return <p className="text-xs text-zinc-500">No votes yet</p>;
   }
   const yesPct = (yes / total) * 100;
   const noPct = (no / total) * 100;
@@ -137,7 +137,7 @@ function VoteBar({
           style={{ width: `${abstainPct}%` }}
         />
       </div>
-      <div className="flex gap-3 text-[10px] text-muted-foreground">
+      <div className="flex gap-3 text-[10px] text-zinc-500">
         <span className="flex items-center gap-1">
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
           Yes {yesPct.toFixed(0)}%
@@ -216,7 +216,7 @@ function ProposalCard({
         </div>
 
         {expanded && (
-          <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+          <p className="text-sm text-zinc-500 mb-4 leading-relaxed">
             {proposal.description}
           </p>
         )}
@@ -228,7 +228,7 @@ function ProposalCard({
         <div className="flex items-center justify-between">
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="text-xs text-muted-foreground flex items-center gap-1 hover:text-zinc-700 transition-colors"
+            className="text-xs text-zinc-500 flex items-center gap-1 hover:text-zinc-700 transition-colors"
           >
             {expanded ? (
               <>
@@ -339,7 +339,7 @@ function CreateProposalForm({ onSuccess }: { onSuccess: () => void }) {
         <input
           type="text"
           required
-          minLength={5}
+          minLength={10}
           maxLength={120}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -424,19 +424,19 @@ export function GovernanceSection() {
     setError("");
     try {
       const [proposalsRes, vpRes, votesRes] = await Promise.all([
-        apiRequest<{ proposals: Proposal[] }>("/api/governance/proposals"),
+        apiRequest<{ data: Proposal[]; pagination: object }>("/api/governance/proposals"),
         apiRequest<{ votingPower: string }>("/api/governance/voting-power"),
-        apiRequest<{ votes: MyVote[] }>("/api/governance/my-votes"),
+        apiRequest<MyVote[]>("/api/governance/my-votes"),
       ]);
 
       if (proposalsRes.success && proposalsRes.data) {
-        setProposals(proposalsRes.data.proposals || []);
+        setProposals(proposalsRes.data.data || []);
       }
       if (vpRes.success && vpRes.data) {
         setVotingPower(vpRes.data.votingPower || "0");
       }
       if (votesRes.success && votesRes.data) {
-        setMyVotes(votesRes.data.votes || []);
+        setMyVotes((votesRes.data as unknown as MyVote[]) || []);
       }
     } catch {
       setError("Failed to load governance data");
@@ -486,7 +486,7 @@ export function GovernanceSection() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Governance</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-sm text-zinc-500 mt-0.5">
             Vote on proposals that shape the Aethera protocol
           </p>
         </div>
@@ -535,15 +535,15 @@ export function GovernanceSection() {
         <>
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">
+              <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+              <span className="ml-2 text-sm text-zinc-500">
                 Loading proposals…
               </span>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <AlertCircle className="w-8 h-8 text-red-400" />
-              <p className="text-sm text-muted-foreground">{error}</p>
+              <p className="text-sm text-zinc-500">{error}</p>
               <button
                 onClick={fetchProposals}
                 className="text-xs text-emerald-600 hover:underline"
@@ -558,7 +558,7 @@ export function GovernanceSection() {
                 <p className="text-sm font-medium text-zinc-700">
                   No proposals yet
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-zinc-500 mt-1">
                   Be the first to create a proposal
                 </p>
               </div>
@@ -590,7 +590,7 @@ export function GovernanceSection() {
         <>
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
             </div>
           ) : myVotes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 bg-white border border-zinc-200 rounded-2xl">
@@ -610,7 +610,7 @@ export function GovernanceSection() {
                     <p className="text-sm font-medium text-zinc-900">
                       {v.proposalTitle}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-zinc-500 mt-0.5">
                       {new Date(v.timestamp).toLocaleDateString()}
                     </p>
                   </div>
@@ -639,7 +639,7 @@ export function GovernanceSection() {
           <h2 className="text-base font-semibold text-zinc-900 mb-1">
             Create a New Proposal
           </h2>
-          <p className="text-sm text-muted-foreground mb-6">
+          <p className="text-sm text-zinc-500 mb-6">
             Proposals are submitted on-chain and require token holders to vote.
             Ensure your wallet is funded and your KYC is verified.
           </p>

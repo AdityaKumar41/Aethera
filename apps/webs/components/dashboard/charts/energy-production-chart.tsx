@@ -62,14 +62,14 @@ export function EnergyProductionChart({
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-2xl p-5">
+      <div className="bg-white border border-zinc-200 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-sm font-medium text-muted-foreground">
+          <h3 className="text-sm font-medium text-zinc-500">
             Energy Production
           </h3>
         </div>
         <div className="h-48 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <div className="flex flex-col items-center gap-2 text-zinc-500">
             <Zap className="w-8 h-8 opacity-40" />
             <p className="text-sm">No production data available</p>
           </div>
@@ -79,11 +79,11 @@ export function EnergyProductionChart({
   }
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-5">
+    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-sm font-medium text-muted-foreground">
+            <h3 className="text-sm font-medium text-zinc-500">
               Energy Production
             </h3>
           </div>
@@ -91,7 +91,7 @@ export function EnergyProductionChart({
             <span className="text-2xl font-bold">
               {totalEnergy.toLocaleString()}
             </span>
-            <span className="text-sm text-muted-foreground">kWh</span>
+            <span className="text-sm text-zinc-500">kWh</span>
           </div>
         </div>
       </div>
@@ -139,19 +139,19 @@ export function EnergyProductionChart({
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
+      <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-zinc-200">
         <div className="text-center">
-          <p className="text-xs text-muted-foreground mb-1">Peak Output</p>
+          <p className="text-xs text-zinc-500 mb-1">Peak Output</p>
           <p className="font-semibold">{peakOutput} kWh</p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground mb-1">Efficiency</p>
+          <p className="text-xs text-zinc-500 mb-1">Efficiency</p>
           <p className="font-semibold">
             {efficiency !== null ? `${efficiency.toFixed(1)}%` : "N/A"}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground mb-1">CO2 Offset</p>
+          <p className="text-xs text-zinc-500 mb-1">CO2 Offset</p>
           <p className="font-semibold">{formattedCo2}</p>
         </div>
       </div>

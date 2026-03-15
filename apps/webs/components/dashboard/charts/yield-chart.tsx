@@ -39,10 +39,10 @@ export function YieldChart({ data = [], loading }: YieldChartProps) {
     }, []);
 
     return (
-        <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="bg-white border border-zinc-200 rounded-2xl p-5">
             <div className="flex items-start justify-between mb-6">
                 <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Monthly Yield Distribution</h3>
+                    <h3 className="text-sm font-medium text-zinc-500 mb-1">Monthly Yield Distribution</h3>
                     <p className="text-lg font-semibold">Yield by Project</p>
                 </div>
             </div>

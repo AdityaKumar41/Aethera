@@ -203,7 +203,7 @@ export function Sidebar({
         <button
           onClick={() => onCollapsedChange(!collapsed)}
           className={cn(
-            "absolute -right-3 top-6 w-6 h-6 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground shadow-sm z-50 transition-all duration-300 hover:scale-110",
+            "absolute -right-3 top-6 w-6 h-6 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 shadow-sm z-50 transition-all duration-300 hover:scale-110",
             collapsed && "right-[-12px]",
           )}
         >

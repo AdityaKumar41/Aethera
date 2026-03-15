@@ -1,24 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
-  ArrowLeft, 
-  Building2, 
-  MapPin, 
-  Zap, 
-  DollarSign, 
-  Calendar,
+import {
+  ArrowLeft,
+  MapPin,
+  Zap,
+  DollarSign,
   ShieldCheck,
   TrendingUp,
-  LayoutDashboard,
-  Settings,
   Activity,
   CheckCircle2,
   Clock,
   Loader2,
   ExternalLink,
   AlertTriangle,
-  SignalLow,
+  Users,
+  Coins,
+  Signal,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { projectApi, type Project } from "@/lib/api";
@@ -30,65 +29,127 @@ interface ProjectDetailsSectionProps {
   onBack: () => void;
 }
 
-const statusConfig = {
-  DRAFT: { label: "Draft", color: "bg-zinc-500", icon: Clock },
-  PENDING_APPROVAL: { label: "Pending Review", color: "bg-amber-500", icon: Clock },
-  APPROVED: { label: "Approved", color: "bg-blue-500", icon: CheckCircle2 },
-  REJECTED: { label: "Rejected", color: "bg-red-500", icon: ShieldCheck },
-  FUNDING: { label: "Funding", color: "bg-purple-500", icon: DollarSign },
-  FUNDED: { label: "Funded", color: "bg-emerald-500", icon: CheckCircle2 },
-  ACTIVE_PENDING_DATA: { label: "Waiting for Data", color: "bg-emerald-600", icon: SignalLow },
-  ACTIVE: { label: "Active", color: "bg-green-500", icon: Zap },
-  COMPLETED: { label: "Completed", color: "bg-zinc-600", icon: CheckCircle2 },
+const statusConfig: Record<
+  string,
+  { label: string; color: string; bg: string; dot: string; icon: any }
+> = {
+  DRAFT: {
+    label: "Draft",
+    color: "text-zinc-600",
+    bg: "bg-zinc-100",
+    dot: "bg-zinc-400",
+    icon: Clock,
+  },
+  PENDING_APPROVAL: {
+    label: "Under Review",
+    color: "text-amber-700",
+    bg: "bg-amber-100",
+    dot: "bg-amber-500",
+    icon: Clock,
+  },
+  APPROVED: {
+    label: "Approved",
+    color: "text-blue-700",
+    bg: "bg-blue-100",
+    dot: "bg-blue-500",
+    icon: CheckCircle2,
+  },
+  REJECTED: {
+    label: "Rejected",
+    color: "text-red-700",
+    bg: "bg-red-100",
+    dot: "bg-red-500",
+    icon: XCircle,
+  },
+  FUNDING: {
+    label: "Funding",
+    color: "text-purple-700",
+    bg: "bg-purple-100",
+    dot: "bg-purple-500",
+    icon: DollarSign,
+  },
+  FUNDED: {
+    label: "Funded",
+    color: "text-emerald-700",
+    bg: "bg-emerald-100",
+    dot: "bg-emerald-500",
+    icon: CheckCircle2,
+  },
+  ACTIVE_PENDING_DATA: {
+    label: "Awaiting IoT Data",
+    color: "text-orange-700",
+    bg: "bg-orange-100",
+    dot: "bg-orange-500",
+    icon: Signal,
+  },
+  ACTIVE: {
+    label: "Active",
+    color: "text-green-700",
+    bg: "bg-green-100",
+    dot: "bg-green-500 animate-pulse",
+    icon: Zap,
+  },
+  COMPLETED: {
+    label: "Completed",
+    color: "text-zinc-600",
+    bg: "bg-zinc-100",
+    dot: "bg-zinc-400",
+    icon: CheckCircle2,
+  },
 };
 
-export function ProjectDetailsSection({ projectId, onBack }: ProjectDetailsSectionProps) {
+export function ProjectDetailsSection({
+  projectId,
+  onBack,
+}: ProjectDetailsSectionProps) {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchProject = async () => {
-      setLoading(true);
-      try {
-        const response = await projectApi.getProject(projectId);
-        if (response.success && response.data) {
-          setProject(response.data);
-        } else {
-          setError(response.error || "Failed to load project details");
-        }
-      } catch (err) {
-        setError("An unexpected error occurred");
-      } finally {
-        setLoading(false);
+  const fetchProject = async () => {
+    setLoading(true);
+    try {
+      const response = await projectApi.getProject(projectId);
+      if (response.success && response.data) {
+        setProject(response.data);
+      } else {
+        setError(response.error || "Failed to load project details");
       }
-    };
+    } catch {
+      setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchProject();
   }, [projectId]);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 bg-card border border-border rounded-3xl">
-        <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
-        <p className="text-muted-foreground font-medium">Fetching project data...</p>
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+        <p className="text-sm text-zinc-500">Loading project...</p>
       </div>
     );
   }
 
   if (error || !project) {
     return (
-      <div className="bg-card border border-border rounded-3xl p-12 text-center">
-        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <ShieldCheck className="w-8 h-8 text-red-600" />
+      <div className="bg-white border border-zinc-100 rounded-2xl p-12 text-center">
+        <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <XCircle className="w-6 h-6 text-red-500" />
         </div>
-        <h3 className="text-xl font-bold mb-2">Error Loading Project</h3>
-        <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-          {error || "We couldn't find the project you're looking for."}
+        <h3 className="font-semibold text-zinc-900 mb-2">
+          Failed to load project
+        </h3>
+        <p className="text-sm text-zinc-500 mb-5">
+          {error || "Project not found."}
         </p>
         <button
           onClick={onBack}
-          className="px-6 py-2.5 bg-foreground text-background rounded-xl font-medium"
+          className="px-5 py-2 bg-zinc-900 text-white rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors"
         >
           Go Back
         </button>
@@ -96,230 +157,330 @@ export function ProjectDetailsSection({ projectId, onBack }: ProjectDetailsSecti
     );
   }
 
-  const statusInfo = statusConfig[project.status as keyof typeof statusConfig] || statusConfig.DRAFT;
-  const fundingProgress = (Number(project.fundingRaised) / Number(project.fundingTarget)) * 100;
+  const statusInfo =
+    statusConfig[project.status as keyof typeof statusConfig] ||
+    statusConfig.DRAFT;
+  const fundingProgress =
+    Number(project.fundingTarget) > 0
+      ? (Number(project.fundingRaised) / Number(project.fundingTarget)) * 100
+      : 0;
+  const showIoT = ["ACTIVE", "ACTIVE_PENDING_DATA", "FUNDED"].includes(
+    project.status,
+  );
+  const showAlert = ["FUNDED", "ACTIVE_PENDING_DATA"].includes(project.status);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Alert for Pending Data or Activation */}
-      {(project.status === 'ACTIVE_PENDING_DATA' || project.status === 'FUNDED') && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div>
-            <h4 className="text-sm font-bold text-amber-800">
-               {project.status === 'FUNDED' ? 'Action Required: Connect IoT Device to Activate' : 'Action Required: Connect IoT Device'}
-            </h4>
-            <p className="text-sm text-amber-700 mt-1">
-              {project.status === 'FUNDED' 
-                ? "Your project is fully funded. Please connect your IoT device to enable final activation and capital release."
-                : "Your project is active, but we haven't received any production data yet. Please connect your IoT device to start tracking energy generation and earning yield."
-              }
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Navigation Header */}
+    <div className="space-y-5">
+      {/* Back navigation + action */}
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-foreground rounded-xl text-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Projects
+          My Projects
         </button>
-        <div className="flex items-center gap-2">
-          {project.status === 'ACTIVE' && (
-            <button className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-medium hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/20">
-              <Activity className="w-4 h-4" />
-              Report Production
-            </button>
+        {project.status === "ACTIVE" && (
+          <a
+            href="/dashboard/production"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
+          >
+            <Activity className="w-4 h-4" />
+            Report Production
+          </a>
+        )}
+      </div>
+
+      {/* Alert banner */}
+      {showAlert && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800">
+            {project.status === "FUNDED"
+              ? "Action required — your project is funded. Connect an IoT device below to activate it and release capital."
+              : "Waiting for IoT data — connect a device below to start tracking energy production and earning yield."}
+          </p>
+        </div>
+      )}
+
+      {/* Title row */}
+      <div>
+        <div className="flex items-center flex-wrap gap-2.5 mb-1.5">
+          <h1 className="text-xl font-bold text-zinc-900">{project.name}</h1>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+              statusInfo.bg,
+              statusInfo.color,
+            )}
+          >
+            <div className={cn("w-1.5 h-1.5 rounded-full", statusInfo.dot)} />
+            {statusInfo.label}
+          </span>
+          {project.tokenSymbol && (
+            <span className="px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 text-xs font-mono font-medium">
+              {project.tokenSymbol}
+            </span>
           )}
-          <button className="p-2 bg-white border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-zinc-50 transition-colors">
-            <Settings className="w-4 h-4" />
-          </button>
+        </div>
+        <div className="flex items-center gap-4 text-sm text-zinc-500">
+          <span className="flex items-center gap-1">
+            <MapPin className="w-3.5 h-3.5" />
+            {project.location}
+            {project.country ? `, ${project.country}` : ""}
+          </span>
+          <span className="flex items-center gap-1">
+            <Zap className="w-3.5 h-3.5" />
+            {project.capacity} kW
+          </span>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Column: Core Info & Description */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden group">
-            {/* Background Accent */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
-            
-            <div className="relative z-10">
-              <div className="flex flex-wrap items-center gap-3 mb-6">
-                <span className={cn(
-                  "px-3 py-1 rounded-full text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2",
-                  statusInfo.color
-                )}>
-                  {<statusInfo.icon className="w-3.5 h-3.5" />}
-                  {statusInfo.label}
-                </span>
-                <span className="px-3 py-1 rounded-full bg-zinc-100 text-zinc-600 text-xs font-bold font-mono">
-                  {project.tokenSymbol}
-                </span>
-              </div>
+      {/* Main grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Left column (2/3) */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Overview */}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-6">
+            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+              About this Project
+            </h2>
+            <p className="text-zinc-700 text-sm leading-relaxed">
+              {project.description}
+            </p>
 
-              <h1 className="text-4xl font-black mb-4 tracking-tight">{project.name}</h1>
-              <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground mb-8">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-emerald-500" />
-                  <span className="font-semibold">{project.location}, {project.country}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5 border-t border-zinc-100">
+              {[
+                {
+                  label: "Capacity",
+                  value: `${project.capacity} kW`,
+                  icon: Zap,
+                  accent: "text-amber-500",
+                },
+                {
+                  label: "Expected Yield",
+                  value: `${project.expectedYield}% APY`,
+                  icon: TrendingUp,
+                  accent: "text-emerald-500",
+                },
+                {
+                  label: "Token Price",
+                  value: `$${project.pricePerToken} USDC`,
+                  icon: Coins,
+                  accent: "text-blue-500",
+                },
+                {
+                  label: "Funding Model",
+                  value:
+                    project.fundingModel === "MILESTONE_BASED"
+                      ? "Milestone-Based"
+                      : "Full Upfront",
+                  icon: ShieldCheck,
+                  accent: "text-purple-500",
+                },
+              ].map((item) => (
+                <div key={item.label}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <item.icon className={cn("w-3.5 h-3.5", item.accent)} />
+                    <p className="text-xs text-zinc-400">{item.label}</p>
+                  </div>
+                  <p className="text-sm font-semibold text-zinc-900">
+                    {item.value}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-amber-500" />
-                  <span className="font-semibold">{project.capacity} kW Installed Capacity</span>
-                </div>
-              </div>
-
-              <div className="p-6 bg-zinc-50 border border-zinc-100 rounded-2xl">
-                <h3 className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em] mb-3">Project Overview</h3>
-                <p className="text-zinc-700 leading-relaxed font-medium">
-                  {project.description}
-                </p>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* IoT Manager Section */}
-          {(project.status === 'ACTIVE' || project.status === 'ACTIVE_PENDING_DATA' || project.status === 'FUNDED') && (
-             <div className="bg-card border border-border rounded-3xl p-8">
-               <div className="mb-6">
-                 <h3 className="text-lg font-bold flex items-center gap-2">
-                   <Zap className="w-5 h-5 text-solar-orange" />
-                   Device Management
-                 </h3>
-                 <p className="text-sm text-muted-foreground">Manage connected IoT devices for real-time energy tracking.</p>
-               </div>
-               <IoTDeviceManager projectId={project.id} />
-             </div>
+          {/* IoT Device Management */}
+          {showIoT && (
+            <div className="bg-white border border-zinc-100 rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Signal className="w-4 h-4 text-emerald-500" />
+                <h2 className="font-semibold text-zinc-900">
+                  IoT Device Management
+                </h2>
+              </div>
+              <p className="text-sm text-zinc-500 mb-5">
+                Connect IoT devices to enable real-time energy production
+                tracking.
+              </p>
+              <IoTDeviceManager projectId={project.id} />
+            </div>
           )}
 
-          {/* Milestone Tracker Section */}
-          {project.fundingModel === 'MILESTONE_BASED' && (
-            <div className="bg-card border border-border rounded-3xl p-8">
-              <MilestoneTracker 
-                projectId={project.id} 
-                onUpdate={() => {
-                  const fetchProject = async () => {
-                    const response = await projectApi.getProject(projectId);
-                    if (response.success && response.data) {
-                      setProject(response.data);
-                    }
-                  };
-                  fetchProject();
-                }}
+          {/* Milestone Tracker */}
+          {project.fundingModel === "MILESTONE_BASED" && (
+            <div className="bg-white border border-zinc-100 rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                <h2 className="font-semibold text-zinc-900">
+                  Project Milestones
+                </h2>
+              </div>
+              <MilestoneTracker
+                projectId={project.id}
+                onUpdate={fetchProject}
               />
             </div>
           )}
 
-          <div className="bg-card border border-border rounded-3xl p-8">
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-emerald-500" />
-              Investment performance
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100">
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Expected Yield</p>
-                <p className="text-2xl font-black text-emerald-600">{project.expectedYield}% <span className="text-xs text-muted-foreground font-medium">APY</span></p>
-              </div>
-              <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100">
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Price Per Token</p>
-                <p className="text-2xl font-black">${project.pricePerToken}</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100">
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Total Tokens</p>
-                <p className="text-2xl font-black">{project.totalTokens.toLocaleString()}</p>
-              </div>
+          {/* Investment Performance */}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="w-4 h-4 text-emerald-500" />
+              <h2 className="font-semibold text-zinc-900">
+                Investment Performance
+              </h2>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                {
+                  label: "Expected Yield",
+                  value: `${project.expectedYield}%`,
+                  sub: "per year",
+                  bold: "text-emerald-600",
+                },
+                {
+                  label: "Price Per Token",
+                  value: `$${project.pricePerToken}`,
+                  sub: "USDC",
+                  bold: "text-zinc-900",
+                },
+                {
+                  label: "Total Tokens",
+                  value: project.totalTokens?.toLocaleString() ?? "—",
+                  sub: "issued",
+                  bold: "text-zinc-900",
+                },
+              ].map((stat) => (
+                <div key={stat.label} className="bg-zinc-50 rounded-xl p-4">
+                  <p className="text-xs text-zinc-400 mb-2">{stat.label}</p>
+                  <p className={cn("text-xl font-bold", stat.bold)}>
+                    {stat.value}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-0.5">{stat.sub}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Financials & Status */}
-        <div className="space-y-6">
-          <div className="bg-card border border-border rounded-3xl p-8 bg-linear-to-b from-white to-zinc-50/50 shadow-xl shadow-zinc-200/50">
-            <h3 className="text-lg font-bold mb-6">Funding Status</h3>
-            
-            <div className="mb-8">
-              <div className="flex items-end justify-between mb-3">
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Amount Raised</p>
-                  <p className="text-3xl font-black text-zinc-900">${Number(project.fundingRaised).toLocaleString()}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-black text-muted-foreground uppercase mb-1">Target</p>
-                  <p className="text-lg font-bold text-zinc-400">${Number(project.fundingTarget).toLocaleString()}</p>
-                </div>
+        {/* Right column (1/3) */}
+        <div className="space-y-5">
+          {/* Funding Status */}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-6">
+            <h2 className="font-semibold text-zinc-900 mb-5">Funding Status</h2>
+
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <p className="text-xs text-zinc-400 mb-1">Raised</p>
+                <p className="text-2xl font-bold text-zinc-900 tabular-nums">
+                  ${Number(project.fundingRaised).toLocaleString()}
+                </p>
               </div>
-              <div className="h-3 bg-zinc-100 rounded-full overflow-hidden relative">
-                <div 
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out"
-                  style={{ width: `${Math.min(fundingProgress, 100)}%` }}
-                />
-                {fundingProgress > 100 && (
-                  <div className="absolute inset-0 bg-emerald-400/20 animate-pulse" />
-                )}
+              <div className="text-right">
+                <p className="text-xs text-zinc-400 mb-1">Target</p>
+                <p className="text-base font-semibold text-zinc-400">
+                  ${Number(project.fundingTarget).toLocaleString()}
+                </p>
               </div>
-              <p className="text-[10px] text-right mt-2 font-black text-emerald-600 tracking-widest">
-                {Math.round(fundingProgress)}% COMPLETION
-              </p>
             </div>
 
-            <div className="space-y-4 pt-6 border-t border-dotted border-zinc-200">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground font-medium flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  Tokens Issued
-                </span>
-                <span className="font-bold">{project.totalTokens.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground font-medium flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-blue-500" />
-                  Available Tokens
-                </span>
-                <span className="font-bold text-blue-600">{project.tokensRemaining.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground font-medium flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-purple-500" />
-                  Investor Count
-                </span>
-                <span className="font-bold text-purple-600">{project.investorCount || 0}</span>
-              </div>
+            <div className="h-2 bg-zinc-100 rounded-full overflow-hidden mb-1.5">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-700",
+                  fundingProgress >= 100 ? "bg-emerald-500" : "bg-blue-500",
+                )}
+                style={{ width: `${Math.min(fundingProgress, 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-zinc-400 text-right mb-5">
+              {Math.round(fundingProgress)}% funded
+            </p>
+
+            <div className="space-y-3 pt-4 border-t border-zinc-100">
+              {[
+                {
+                  label: "Tokens Issued",
+                  value: project.totalTokens?.toLocaleString() ?? "—",
+                  icon: Coins,
+                  accent: "text-blue-500",
+                },
+                {
+                  label: "Available",
+                  value: project.tokensRemaining?.toLocaleString() ?? "—",
+                  icon: ShieldCheck,
+                  accent: "text-purple-500",
+                },
+                {
+                  label: "Investors",
+                  value: String(project.investorCount ?? 0),
+                  icon: Users,
+                  accent: "text-emerald-500",
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2 text-sm text-zinc-500">
+                    <item.icon className={cn("w-3.5 h-3.5", item.accent)} />
+                    {item.label}
+                  </div>
+                  <span className="text-sm font-semibold text-zinc-900">
+                    {item.value}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-3xl p-8">
-            <h3 className="text-lg font-bold mb-6">Network Information</h3>
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-100">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Token Issuer (Network)</p>
+          {/* Network */}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-6">
+            <h2 className="font-semibold text-zinc-900 mb-4">Network</h2>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-zinc-500">Chain</span>
+                <span className="text-sm font-mono font-medium text-zinc-700">
+                  Stellar Testnet
+                </span>
+              </div>
+
+              {project.tokenSymbol && (
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-zinc-500">Stellar Testnet</span>
-                  <a 
+                  <span className="text-sm text-zinc-500">Token</span>
+                  <a
                     href={`https://stellar.expert/explorer/testnet/asset/${project.tokenSymbol}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase"
+                    className="flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
                   >
-                    View Asset
+                    {project.tokenSymbol}
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
-              </div>
-              
-              {project.status === 'ACTIVE' && (
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                  <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-1">Current Production</p>
-                  <p className="text-2xl font-black text-emerald-950">
-                    {Number(project.totalEnergyProduced || 0).toLocaleString()} <span className="text-xs font-bold text-emerald-700">kWh</span>
+              )}
+
+              {project.status === "ACTIVE" && (
+                <div className="mt-4 pt-4 border-t border-zinc-100">
+                  <p className="text-xs text-zinc-400 mb-1">
+                    Total Energy Produced
                   </p>
-                  <p className="text-[10px] text-emerald-700/60 font-bold uppercase mt-1">Live from Network Sensors</p>
+                  <div className="flex items-baseline gap-1">
+                    <p className="text-2xl font-bold text-emerald-600 tabular-nums">
+                      {Number(
+                        project.totalEnergyProduced || 0,
+                      ).toLocaleString()}
+                    </p>
+                    <span className="text-sm text-zinc-400">kWh</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <p className="text-xs text-zinc-400">Live from sensors</p>
+                  </div>
                 </div>
               )}
             </div>

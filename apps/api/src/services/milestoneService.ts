@@ -86,8 +86,7 @@ export class MilestoneService {
       where: { id: milestoneId },
       data: {
         status: MilestoneStatus.REJECTED,
-        // We could add a rejectionReason field to the model if needed
-        // For now we just update status
+        rejectionReason: reason,
       },
     });
   }

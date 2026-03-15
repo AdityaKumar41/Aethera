@@ -12,15 +12,15 @@ interface ImpactMetricProps {
 
 function ImpactMetric({ label, value, unit, icon: Icon, color }: ImpactMetricProps) {
   return (
-    <div className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-border shadow-sm">
+    <div className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-zinc-200 shadow-sm">
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white ${color}`}>
         <Icon className="w-6 h-6" />
       </div>
       <div>
-        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-sm text-zinc-500">{label}</p>
         <div className="flex items-baseline gap-1">
           <span className="text-xl font-bold">{value}</span>
-          <span className="text-xs text-muted-foreground font-medium">{unit}</span>
+          <span className="text-xs text-zinc-500 font-medium">{unit}</span>
         </div>
       </div>
     </div>

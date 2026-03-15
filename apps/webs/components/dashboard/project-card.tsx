@@ -1,14 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import {
-  MapPin,
-  Zap,
-  TrendingUp,
-  ArrowRight,
-  ShieldCheck,
-  Sun,
-} from "lucide-react";
+import { MapPin, Zap, ShieldCheck, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface Project {
@@ -32,40 +25,55 @@ interface ProjectCardProps {
   onInvest?: (id: string) => void;
 }
 
-const statusConfig = {
+const statusConfig: Record<
+  string,
+  { label: string; dot: string; badge: string }
+> = {
   funding: {
-    label: "Funding Now",
-    color: "bg-orange-500",
-    text: "text-orange-600",
+    label: "Open to Invest",
+    dot: "bg-amber-500",
+    badge: "bg-amber-50 text-amber-700 border-amber-200",
   },
   funded: {
-    label: "Project Funded",
-    color: "bg-emerald-500",
-    text: "text-emerald-600",
+    label: "Fully Funded",
+    dot: "bg-blue-500",
+    badge: "bg-blue-50 text-blue-700 border-blue-200",
   },
   producing: {
-    label: "Operational",
-    color: "bg-blue-500",
-    text: "text-blue-600",
+    label: "Producing",
+    dot: "bg-emerald-500 animate-pulse",
+    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
-  active: { label: "Active", color: "bg-orange-500", text: "text-orange-600" },
+  active: {
+    label: "Active",
+    dot: "bg-emerald-500 animate-pulse",
+    badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
   completed: {
     label: "Completed",
-    color: "bg-zinc-500",
-    text: "text-zinc-600",
+    dot: "bg-zinc-400",
+    badge: "bg-zinc-50 text-zinc-600 border-zinc-200",
   },
-  draft: { label: "Draft", color: "bg-zinc-400", text: "text-zinc-400" },
+  draft: {
+    label: "Draft",
+    dot: "bg-zinc-300",
+    badge: "bg-zinc-50 text-zinc-500 border-zinc-200",
+  },
   pending_approval: {
-    label: "Reviewing",
-    color: "bg-orange-400",
-    text: "text-orange-500",
+    label: "Under Review",
+    dot: "bg-amber-400",
+    badge: "bg-amber-50 text-amber-600 border-amber-200",
   },
   approved: {
     label: "Approved",
-    color: "bg-emerald-400",
-    text: "text-emerald-500",
+    dot: "bg-blue-400",
+    badge: "bg-blue-50 text-blue-600 border-blue-200",
   },
-  rejected: { label: "Rejected", color: "bg-red-500", text: "text-red-600" },
+  rejected: {
+    label: "Rejected",
+    dot: "bg-red-400",
+    badge: "bg-red-50 text-red-600 border-red-200",
+  },
 };
 
 export function ProjectCard({
@@ -74,177 +82,141 @@ export function ProjectCard({
   onViewDetails,
   onInvest,
 }: ProjectCardProps) {
-  const [isVisible, setIsVisible] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), delay * 100);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setVisible(true), delay * 80);
+    return () => clearTimeout(t);
   }, [delay]);
 
-  const config =
-    statusConfig[project.status as keyof typeof statusConfig] ||
-    statusConfig.active;
+  const config = statusConfig[project.status] || statusConfig.active;
+  const canInvest = project.status === "funding" && !!onInvest;
 
   return (
     <div
       className={cn(
-        "group relative bg-white border border-zinc-100 rounded-[2.5rem] overflow-hidden transition-all duration-500",
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12",
-        "hover:border-zinc-900/10 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] hover:-translate-y-1"
+        "group bg-white border border-zinc-100 rounded-2xl overflow-hidden transition-all duration-300",
+        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4",
+        "hover:border-zinc-200 hover:shadow-lg hover:shadow-zinc-100/80",
       )}
-      style={{ transitionDelay: `${delay * 70}ms` }}
+      style={{ transitionDelay: `${delay * 60}ms` }}
     >
-      {/* Visual Header / Image Area */}
-      <div className="relative h-56 bg-zinc-950 overflow-hidden">
-        <img 
-          src={project.image || "/hero-solar.png"} 
-          alt={project.name} 
-          className="w-full h-full object-cover opacity-70 transition-transform duration-[2s] ease-out group-hover:scale-110" 
+      {/* Image */}
+      <div className="relative h-44 bg-zinc-900 overflow-hidden">
+        <img
+          src={project.image || "/hero-solar.png"}
+          alt={project.name}
+          className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700 ease-out"
         />
-        
-        {/* Advanced Overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-zinc-950 via-zinc-950/20 to-transparent opacity-80" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(249,115,22,0.1),transparent_50%)] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
 
-        {/* Status Badge */}
-        <div className="absolute top-5 left-5 z-10">
-          <div className="px-3.5 py-2 rounded-full bg-zinc-900/40 backdrop-blur-xl border border-white/10 flex items-center gap-2.5 shadow-2xl">
-            <div className={cn("w-1.5 h-1.5 rounded-full ring-4 ring-white/5", config.color, "animate-pulse")} />
-            <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] leading-none">
-              {config.label}
-            </span>
-          </div>
+        {/* Status badge */}
+        <div
+          className={cn(
+            "absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
+            config.badge,
+          )}
+        >
+          <div className={cn("w-1.5 h-1.5 rounded-full", config.dot)} />
+          {config.label}
         </div>
 
-        {/* Verification */}
-        <div className="absolute top-5 right-5 z-10">
-          <div className="p-2.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 text-white shadow-xl hover:bg-emerald-500 hover:border-emerald-400 transition-all duration-500 group/shield">
-            <ShieldCheck className="w-4 h-4 text-emerald-400 group-hover/shield:text-white transition-colors" />
-          </div>
+        {/* Verified badge */}
+        <div className="absolute top-3 right-3 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-sm">
+          <ShieldCheck className="w-4 h-4 text-emerald-500" />
         </div>
 
-        {/* Capacity Overlay */}
-        <div className="absolute bottom-6 left-6 z-10">
-          <div className="px-4 py-1.5 bg-white/95 backdrop-blur-sm rounded-xl flex items-center gap-2 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border border-zinc-200/50">
-            <Zap className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
-            <p className="text-[11px] font-bold text-zinc-950 tracking-tight">
-              {project.capacity}
-            </p>
-          </div>
+        {/* Capacity chip */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-1 bg-white/95 rounded-lg px-2.5 py-1 shadow-sm">
+          <Zap className="w-3 h-3 text-amber-500" />
+          <span className="text-xs font-semibold text-zinc-800">
+            {project.capacity}
+          </span>
         </div>
       </div>
 
-      <div className="p-8 space-y-8">
-        {/* Title and location */}
-        <div className="space-y-2">
-          <h3 className="text-2xl font-black text-zinc-950 tracking-tighter leading-tight italic lowercase truncate decoration-zinc-200 underline-offset-4 group-hover:underline">
+      <div className="p-5 space-y-4">
+        {/* Name and location */}
+        <div>
+          <h3 className="font-semibold text-zinc-900 truncate mb-1 text-base">
             {project.name}
           </h3>
-          <div className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest italic leading-none">
-            <MapPin className="w-3.5 h-3.5 text-orange-500/70" />
-            {project.location}
+          <div className="flex items-center gap-1 text-zinc-400 text-sm">
+            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="truncate">{project.location}</span>
           </div>
         </div>
 
         {/* Funding progress */}
-        <div className="space-y-4">
-          <div className="flex items-end justify-between">
-            <div className="space-y-1">
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] italic leading-none">
-                Capitalization
-              </p>
-              <p className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">
-                Distributed Consensus
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-black text-zinc-950 font-mono italic tracking-tighter">
-                 {project.fundingProgress}%
-              </p>
-            </div>
+        <div>
+          <div className="flex items-center justify-between text-sm mb-2">
+            <span className="text-zinc-500">Funding Progress</span>
+            <span className="font-semibold text-zinc-900">
+              {project.fundingProgress.toFixed(0)}%
+            </span>
           </div>
-          
-          <div className="relative">
-            <div className="h-2 bg-zinc-50 rounded-full overflow-hidden p-[2px] border border-zinc-100">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-[1.5s] ease-out relative",
-                  project.fundingProgress >= 100
-                    ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
-                    : "bg-orange-600 shadow-[0_0_10px_rgba(234,88,12,0.3)]",
-                )}
-                style={{ width: `${Math.min(project.fundingProgress, 100)}%` }}
-              >
-                {/* Glossy overlay for progress bar */}
-                <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-              </div>
-            </div>
+          <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-1000 ease-out",
+                project.fundingProgress >= 100
+                  ? "bg-emerald-500"
+                  : "bg-amber-500",
+              )}
+              style={{ width: `${Math.min(project.fundingProgress, 100)}%` }}
+            />
           </div>
-
-          <div className="flex justify-between items-center text-[9px] font-black text-zinc-400 uppercase tracking-[0.15em] font-mono">
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-orange-500/20" />
-              <span>${project.currentFunding.toLocaleString()}</span>
-            </div>
-            <span className="text-[10px] text-zinc-200 font-light">/</span>
-            <div className="flex items-center gap-1.5">
-              <span>${project.fundingGoal.toLocaleString()}</span>
-              <div className="w-1.5 h-1.5 rounded-full bg-zinc-100" />
-            </div>
+          <div className="flex justify-between text-xs text-zinc-400 mt-1.5">
+            <span>${project.currentFunding.toLocaleString()} raised</span>
+            <span>of ${project.fundingGoal.toLocaleString()}</span>
           </div>
         </div>
 
-        {/* Impact/Yield Cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-4 rounded-[2rem] bg-zinc-50 border border-zinc-100/50 group-hover:bg-white group-hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.03)] transition-all duration-500">
-            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2 italic leading-none">
-              Target Yield
-            </p>
-            <p className="text-2xl font-black text-zinc-950 italic tracking-tighter">
-              {project.expectedYield}%<span className="text-[10px] ml-1 uppercase not-italic font-bold opacity-30 tracking-widest">apy</span>
+        {/* Yield and price metrics */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-zinc-50 rounded-xl p-3">
+            <p className="text-xs text-zinc-400 mb-1">Annual Yield</p>
+            <p className="text-lg font-bold text-zinc-900">
+              {project.expectedYield}%{" "}
+              <span className="text-xs font-normal text-zinc-400">APY</span>
             </p>
           </div>
-          <div className="p-4 rounded-[2rem] bg-zinc-50 border border-zinc-100/50 group-hover:bg-white group-hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.03)] transition-all duration-500">
-            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-2 italic leading-none">
-              Asset Price
+          <div className="bg-zinc-50 rounded-xl p-3">
+            <p className="text-xs text-zinc-400 mb-1">Token Price</p>
+            <p className="text-lg font-bold text-zinc-900">
+              ${project.tokenPrice}{" "}
+              <span className="text-xs font-normal text-zinc-400">USDC</span>
             </p>
-            <div className="flex items-baseline gap-1">
-              <p className="text-2xl font-black text-zinc-950 font-mono tracking-tighter">
-                ${project.tokenPrice}
-              </p>
-              <span className="text-[9px] font-bold text-zinc-300 uppercase">usdc</span>
-            </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-4 pt-2">
+        {/* Action buttons */}
+        <div className="flex gap-2 pt-1">
           <button
-            onClick={() => onViewDetails && onViewDetails(project.id)}
-            className="h-14 flex items-center justify-center rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] bg-white border border-zinc-200 text-zinc-400 hover:border-zinc-950 hover:text-zinc-950 transition-all active:scale-95 hover:shadow-lg"
+            onClick={() => onViewDetails?.(project.id)}
+            className="flex-1 h-10 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 transition-all"
           >
-            View Asset
+            View Details
           </button>
-
           <button
-            disabled={project.status !== "funding" || !onInvest}
-            onClick={() => onInvest && onInvest(project.id)}
+            disabled={!canInvest}
+            onClick={() => canInvest && onInvest!(project.id)}
             className={cn(
-              "h-14 flex items-center justify-center gap-3 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all relative overflow-hidden group/btn",
-              project.status === "funding" && onInvest
-                ? "bg-zinc-950 text-white hover:bg-orange-600 shadow-xl shadow-zinc-900/10 active:scale-95"
-                : "bg-zinc-100 text-zinc-300 cursor-not-allowed border border-zinc-200",
+              "flex-1 h-10 rounded-xl text-sm font-medium flex items-center justify-center gap-1.5 transition-all",
+              canInvest
+                ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                : "bg-zinc-100 text-zinc-400 cursor-not-allowed",
             )}
           >
-            {project.status === "funding" ? (
+            {canInvest ? (
               <>
-                <span className="relative z-10">Commit Capital</span>
-                <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover/btn:translate-x-1" />
+                Invest Now <ArrowRight className="w-3.5 h-3.5" />
               </>
-            ) : project.status === "funded" ? (
-              "Sold Out"
+            ) : project.status === "funded" ||
+              project.status === "producing" ? (
+              "Fully Funded"
             ) : (
-              "Finalized"
+              "Not Available"
             )}
           </button>
         </div>

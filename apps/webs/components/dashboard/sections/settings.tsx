@@ -31,7 +31,7 @@ import {
   useKyc,
 } from "@/hooks/use-dashboard-data";
 import { SumsubWidget } from "@/components/kyc/sumsub-widget";
-import { userApi } from "@/lib/api";
+import { userApi, walletApi } from "@/lib/api";
 import { useOnboardingStatus } from "@/hooks/use-onboarding";
 
 type SettingsTab = "profile" | "kyc" | "wallet" | "notifications";
@@ -98,7 +98,7 @@ export function SettingsSection({ userRole: propRole }: SettingsSectionProps) {
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-border pb-4">
+      <div className="flex flex-wrap gap-2 border-b border-zinc-200 pb-4">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -108,8 +108,8 @@ export function SettingsSection({ userRole: propRole }: SettingsSectionProps) {
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200",
                 activeTab === tab.id
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground hover:bg-zinc-100",
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100",
               )}
             >
               <Icon className="w-4 h-4" />
@@ -169,18 +169,18 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="bg-card border border-border rounded-2xl p-6">
+      <div className="bg-white border border-zinc-200 rounded-2xl p-6">
         <h3 className="text-lg font-semibold mb-4">Personal Information</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+            <label className="block text-sm font-medium text-zinc-500 mb-1.5">
               Full Name
             </label>
             <input
@@ -193,21 +193,21 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+            <label className="block text-sm font-medium text-zinc-500 mb-1.5">
               Email Address
             </label>
             <input
               type="email"
               value={profile?.email || ""}
               disabled
-              className="w-full h-10 px-4 rounded-xl bg-zinc-100 border border-zinc-200 text-sm text-muted-foreground"
+              className="w-full h-10 px-4 rounded-xl bg-zinc-100 border border-zinc-200 text-sm text-zinc-500"
             />
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-zinc-500 mt-1">
               Email is managed by your authentication provider
             </p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+            <label className="block text-sm font-medium text-zinc-500 mb-1.5">
               Phone Number
             </label>
             <input
@@ -221,7 +221,7 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+            <label className="block text-sm font-medium text-zinc-500 mb-1.5">
               Company (Optional)
             </label>
             <input
@@ -234,7 +234,7 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+            <label className="block text-sm font-medium text-zinc-500 mb-1.5">
               Country of Residence
             </label>
             <select
@@ -254,11 +254,11 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
             </select>
           </div>
         </div>
-        <div className="mt-6 pt-4 border-t border-border">
+        <div className="mt-6 pt-4 border-t border-zinc-200">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2.5 bg-foreground text-background rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="px-6 py-2.5 bg-zinc-900 text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {saving ? (
               <span className="flex items-center gap-2">
@@ -273,15 +273,13 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
       </div>
 
       {/* Account info */}
-      <div className="bg-card border border-border rounded-2xl p-6">
+      <div className="bg-white border border-zinc-200 rounded-2xl p-6">
         <h3 className="text-lg font-semibold mb-4">Account Information</h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50">
             <div>
               <p className="text-sm font-medium">Account Type</p>
-              <p className="text-xs text-muted-foreground">
-                Your role on the platform
-              </p>
+              <p className="text-xs text-zinc-500">Your role on the platform</p>
             </div>
             <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium">
               {profile?.role || "INVESTOR"}
@@ -290,11 +288,9 @@ function ProfileTab({ userRole }: { userRole?: UserRole }) {
           <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50">
             <div>
               <p className="text-sm font-medium">Member Since</p>
-              <p className="text-xs text-muted-foreground">
-                Account creation date
-              </p>
+              <p className="text-xs text-zinc-500">Account creation date</p>
             </div>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-zinc-500">
               {profile?.createdAt
                 ? new Date(profile.createdAt).toLocaleDateString()
                 : "--"}
@@ -311,7 +307,7 @@ function KYCTab() {
     <div className="max-w-2xl space-y-6">
       <SumsubWidget
         onComplete={() => {
-          console.log("KYC completed!");
+          window.location.reload();
         }}
         onError={(error) => {
           console.error("KYC error:", error);
@@ -349,19 +345,14 @@ function WalletTab({
   const handleFundWithFriendbot = async () => {
     setFundingXLM(true);
     try {
-      const response = await fetch("/api/stellar/friendbot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stellarAddress: walletAddress }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        toast.success("Successfully funded with 10,000 XLM from Friendbot!");
+      const response = await walletApi.fundTestnet();
+      if (response.success) {
+        toast.success("Successfully funded with XLM from Friendbot!");
         setTimeout(() => refetch(), 2000);
       } else {
-        toast.error("Failed to fund from Friendbot: " + data.error);
+        toast.error("Failed to fund from Friendbot: " + response.error);
       }
-    } catch (error) {
+    } catch {
       toast.error("Error funding from Friendbot");
     }
     setFundingXLM(false);
@@ -370,19 +361,14 @@ function WalletTab({
   const handleFundWithTestUSDC = async () => {
     setFundingUSDC(true);
     try {
-      const response = await fetch("/api/stellar/fund-test-usdc", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: "10000" }),
-      });
-      const data = await response.json();
-      if (data.success) {
+      const response = await walletApi.fundTestUsdc("10000");
+      if (response.success) {
         toast.success("Successfully funded with 10,000 test USDC!");
         setTimeout(() => refetch(), 2000);
       } else {
-        toast.error("Failed to fund with test USDC: " + data.error);
+        toast.error("Failed to fund with test USDC: " + response.error);
       }
-    } catch (error) {
+    } catch {
       toast.error("Error funding with test USDC");
     }
     setFundingUSDC(false);
@@ -404,32 +390,17 @@ function WalletTab({
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (Number(sendFormData.amount) <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    setSending(true);
-    // Simulate transaction delay
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    setSending(false);
-    setShowSend(false);
-    toast.success(
-      `Successfully sent ${sendFormData.amount} ${sendFormData.asset}`,
-      {
-        description: `Transaction hash: ${Math.random().toString(36).substring(2, 15)}...`,
-      },
+    toast.info(
+      "Direct asset transfers are not available in this version. Use the investment flow to deploy capital.",
     );
+    setShowSend(false);
     setSendFormData({ address: "", amount: "", asset: "XLM" });
-    refetch();
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
       </div>
     );
   }
@@ -454,7 +425,7 @@ function WalletTab({
             <>
               <div className="p-6 rounded-2xl bg-white/60 border border-white/60 mb-8 shadow-inner group/address">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
                     Stellar Address
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold border border-amber-200">
@@ -550,7 +521,14 @@ function WalletTab({
                   <ArrowRight className="w-4 h-4" />
                   Send
                 </button>
-                <button className="px-6 py-3.5 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-bold hover:bg-red-100 transition-colors">
+                <button
+                  className="px-6 py-3.5 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-bold hover:bg-red-100 transition-colors"
+                  onClick={() =>
+                    toast.info(
+                      "This is a custodial wallet managed by Aethera. It cannot be disconnected.",
+                    )
+                  }
+                >
                   Disconnect
                 </button>
               </div>
@@ -560,10 +538,17 @@ function WalletTab({
               <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-amber-100">
                 <Wallet className="w-10 h-10 text-amber-500" />
               </div>
-              <p className="text-muted-foreground mb-8 font-medium">
+              <p className="text-zinc-500 mb-8 font-medium">
                 No wallet connected
               </p>
-              <button className="px-10 py-4 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-black transition-all hover:shadow-xl active:scale-95">
+              <button
+                className="px-10 py-4 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-black transition-all hover:shadow-xl active:scale-95"
+                onClick={() =>
+                  toast.info(
+                    "Your wallet will be created automatically. Please refresh the page or complete onboarding again.",
+                  )
+                }
+              >
                 Connect Wallet
               </button>
             </div>
@@ -572,13 +557,13 @@ function WalletTab({
       </div>
 
       {/* Asset Holdings - Vibrant Grid */}
-      <div className="bg-card border border-border rounded-3xl p-8">
+      <div className="bg-white border border-zinc-200 rounded-3xl p-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
             Asset Holdings
           </h3>
-          <span className="text-xs font-medium text-muted-foreground">
+          <span className="text-xs font-medium text-zinc-500">
             Stellar Testnet Assets
           </span>
         </div>
@@ -613,7 +598,7 @@ function WalletTab({
                         <p className="font-bold text-zinc-900">
                           {balance.asset || "Unknown"}
                         </p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                        <p className="text-[10px] text-zinc-500 uppercase font-black tracking-tighter">
                           {balance.asset === "XLM"
                             ? "Gas Fees"
                             : "Investment Currency"}
@@ -642,7 +627,7 @@ function WalletTab({
                     </div>
                     <div>
                       <p className="font-bold text-zinc-900">XLM</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                      <p className="text-[10px] text-zinc-500 uppercase font-black tracking-tighter">
                         Gas Fees
                       </p>
                     </div>
@@ -659,7 +644,7 @@ function WalletTab({
                     </div>
                     <div>
                       <p className="font-bold text-zinc-900">USDC</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                      <p className="text-[10px] text-zinc-500 uppercase font-black tracking-tighter">
                         Investment Currency
                       </p>
                     </div>
@@ -673,7 +658,7 @@ function WalletTab({
       </div>
 
       {/* Transaction History - Added Section */}
-      <div className="bg-card border border-border rounded-3xl p-8">
+      <div className="bg-white border border-zinc-200 rounded-3xl p-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <Clock className="w-5 h-5 text-zinc-500" />
@@ -698,10 +683,8 @@ function WalletTab({
         <div className="space-y-3">
           {txLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mb-2" />
-              <p className="text-xs text-muted-foreground">
-                Loading ledger history...
-              </p>
+              <Loader2 className="w-6 h-6 animate-spin text-zinc-500 mb-2" />
+              <p className="text-xs text-zinc-500">Loading ledger history...</p>
             </div>
           ) : transactions.length > 0 ? (
             transactions.map((tx) => (
@@ -733,10 +716,10 @@ function WalletTab({
                         rel="noopener noreferrer"
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-amber-600" />
+                        <ExternalLink className="w-3 h-3 text-zinc-500 hover:text-amber-600" />
                       </a>
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">
+                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-tighter">
                       {new Date(tx.created_at).toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
@@ -755,7 +738,7 @@ function WalletTab({
                   >
                     {tx.successful ? "SUCCESS" : "FAILED"}
                   </p>
-                  <p className="text-[10px] text-muted-foreground font-mono">
+                  <p className="text-[10px] text-zinc-500 font-mono">
                     {tx.fee_charged} XLM Fee
                   </p>
                 </div>
@@ -789,7 +772,7 @@ function WalletTab({
                 <Plus className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-2xl font-black mb-2">Receive Assets</h3>
-              <p className="text-sm text-muted-foreground mb-10">
+              <p className="text-sm text-zinc-500 mb-10">
                 Scan the QR code or share your address to get funded on Aethera.
               </p>
             </div>
@@ -803,7 +786,7 @@ function WalletTab({
                 />
               </div>
               <div className="w-full">
-                <label className="block text-[10px] font-black text-muted-foreground mb-3 uppercase tracking-[0.2em] text-center">
+                <label className="block text-[10px] font-black text-zinc-500 mb-3 uppercase tracking-[0.2em] text-center">
                   Your Public Identity
                 </label>
                 <div className="flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm group/input">
@@ -847,7 +830,7 @@ function WalletTab({
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-2xl font-black">Send Assets</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-zinc-500">
                   Move your tokens across the Stellar Network.
                 </p>
               </div>
@@ -858,7 +841,7 @@ function WalletTab({
 
             <form onSubmit={handleSend} className="space-y-6">
               <div className="space-y-2">
-                <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">
+                <label className="block text-xs font-black text-zinc-500 uppercase tracking-wider h-4">
                   Recipient Address
                 </label>
                 <div className="relative group">
@@ -883,7 +866,7 @@ function WalletTab({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div className="sm:col-span-2 space-y-2">
-                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">
+                  <label className="block text-xs font-black text-zinc-500 uppercase tracking-wider h-4">
                     Amount
                   </label>
                   <div className="relative group">
@@ -907,7 +890,7 @@ function WalletTab({
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-wider h-4">
+                  <label className="block text-xs font-black text-zinc-500 uppercase tracking-wider h-4">
                     Token
                   </label>
                   <select
@@ -989,7 +972,7 @@ function NotificationsTab({ userRole }: { userRole?: UserRole }) {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="bg-card border border-border rounded-2xl p-6">
+      <div className="bg-white border border-zinc-200 rounded-2xl p-6">
         <h3 className="text-lg font-semibold mb-4">Notification Preferences</h3>
         <div className="space-y-4">
           {[
@@ -1025,7 +1008,7 @@ function NotificationsTab({ userRole }: { userRole?: UserRole }) {
             >
               <div>
                 <p className="font-medium">{item.label}</p>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
+                <p className="text-sm text-zinc-500">{item.desc}</p>
               </div>
               <button
                 onClick={() => toggleNotification(item.key)}

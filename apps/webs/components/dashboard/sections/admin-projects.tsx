@@ -195,7 +195,7 @@ export function AdminProjectsSection() {
             <ShieldCheck className="w-6 h-6 text-purple-600" />
             Project Management
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-zinc-500">
             Review submissions and activate funded projects.
           </p>
         </div>
@@ -208,7 +208,7 @@ export function AdminProjectsSection() {
                 "px-4 py-2 rounded-lg text-sm font-medium transition-all",
                 activeTab === "projects"
                   ? "bg-white text-purple-600 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "text-zinc-500 hover:text-zinc-900",
               )}
             >
               Pending Approval
@@ -219,7 +219,7 @@ export function AdminProjectsSection() {
                 "px-4 py-2 rounded-lg text-sm font-medium transition-all",
                 activeTab === "activation"
                   ? "bg-white text-emerald-600 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "text-zinc-500 hover:text-zinc-900",
               )}
             >
               Ready to Activate
@@ -230,7 +230,7 @@ export function AdminProjectsSection() {
                 "px-4 py-2 rounded-lg text-sm font-medium transition-all",
                 activeTab === "milestones"
                   ? "bg-white text-blue-600 shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "text-zinc-500 hover:text-zinc-900",
               )}
             >
               Milestones
@@ -243,17 +243,17 @@ export function AdminProjectsSection() {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-purple-600 mb-4" />
-          <p className="text-muted-foreground">Loading projects...</p>
+          <p className="text-zinc-500">Loading projects...</p>
         </div>
       ) : activeTab === "projects" ? (
         /* Render PENDING Projects */
         filteredProjects.length === 0 ? (
-          <div className="bg-card border border-border rounded-2xl py-20 text-center">
+          <div className="bg-white border border-zinc-200 rounded-2xl py-20 text-center">
             <Building2 className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground">
               No pending projects
             </h3>
-            <p className="text-muted-foreground max-w-[280px] mx-auto">
+            <p className="text-zinc-500 max-w-[280px] mx-auto">
               All solar project submissions have been reviewed.
             </p>
           </div>
@@ -274,12 +274,12 @@ export function AdminProjectsSection() {
       ) : activeTab === "activation" ? (
         /* Render ACTIVATION Projects */
         filteredProjects.length === 0 ? (
-          <div className="bg-card border border-border rounded-2xl py-20 text-center">
+          <div className="bg-white border border-zinc-200 rounded-2xl py-20 text-center">
             <Zap className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground">
               No projects ready for activation
             </h3>
-            <p className="text-muted-foreground max-w-[280px] mx-auto">
+            <p className="text-zinc-500 max-w-[280px] mx-auto">
               Projects will appear here once they are fully funded.
             </p>
           </div>
@@ -320,7 +320,7 @@ function ProjectCard({
   type,
 }: any) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 hover:shadow-md transition-all group">
+    <div className="bg-white border border-zinc-200 rounded-2xl p-6 hover:shadow-md transition-all group">
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1 space-y-4">
           <div className="flex items-start justify-between gap-4">
@@ -336,7 +336,7 @@ function ProjectCard({
                 >
                   {type === "PENDING" ? "PENDING REVIEW" : "READY TO ACTIVATE"}
                 </span>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <span className="text-xs text-zinc-500 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   Submitted{" "}
                   {project.createdAt
@@ -347,26 +347,26 @@ function ProjectCard({
               <h3 className="text-xl font-bold group-hover:text-purple-600 transition-colors">
                 {project.name}
               </h3>
-              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+              <p className="text-sm text-zinc-500 flex items-center gap-1 mt-1">
                 <MapPin className="w-3 h-3" />
                 {project.location}, {project.country}
               </p>
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+          <p className="text-sm text-zinc-500 line-clamp-2 leading-relaxed">
             {project.description}
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
             <div className="p-3 bg-zinc-50 rounded-xl">
-              <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">
+              <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
                 Capacity
               </p>
               <p className="text-sm font-bold">{project.capacity} kW</p>
             </div>
             <div className="p-3 bg-zinc-50 rounded-xl">
-              <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">
+              <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
                 Funding Target
               </p>
               <p className="text-sm font-bold">
@@ -376,7 +376,7 @@ function ProjectCard({
             <div className="p-3 bg-zinc-50 rounded-xl">
               {type === "FUNDED" ? (
                 <>
-                  <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">
+                  <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
                     Raised
                   </p>
                   <p className="text-sm font-bold text-emerald-600">
@@ -385,7 +385,7 @@ function ProjectCard({
                 </>
               ) : (
                 <>
-                  <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">
+                  <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
                     Exp. Yield
                   </p>
                   <p className="text-sm font-bold text-emerald-600">
@@ -395,7 +395,7 @@ function ProjectCard({
               )}
             </div>
             <div className="p-3 bg-zinc-50 rounded-xl">
-              <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">
+              <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
                 Installer
               </p>
               <p className="text-sm font-bold truncate">
@@ -407,7 +407,7 @@ function ProjectCard({
           </div>
         </div>
 
-        <div className="lg:w-[220px] flex flex-col gap-3 justify-center border-t lg:border-t-0 lg:border-l border-border pt-6 lg:pt-0 lg:pl-6">
+        <div className="lg:w-[220px] flex flex-col gap-3 justify-center border-t lg:border-t-0 lg:border-l border-zinc-200 pt-6 lg:pt-0 lg:pl-6">
           {type === "PENDING" ? (
             <>
               <button
@@ -452,7 +452,7 @@ function ProjectCard({
                     <AlertTriangle className="w-3 h-3" />
                     Waiting for IoT Device
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
+                  <p className="text-[10px] text-zinc-500 leading-tight">
                     Installer must connect a device before funds can be
                     released.
                   </p>
@@ -469,12 +469,12 @@ function ProjectCard({
 function MilestoneList({ milestones, onVerify, onReject, processingId }: any) {
   if (milestones.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-2xl py-20 text-center">
+      <div className="bg-white border border-zinc-200 rounded-2xl py-20 text-center">
         <Clock className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-foreground">
           No pending milestones
         </h3>
-        <p className="text-muted-foreground max-w-[280px] mx-auto">
+        <p className="text-zinc-500 max-w-[280px] mx-auto">
           All submitted milestone proofs have been reviewed.
         </p>
       </div>
@@ -485,7 +485,7 @@ function MilestoneList({ milestones, onVerify, onReject, processingId }: any) {
       {milestones.map((milestone: any) => (
         <div
           key={milestone.id}
-          className="bg-card border border-border rounded-2xl p-6 hover:shadow-md transition-all group"
+          className="bg-white border border-zinc-200 rounded-2xl p-6 hover:shadow-md transition-all group"
         >
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="flex-1 space-y-4">
@@ -493,12 +493,12 @@ function MilestoneList({ milestones, onVerify, onReject, processingId }: any) {
                 <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold uppercase rounded-md tracking-wider">
                   MILESTONE SUBMITTED
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-zinc-500">
                   {milestone.project?.name}
                 </span>
               </div>
               <h3 className="text-xl font-bold">{milestone.name}</h3>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-zinc-500">
                 {milestone.description}
               </p>
 
@@ -511,7 +511,7 @@ function MilestoneList({ milestones, onVerify, onReject, processingId }: any) {
               </div>
             </div>
 
-            <div className="lg:w-[220px] flex flex-col gap-3 justify-center border-t lg:border-t-0 lg:border-l border-border pt-6 lg:pt-0 lg:pl-6">
+            <div className="lg:w-[220px] flex flex-col gap-3 justify-center border-t lg:border-t-0 lg:border-l border-zinc-200 pt-6 lg:pt-0 lg:pl-6">
               <button
                 onClick={() => onVerify(milestone.id)}
                 disabled={!!processingId}

@@ -4,13 +4,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import {
-  prisma,
-  User,
-  KYCStatus,
-  ProjectStateMachine,
-  AuditLogger,
-} from "@aethera/database";
+import { prisma, User, KYCStatus, AuditLogger } from "@aethera/database";
 import {
   authenticate,
   requireRole,
@@ -37,6 +31,9 @@ router.get("/dashboard", async (req, res, next) => {
       totalProjects,
       pendingProjects,
       activeProjects,
+      fundingProjects,
+      fundedProjects,
+      completedProjects,
       pendingKYC,
     ] = await Promise.all([
       prisma.user.count(),
@@ -45,6 +42,9 @@ router.get("/dashboard", async (req, res, next) => {
       prisma.project.count(),
       prisma.project.count({ where: { status: "PENDING_APPROVAL" } }),
       prisma.project.count({ where: { status: "ACTIVE" } }),
+      prisma.project.count({ where: { status: "FUNDING" } }),
+      prisma.project.count({ where: { status: "FUNDED" } }),
+      prisma.project.count({ where: { status: "COMPLETED" } }),
       prisma.user.count({ where: { kycStatus: "IN_REVIEW" } }),
     ]);
 
@@ -71,6 +71,9 @@ router.get("/dashboard", async (req, res, next) => {
           total: totalProjects,
           pending: pendingProjects,
           active: activeProjects,
+          funding: fundingProjects,
+          funded: fundedProjects,
+          completed: completedProjects,
         },
         kyc: {
           pendingReview: pendingKYC,
@@ -133,7 +136,127 @@ router.get("/projects/funded", async (req, res, next) => {
   }
 });
 
-// ... (skip existing code) ...
+// ============================================
+// Approve Project
+// ============================================
+
+const approveProjectSchema = z.object({
+  notes: z.string().optional(),
+});
+
+router.post(
+  "/projects/:id/approve",
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { notes } = approveProjectSchema.parse(req.body);
+
+      const project = await prisma.project.findUnique({
+        where: { id: req.params.id },
+      });
+
+      if (!project) {
+        throw createApiError("Project not found", 404);
+      }
+
+      if (project.status !== "PENDING_APPROVAL") {
+        throw createApiError(
+          `Project is not pending approval (current status: ${project.status})`,
+          400,
+        );
+      }
+
+      const updated = await prisma.project.update({
+        where: { id: req.params.id },
+        data: {
+          status: "APPROVED",
+          approvedAt: new Date(),
+          approvedBy: req.auth?.userId,
+          rejectionReason: null,
+        },
+        include: {
+          installer: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      await AuditLogger.logProjectTransition(
+        req.params.id,
+        "PENDING_APPROVAL",
+        "APPROVED",
+        req.auth?.userId!,
+        { notes },
+      );
+
+      res.json({
+        success: true,
+        message: "Project approved successfully",
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ============================================
+// Reject Project
+// ============================================
+
+const rejectProjectSchema = z.object({
+  reason: z.string().min(10, "Rejection reason must be at least 10 characters"),
+});
+
+router.post(
+  "/projects/:id/reject",
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { reason } = rejectProjectSchema.parse(req.body);
+
+      const project = await prisma.project.findUnique({
+        where: { id: req.params.id },
+      });
+
+      if (!project) {
+        throw createApiError("Project not found", 404);
+      }
+
+      if (!["PENDING_APPROVAL", "APPROVED"].includes(project.status)) {
+        throw createApiError(
+          `Project cannot be rejected in its current state (${project.status})`,
+          400,
+        );
+      }
+
+      const fromStatus = project.status;
+
+      const updated = await prisma.project.update({
+        where: { id: req.params.id },
+        data: {
+          status: "REJECTED",
+          rejectionReason: reason,
+        },
+        include: {
+          installer: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      await AuditLogger.logProjectTransition(
+        req.params.id,
+        fromStatus,
+        "REJECTED",
+        req.auth?.userId!,
+        { reason },
+      );
+
+      res.json({
+        success: true,
+        message: "Project rejected",
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // ============================================
 // Activate Project (Capital Release)
@@ -157,33 +280,42 @@ router.post(
       if (project.status !== "FUNDED") {
         throw createApiError("Project is not fully funded yet", 400);
       }
-      
+
       // Enforce IoT connection before activation
       if (project.iotDevices.length === 0) {
-        throw createApiError("Cannot activate project: No IoT devices connected. Installer must register a device first.", 400);
+        throw createApiError(
+          "Cannot activate project: No IoT devices connected. Installer must register a device first.",
+          400,
+        );
       }
 
       // 1. Trigger on-chain capital release
       // ... (rest of function)
-      const { contractService, getContractAddresses, walletService } = await import("@aethera/stellar");
+      const { contractService, getContractAddresses, walletService } =
+        await import("@aethera/stellar");
       const { Keypair } = await import("@stellar/stellar-sdk");
-      
+
       const contracts = getContractAddresses();
       const encryptedSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
-      
+
       if (contracts.treasury && encryptedSecret) {
-        console.log(`[Admin] Activating project ${project.id}. Releasing capital from Treasury...`);
+        console.log(
+          `[Admin] Activating project ${project.id}. Releasing capital from Treasury...`,
+        );
         const adminSecret = walletService.decryptSecret(encryptedSecret);
         const adminKeypair = Keypair.fromSecret(adminSecret);
-        
+
         const releaseResult = await contractService.releaseCapital(
           contracts.treasury,
           adminKeypair,
-          project.id
+          project.id,
         );
 
         if (!releaseResult.success) {
-          throw createApiError(`On-chain release failed: ${releaseResult.error}`, 500);
+          throw createApiError(
+            `On-chain release failed: ${releaseResult.error}`,
+            500,
+          );
         }
         console.log(`[Admin] Capital released. Tx: ${releaseResult.txHash}`);
       }
@@ -360,7 +492,12 @@ router.get("/users", async (req, res, next) => {
       success: true,
       data: {
         data: users,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
       },
     });
   } catch (error) {

@@ -31,16 +31,16 @@ POLLING_INTERVAL=30000`;
   };
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
-      <div className="p-5 border-b border-border bg-zinc-50/50 flex items-center justify-between">
+    <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
+      <div className="p-5 border-b border-zinc-200 bg-zinc-50/50 flex items-center justify-between">
         <h3 className="font-semibold flex items-center gap-2">
-          <Terminal className="w-4 h-4 text-muted-foreground" />
+          <Terminal className="w-4 h-4 text-zinc-500" />
           IoT Simulation Guide
         </h3>
         <a 
           href="https://github.com/aethera/solar-stellar/tree/main/packages/iot-agent" 
           target="_blank"
-          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          className="text-xs text-zinc-500 hover:text-zinc-900 flex items-center gap-1 transition-colors"
         >
           <Github className="w-3 h-3" />
           View Source
@@ -74,7 +74,7 @@ POLLING_INTERVAL=30000`;
               {envContent}
             </pre>
           </div>
-          <p className="text-[10px] text-muted-foreground italic">
+          <p className="text-[10px] text-zinc-500 italic">
             Create a <code>.env</code> file in <code>packages/iot-agent/</code> with these values.
           </p>
         </div>
@@ -89,7 +89,7 @@ POLLING_INTERVAL=30000`;
           </pre>
         </div>
 
-        <div className="pt-4 border-t border-border">
+        <div className="pt-4 border-t border-zinc-200">
           <div className="flex items-start gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
             <BookOpen className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
             <div>

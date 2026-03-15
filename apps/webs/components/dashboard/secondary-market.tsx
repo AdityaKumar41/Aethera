@@ -100,7 +100,7 @@ export function SecondaryMarket({
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
           </div>
         </CardContent>
       </Card>
@@ -111,7 +111,7 @@ export function SecondaryMarket({
     <Card>
       <CardHeader>
         <CardTitle>Secondary Market</CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-zinc-500">
           Available token listings for {projectName}
         </p>
       </CardHeader>
@@ -124,7 +124,7 @@ export function SecondaryMarket({
         )}
 
         {listings.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-zinc-500">
             <p>No tokens available for sale</p>
             <p className="text-sm mt-2">Check back later for new listings</p>
           </div>
@@ -147,7 +147,7 @@ export function SecondaryMarket({
                         </span>
                         {getPriceIndicator(listing.pricePerToken)}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-zinc-500">
                         Seller:{" "}
                         {isOwnListing
                           ? "You"
@@ -155,7 +155,7 @@ export function SecondaryMarket({
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-zinc-500">
                         Price per token
                       </div>
                       <div className="font-semibold">
@@ -166,7 +166,7 @@ export function SecondaryMarket({
 
                   <div className="flex items-center justify-between pt-3 border-t">
                     <div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-zinc-500">
                         Total Value
                       </div>
                       <div className="font-bold">

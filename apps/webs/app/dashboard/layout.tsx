@@ -26,6 +26,13 @@ const pathToSection: Record<string, string> = {
   "/dashboard/governance": "governance",
 };
 
+// Handle both exact paths and dynamic route prefixes
+function getActiveSection(pathname: string): string | undefined {
+  if (pathToSection[pathname]) return pathToSection[pathname];
+  if (pathname.startsWith("/dashboard/my-projects/")) return "my-projects";
+  return undefined;
+}
+
 // Role-to-routes mapping for authorization
 const roleAllowedSections: Record<string, string[]> = {
   INVESTOR: [
@@ -81,7 +88,7 @@ export default function DashboardLayout({
     }
 
     if (!loading && isComplete && role) {
-      const activeSection = pathToSection[pathname];
+      const activeSection = getActiveSection(pathname);
       if (activeSection) {
         const allowedSections = roleAllowedSections[role] || [];
         if (!allowedSections.includes(activeSection)) {
@@ -120,7 +127,7 @@ export default function DashboardLayout({
           <div className="flex flex-col items-center gap-6">
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="w-5 h-5 animate-spin text-emerald-600/50" />
-              <p className="text-[10px] text-muted-foreground font-bold tracking-[0.3em] uppercase opacity-40">
+              <p className="text-[10px] text-zinc-500 font-bold tracking-[0.3em] uppercase opacity-40">
                 Initializing Secure Session
               </p>
             </div>
@@ -130,7 +137,7 @@ export default function DashboardLayout({
     );
   }
 
-  const activeSection = pathToSection[pathname];
+  const activeSection = getActiveSection(pathname);
   const allowedSections = role ? roleAllowedSections[role] : [];
   if (
     !isComplete ||

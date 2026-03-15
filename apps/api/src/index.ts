@@ -50,9 +50,20 @@ const PORT = process.env.PORT || 3001;
 // ============================================
 
 // CORS
+const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:3000,http://localhost:3001")
+  .split(",")
+  .map((o) => o.trim());
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000", // Match dashboard port
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. curl, server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin ${origin} not allowed`));
+      }
+    },
     credentials: true,
   }),
 );

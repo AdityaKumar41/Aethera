@@ -107,7 +107,7 @@ export function SellTokensModal({
         </button>
 
         <h2 className="text-xl font-semibold mb-2">Sell Tokens</h2>
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-sm text-zinc-500 mb-6">
           List your tokens for sale on the secondary market
         </p>
 
@@ -116,7 +116,7 @@ export function SellTokensModal({
             <div className="space-y-2">
               <Label>Project</Label>
               <div className="text-sm font-medium">{projectName}</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-zinc-500">
                 Available: {availableTokens} tokens
               </div>
             </div>
@@ -146,7 +146,7 @@ export function SellTokensModal({
                 onChange={(e) => setPricePerToken(e.target.value)}
                 required
               />
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-zinc-500">
                 Current market price: {currentPrice.toFixed(2)} USDC
               </div>
             </div>
@@ -154,7 +154,7 @@ export function SellTokensModal({
             {tokenAmount && pricePerToken && (
               <div className="rounded-lg bg-muted p-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Value</span>
+                  <span className="text-zinc-500">Total Value</span>
                   <span className="font-medium">
                     {totalValue.toFixed(2)} USDC
                   </span>
@@ -192,15 +192,15 @@ export function SellTokensModal({
 
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Project</span>
+                  <span className="text-zinc-500">Project</span>
                   <span className="font-medium">{projectName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tokens</span>
+                  <span className="text-zinc-500">Tokens</span>
                   <span className="font-medium">{tokenAmount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Price per Token</span>
+                  <span className="text-zinc-500">Price per Token</span>
                   <span className="font-medium">
                     {parseFloat(pricePerToken).toFixed(2)} USDC
                   </span>
@@ -266,7 +266,7 @@ export function SellTokensModal({
             </div>
             <div>
               <h3 className="text-lg font-semibold">Listing Created!</h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-zinc-500 mt-1">
                 Your tokens are now available on the secondary market
               </p>
             </div>

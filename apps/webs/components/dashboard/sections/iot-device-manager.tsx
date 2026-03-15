@@ -115,8 +115,8 @@ export function IoTDeviceManager({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground mr-2" />
-        <span className="text-sm text-muted-foreground">
+        <Loader2 className="w-5 h-5 animate-spin text-zinc-500 mr-2" />
+        <span className="text-sm text-zinc-500">
           Syncing devices...
         </span>
       </div>
@@ -127,7 +127,7 @@ export function IoTDeviceManager({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-solar-orange" />
+          <Cpu className="w-4 h-4 text-amber-500" />
           IoT Devices
         </h4>
         <button
@@ -143,13 +143,13 @@ export function IoTDeviceManager({
         <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 relative animate-in fade-in slide-in-from-top-2">
           <button
             onClick={() => setShowAddForm(false)}
-            className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground"
+            className="absolute top-2 right-2 p-1 text-zinc-500 hover:text-zinc-900"
           >
             <X className="w-3 h-3" />
           </button>
           <form onSubmit={handleRegister} className="space-y-3">
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">
                 Stellar Public Key
               </label>
               <input
@@ -163,7 +163,7 @@ export function IoTDeviceManager({
             </div>
             <div className="flex gap-2">
               <div className="flex-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">
                   Model
                 </label>
                 <select
@@ -180,7 +180,7 @@ export function IoTDeviceManager({
                 <button
                   type="submit"
                   disabled={registering}
-                  className="px-4 py-2 bg-foreground text-background rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
                 >
                   {registering ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -198,7 +198,7 @@ export function IoTDeviceManager({
       {devices.length === 0 ? (
         <div className="text-center py-6 border border-dashed border-zinc-300 rounded-xl">
           <Activity className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-zinc-500">
             No devices linked to this project
           </p>
         </div>
@@ -211,7 +211,7 @@ export function IoTDeviceManager({
             return (
               <div
                 key={device.id}
-                className="bg-white border border-border rounded-xl p-3 flex items-center justify-between group"
+                className="bg-white border border-zinc-100 rounded-xl p-3 flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -237,7 +237,7 @@ export function IoTDeviceManager({
                         )}
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[10px] text-zinc-500">
                       {device.model} • {isOnline ? "Online" : "Offline"}
                     </p>
                   </div>
@@ -246,11 +246,11 @@ export function IoTDeviceManager({
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => handleDelete(device.id)}
-                    className="p-1.5 text-muted-foreground hover:text-red-500 rounded-md hover:bg-red-50 transition-colors"
+                    className="p-1.5 text-zinc-500 hover:text-red-500 rounded-md hover:bg-red-50 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                  <button className="p-1.5 text-muted-foreground hover:text-solar-orange rounded-md hover:bg-orange-50 transition-colors">
+                  <button className="p-1.5 text-zinc-500 hover:text-amber-500 rounded-md hover:bg-orange-50 transition-colors">
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 </div>

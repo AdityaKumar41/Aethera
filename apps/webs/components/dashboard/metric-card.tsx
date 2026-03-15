@@ -87,7 +87,7 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "group relative bg-card border border-border rounded-2xl p-5 hover:border-accent/50 transition-all duration-300 overflow-hidden",
+        "group relative bg-white border border-zinc-200 rounded-2xl p-5 hover:border-accent/50 transition-all duration-300 overflow-hidden",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
       )}
       style={{ transitionDelay: `${delay * 100}ms` }}
@@ -105,7 +105,7 @@ export function MetricCard({
 
       <div className="relative">
         <div className="flex items-start justify-between mb-4">
-          <span className="text-sm text-muted-foreground font-medium">
+          <span className="text-sm text-zinc-500 font-medium">
             {title}
           </span>
           <div className={cn(
@@ -116,7 +116,7 @@ export function MetricCard({
           )}>
             <Icon className={cn(
               "w-5 h-5 transition-colors duration-300",
-              gradient ? "text-white" : "text-muted-foreground group-hover:text-accent"
+              gradient ? "text-white" : "text-zinc-500 group-hover:text-accent"
             )} />
           </div>
         </div>
@@ -130,7 +130,7 @@ export function MetricCard({
               "flex items-center gap-1 text-sm font-medium mb-1.5",
               changeType === "positive" && "text-success",
               changeType === "negative" && "text-destructive",
-              changeType === "neutral" && "text-muted-foreground"
+              changeType === "neutral" && "text-zinc-500"
             )}
           >
             {changeType === "positive" && <TrendingUp className="w-4 h-4" />}

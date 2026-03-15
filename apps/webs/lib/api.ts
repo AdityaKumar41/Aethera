@@ -139,6 +139,10 @@ export const projectApi = {
       method: "POST",
       body: data,
     }),
+  getMyProductionHistory: () =>
+    apiRequest<{ records: any[]; totalKwh: number; avgDailyKwh: number }>(
+      "/api/projects/my/production",
+    ),
 };
 
 export const oracleApi = {
@@ -163,6 +167,11 @@ export const adminApi = {
   getPendingKYC: () => apiRequest<any[]>("/api/admin/kyc/pending"),
   approveKYC: (userId: string) =>
     apiRequest<any>(`/api/admin/kyc/${userId}/approve`, { method: "POST" }),
+  rejectKYC: (userId: string, reason?: string) =>
+    apiRequest<any>(`/api/admin/kyc/${userId}/reject`, {
+      method: "POST",
+      body: { reason: reason || "Does not meet verification requirements" },
+    }),
   getStats: () => apiRequest<any>("/api/admin/dashboard"),
   getPendingProjects: () =>
     apiRequest<Project[]>("/api/admin/projects/pending"),
@@ -210,7 +219,7 @@ export const walletApi = {
   fundTestUsdc: (amount?: string) =>
     apiRequest<any>("/api/stellar/fund-test-usdc", {
       method: "POST",
-      body: JSON.stringify({ amount: amount || "100" }),
+      body: { amount: amount || "100" },
     }),
 };
 

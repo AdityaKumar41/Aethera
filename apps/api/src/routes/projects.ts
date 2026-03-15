@@ -43,38 +43,48 @@ router.get("/marketplace", async (req, res, next) => {
     const statusStr = (req.query.status as string)?.toUpperCase();
     let where: Prisma.ProjectWhereInput;
 
-    if (!statusStr || statusStr === 'ALL') {
-      where = { 
-        status: { 
+    if (!statusStr || statusStr === "ALL") {
+      where = {
+        status: {
           in: [
-            ProjectStatus.APPROVED, 
-            ProjectStatus.FUNDING, 
-            ProjectStatus.FUNDED, 
+            ProjectStatus.APPROVED,
+            ProjectStatus.FUNDING,
+            ProjectStatus.FUNDED,
             ProjectStatus.ACTIVE_PENDING_DATA,
-            ProjectStatus.ACTIVE, 
-            ProjectStatus.COMPLETED
-          ] 
-        } 
+            ProjectStatus.ACTIVE,
+            ProjectStatus.COMPLETED,
+          ],
+        },
       };
-    } else if (statusStr === 'FUNDING') {
-      where = { 
+    } else if (statusStr === "FUNDING") {
+      where = {
         status: { in: [ProjectStatus.APPROVED, ProjectStatus.FUNDING] },
         // Double check it's not actually full due to a missing state transition
-        tokensRemaining: { gt: 0 }
+        tokensRemaining: { gt: 0 },
       };
-    } else if (statusStr === 'FUNDED') {
-      where = { 
+    } else if (statusStr === "FUNDED") {
+      where = {
         OR: [
           { status: ProjectStatus.FUNDED },
-          { 
+          {
             status: ProjectStatus.FUNDING,
-            tokensRemaining: 0
-          }
-        ]
+            tokensRemaining: 0,
+          },
+        ],
       };
-    } else if (statusStr === 'PRODUCING' || statusStr === 'ACTIVE' || statusStr === 'YIELDING') {
-      where = { 
-        status: { in: [ProjectStatus.ACTIVE, ProjectStatus.ACTIVE_PENDING_DATA, ProjectStatus.COMPLETED] } 
+    } else if (
+      statusStr === "PRODUCING" ||
+      statusStr === "ACTIVE" ||
+      statusStr === "YIELDING"
+    ) {
+      where = {
+        status: {
+          in: [
+            ProjectStatus.ACTIVE,
+            ProjectStatus.ACTIVE_PENDING_DATA,
+            ProjectStatus.COMPLETED,
+          ],
+        },
       };
     } else {
       where = { status: statusStr as ProjectStatus };
@@ -192,7 +202,11 @@ router.post(
       });
 
       if (!user || user.kycStatus !== "VERIFIED") {
-        throw createApiError("KYC verification required before creating projects", 403, "KYC_REQUIRED");
+        throw createApiError(
+          "KYC verification required before creating projects",
+          403,
+          "KYC_REQUIRED",
+        );
       }
 
       const data = createProjectSchema.parse(req.body);
@@ -246,11 +260,41 @@ router.post(
       // If milestone-based, create default milestones
       if (data.fundingModel === "MILESTONE_BASED") {
         const defaultMilestones = [
-          { name: "Equipment Procurement", description: "Panels, inverter purchased", order: 1, releasePercentage: 25, verificationMethod: "DOCUMENT" as const },
-          { name: "Site Installation", description: "Mechanical and electrical assembly", order: 2, releasePercentage: 35, verificationMethod: "PHOTO" as const },
-          { name: "Grid Connection", description: "Utility approval and physical connection", order: 3, releasePercentage: 20, verificationMethod: "DOCUMENT" as const },
-          { name: "Commissioning", description: "System power on and performance testing", order: 4, releasePercentage: 10, verificationMethod: "IOT" as const },
-          { name: "Operational Start", description: "Final handover and yield start", order: 5, releasePercentage: 10, verificationMethod: "ORACLE" as const },
+          {
+            name: "Equipment Procurement",
+            description: "Panels, inverter purchased",
+            order: 1,
+            releasePercentage: 25,
+            verificationMethod: "DOCUMENT" as const,
+          },
+          {
+            name: "Site Installation",
+            description: "Mechanical and electrical assembly",
+            order: 2,
+            releasePercentage: 35,
+            verificationMethod: "PHOTO" as const,
+          },
+          {
+            name: "Grid Connection",
+            description: "Utility approval and physical connection",
+            order: 3,
+            releasePercentage: 20,
+            verificationMethod: "DOCUMENT" as const,
+          },
+          {
+            name: "Commissioning",
+            description: "System power on and performance testing",
+            order: 4,
+            releasePercentage: 10,
+            verificationMethod: "IOT" as const,
+          },
+          {
+            name: "Operational Start",
+            description: "Final handover and yield start",
+            order: 5,
+            releasePercentage: 10,
+            verificationMethod: "ORACLE" as const,
+          },
         ];
 
         for (const m of defaultMilestones) {
@@ -261,7 +305,8 @@ router.post(
               description: m.description,
               order: m.order,
               releasePercentage: m.releasePercentage,
-              releaseAmount: (project.fundingTarget.toNumber() * m.releasePercentage) / 100,
+              releaseAmount:
+                (project.fundingTarget.toNumber() * m.releasePercentage) / 100,
               verificationMethod: m.verificationMethod,
               status: "PENDING",
             },
@@ -385,7 +430,11 @@ router.post(
       });
 
       if (!user || user.kycStatus !== "VERIFIED") {
-        throw createApiError("KYC verification required before submitting projects", 403, "KYC_REQUIRED");
+        throw createApiError(
+          "KYC verification required before submitting projects",
+          403,
+          "KYC_REQUIRED",
+        );
       }
 
       const project = await prisma.project.findFirst({
@@ -425,6 +474,60 @@ router.post(
         success: true,
         message: "Project submitted for approval",
         data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ============================================
+// Get Production History (Installers)
+// ============================================
+
+router.get(
+  "/my/production",
+  authenticate,
+  requireRole("INSTALLER"),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const productions = await prisma.productionData.findMany({
+        where: {
+          project: { installerId: req.auth?.userId },
+        },
+        include: {
+          project: { select: { id: true, name: true } },
+        },
+        orderBy: { recordedAt: "desc" },
+        take: 50,
+      });
+
+      // Compute summary stats across all installer projects
+      const projects = await prisma.project.findMany({
+        where: { installerId: req.auth?.userId },
+        select: { totalEnergyProduced: true },
+      });
+
+      const totalKwh = projects.reduce(
+        (sum: number, p: any) => sum + Number(p.totalEnergyProduced || 0),
+        0,
+      );
+
+      const avgDaily =
+        productions.length > 0
+          ? productions.reduce(
+              (sum: number, p: any) => sum + Number(p.energyProduced),
+              0,
+            ) / productions.length
+          : 0;
+
+      res.json({
+        success: true,
+        data: {
+          records: productions,
+          totalKwh,
+          avgDailyKwh: avgDaily,
+        },
       });
     } catch (error) {
       next(error);
@@ -488,7 +591,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 export default router;

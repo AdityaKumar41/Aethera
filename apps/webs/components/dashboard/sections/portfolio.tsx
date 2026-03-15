@@ -128,8 +128,8 @@ export function PortfolioSection() {
       {/* Loading overlay */}
       {loading && !portfolio && (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+          <span className="ml-2 text-sm text-zinc-500">
             Loading portfolio...
           </span>
         </div>

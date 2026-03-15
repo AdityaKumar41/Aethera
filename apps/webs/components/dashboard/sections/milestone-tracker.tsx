@@ -129,7 +129,7 @@ export function MilestoneTracker({ projectId, isAdmin = false, onUpdate }: Miles
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
       </div>
     );
   }
@@ -147,7 +147,7 @@ export function MilestoneTracker({ projectId, isAdmin = false, onUpdate }: Miles
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-bold">Funding Milestones</h3>
-        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
           {milestones.filter(m => m.status === 'RELEASED').length} / {milestones.length} Completed
         </span>
       </div>
@@ -184,7 +184,7 @@ export function MilestoneTracker({ projectId, isAdmin = false, onUpdate }: Miles
                 <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
                   <div>
                     <h4 className="font-bold text-zinc-900">{milestone.name}</h4>
-                    <p className="text-sm text-muted-foreground mt-0.5">{milestone.description}</p>
+                    <p className="text-sm text-zinc-500 mt-0.5">{milestone.description}</p>
                   </div>
                   <div className={cn(
                     "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5",

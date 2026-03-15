@@ -61,12 +61,12 @@ export function Header({ activeSection, userRole = "INVESTOR", walletAddress }: 
   };
 
   return (
-    <header className="h-16 border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-6">
+    <header className="h-16 border-b border-zinc-200 bg-white/80 backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-6">
       <div className="flex flex-col">
         <h1 className="text-lg font-semibold text-foreground">
           {titles[activeSection] || "Dashboard"}
         </h1>
-        <p className="text-xs text-muted-foreground hidden sm:block">
+        <p className="text-xs text-zinc-500 hidden sm:block">
           {descriptions[activeSection] || ""}
         </p>
       </div>
@@ -79,18 +79,18 @@ export function Header({ activeSection, userRole = "INVESTOR", walletAddress }: 
             searchFocused ? "w-64" : "w-48"
           )}
         >
-          <Search className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Search className="absolute left-3 w-4 h-4 text-zinc-500 pointer-events-none" />
           <input
             type="text"
             placeholder="Search projects..."
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            className="w-full h-9 pl-9 pr-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-200"
+            className="w-full h-9 pl-9 pr-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-200"
           />
         </div>
 
         {/* Notifications */}
-        <button className="relative w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-zinc-100 transition-all duration-200">
+        <button className="relative w-9 h-9 flex items-center justify-center rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-all duration-200">
           <Bell className="w-5 h-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
         </button>
@@ -106,7 +106,7 @@ export function Header({ activeSection, userRole = "INVESTOR", walletAddress }: 
               copied ? (
                 <Check className="w-3.5 h-3.5 text-emerald-500" />
               ) : (
-                <Copy className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <Copy className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-900 transition-colors" />
               )
             )}
           </button>

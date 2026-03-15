@@ -8,46 +8,45 @@ import {
   Sun,
   TrendingUp,
   Battery,
-  MoreVertical,
   Loader2,
   DollarSign,
+  MapPin,
+  ArrowRight,
 } from "lucide-react";
 import { useInvestments, usePortfolio } from "@/hooks/use-dashboard-data";
 import { SellTokensModal } from "@/components/dashboard/sell-tokens-modal";
 import { SecondaryMarket } from "@/components/dashboard/secondary-market";
-import { Button } from "@/components/ui/button";
 
-const statusConfig = {
+const statusConfig: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
   producing: {
     label: "Producing",
-    color: "bg-emerald-500",
-    textColor: "text-emerald-600",
+    color: "text-emerald-700",
+    bg: "bg-emerald-100",
   },
-  funding: {
-    label: "Funding",
-    color: "bg-amber-500",
-    textColor: "text-amber-600",
-  },
-  funded: { label: "Funded", color: "bg-blue-500", textColor: "text-blue-600" },
+  funding: { label: "Funding", color: "text-amber-700", bg: "bg-amber-100" },
+  funded: { label: "Funded", color: "text-blue-700", bg: "bg-blue-100" },
   maintenance: {
     label: "Maintenance",
-    color: "bg-orange-500",
-    textColor: "text-orange-600",
+    color: "text-orange-700",
+    bg: "bg-orange-100",
   },
   confirmed: {
     label: "Confirmed",
-    color: "bg-emerald-500",
-    textColor: "text-emerald-600",
+    color: "text-emerald-700",
+    bg: "bg-emerald-100",
   },
   pending: {
     label: "Pending",
-    color: "bg-amber-500",
-    textColor: "text-amber-600",
+    color: "text-amber-700",
+    bg: "bg-amber-100",
   },
   pending_onchain: {
     label: "Processing",
-    color: "bg-blue-500/80 animate-pulse",
-    textColor: "text-blue-600",
+    color: "text-blue-700",
+    bg: "bg-blue-100",
   },
 };
 
@@ -77,10 +76,9 @@ export function ProjectsSection() {
   const [showSellModal, setShowSellModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Group investments by project and filter out failed ones
+  // Group investments by project
   const projectGroups = investments.reduce((acc: Record<string, any>, inv) => {
     if (inv.status === "FAILED") return acc;
-
     const pid = inv.project.id;
     if (!acc[pid]) {
       acc[pid] = {
@@ -95,11 +93,8 @@ export function ProjectsSection() {
         currentPricePerToken: Number(inv.project.pricePerToken) || 100,
       };
     }
-
     acc[pid].tokensOwned += inv.tokenAmount;
     acc[pid].purchasePrice += Number(inv.amount);
-
-    // Update display status priority
     if (inv.status === "CONFIRMED") acc[pid].investmentStatus = "CONFIRMED";
     else if (
       inv.status === "PENDING_ONCHAIN" &&
@@ -107,7 +102,6 @@ export function ProjectsSection() {
     ) {
       acc[pid].investmentStatus = "PENDING_ONCHAIN";
     }
-
     return acc;
   }, {});
 
@@ -125,13 +119,11 @@ export function ProjectsSection() {
       status: (() => {
         const pStatus = group.projectStatus?.toLowerCase();
         const iStatus = group.investmentStatus.toLowerCase();
-
         if (pStatus === "active" || pStatus === "producing") return "producing";
         if (iStatus === "pending_onchain") return "pending_onchain";
         if (iStatus === "pending") return "pending";
         if (pStatus === "funded") return "funded";
         if (pStatus === "funding") return "funding";
-
         return "confirmed";
       })() as keyof typeof statusConfig,
       energyToday: 0,
@@ -145,18 +137,15 @@ export function ProjectsSection() {
     myProjects.find((p) => p.id === selectedProjectId) || myProjects[0] || null;
 
   const totalValue = portfolio?.totalInvested || 0;
-  const totalYield = 0; // Would come from yield summary
-  const producingProjects = myProjects.filter(
+  const producingCount = myProjects.filter(
     (p) => p.status === "producing",
   ).length;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">
-          Loading projects...
-        </span>
+      <div className="flex items-center justify-center py-16 gap-2">
+        <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+        <span className="text-sm text-zinc-500">Loading investments...</span>
       </div>
     );
   }
@@ -164,7 +153,7 @@ export function ProjectsSection() {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-500">{error}</p>
+        <p className="text-sm text-red-500">{error}</p>
       </div>
     );
   }
@@ -173,70 +162,70 @@ export function ProjectsSection() {
     <div className="space-y-6">
       {/* Summary stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="bg-white border border-zinc-100 rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl gradient-solar flex items-center justify-center">
-              <Sun className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
+              <Sun className="w-4 h-4 text-blue-600" />
             </div>
-            <span className="text-sm text-muted-foreground">
-              Total Projects
-            </span>
+            <span className="text-sm text-zinc-500">Total Investments</span>
           </div>
-          <p className="text-3xl font-bold">{myProjects.length}</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {producingProjects} actively producing
+          <p className="text-2xl font-bold text-zinc-900">{myProjects.length}</p>
+          <p className="text-xs text-zinc-400 mt-1">
+            {producingCount} actively producing
           </p>
         </div>
-        <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="bg-white border border-zinc-100 rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl gradient-investment flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
             </div>
-            <span className="text-sm text-muted-foreground">
-              Portfolio Value
-            </span>
+            <span className="text-sm text-zinc-500">Portfolio Value</span>
           </div>
-          <p className="text-3xl font-bold">${totalValue.toLocaleString()}</p>
-          <p className="text-sm text-emerald-600 mt-1">
-            {totalValue > 0 ? "+0.0% all time" : "No investments yet"}
+          <p className="text-2xl font-bold text-zinc-900">
+            ${totalValue.toLocaleString()}
+          </p>
+          <p className="text-xs text-zinc-400 mt-1">
+            {totalValue > 0 ? "Total invested" : "No investments yet"}
           </p>
         </div>
-        <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="bg-white border border-zinc-100 rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl gradient-energy flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-amber-600" />
             </div>
-            <span className="text-sm text-muted-foreground">
-              Total Yield Earned
-            </span>
+            <span className="text-sm text-zinc-500">Total Yield Earned</span>
           </div>
-          <p className="text-3xl font-bold">${totalYield.toLocaleString()}</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Lifetime earnings
-          </p>
+          <p className="text-2xl font-bold text-zinc-900">$0.00</p>
+          <p className="text-xs text-zinc-400 mt-1">Lifetime earnings</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Project list */}
-        <div className="lg:col-span-1 space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">
-            Your Projects
-          </h3>
-          {myProjects.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-6 text-center">
-              <Sun className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No projects yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Visit the Marketplace to invest in a solar project
-              </p>
-            </div>
-          ) : (
-            myProjects.map((project) => {
+      {myProjects.length === 0 ? (
+        <div className="bg-white border border-zinc-100 rounded-2xl p-16 text-center">
+          <Battery className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
+          <h4 className="font-semibold text-zinc-900 mb-2">No investments yet</h4>
+          <p className="text-sm text-zinc-500 mb-5">
+            Visit the Marketplace to invest in a solar project and start earning
+            yield.
+          </p>
+          <a
+            href="/dashboard/marketplace"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors"
+          >
+            Browse Marketplace <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Project list */}
+          <div className="lg:col-span-1 space-y-2">
+            <h3 className="text-sm font-medium text-zinc-500 mb-3">
+              Your Projects
+            </h3>
+            {myProjects.map((project) => {
               const config =
                 statusConfig[project.status] || statusConfig.confirmed;
               const isSelected = selectedProject?.id === project.id;
-
               return (
                 <button
                   key={project.id}
@@ -244,161 +233,151 @@ export function ProjectsSection() {
                   className={cn(
                     "w-full text-left p-4 rounded-xl border transition-all duration-200",
                     isSelected
-                      ? "bg-emerald-50 border-emerald-500"
-                      : "bg-card border-border hover:border-emerald-300",
+                      ? "bg-emerald-50 border-emerald-200"
+                      : "bg-white border-zinc-100 hover:border-zinc-200 hover:bg-zinc-50",
                   )}
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h4 className="font-medium text-foreground">
+                    <div className="flex-1 min-w-0 mr-3">
+                      <h4 className="font-medium text-zinc-900 text-sm truncate">
                         {project.name}
                       </h4>
-                      <p className="text-xs text-muted-foreground">
-                        {project.location}
-                      </p>
+                      <div className="flex items-center gap-1 text-xs text-zinc-400 mt-0.5">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{project.location}</span>
+                      </div>
                     </div>
                     <span
                       className={cn(
-                        "px-2 py-0.5 rounded-full text-xs font-medium",
+                        "flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium",
+                        config.bg,
                         config.color,
-                        "text-white",
                       )}
                     >
                       {config.label}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
+                  <div className="flex items-center justify-between text-sm mt-2">
+                    <span className="text-zinc-400 text-xs">
                       {project.tokensOwned} tokens
                     </span>
-                    <span className="font-medium">
+                    <span className="font-semibold text-zinc-900 text-sm">
                       ${project.tokenValue.toLocaleString()}
                     </span>
                   </div>
                 </button>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
 
-        {/* Project details */}
-        <div className="lg:col-span-2 space-y-6">
-          {!selectedProject ? (
-            <div className="bg-card border border-border rounded-2xl p-12 text-center">
-              <Battery className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h4 className="font-semibold text-lg mb-2">No Projects</h4>
-              <p className="text-sm text-muted-foreground mb-4">
-                You don&apos;t have any solar projects yet. Visit the
-                Marketplace to invest in a project.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Selected project header */}
-              <div className="bg-card border border-border rounded-2xl p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-xl font-semibold">
-                        {selectedProject.name}
-                      </h3>
-                      <span
-                        className={cn(
-                          "px-2 py-0.5 rounded-full text-xs font-medium",
-                          statusConfig[selectedProject.status]?.color ||
-                            "bg-gray-500",
-                          "text-white",
-                        )}
-                      >
-                        {statusConfig[selectedProject.status]?.label ||
-                          selectedProject.status}
-                      </span>
+          {/* Project detail */}
+          <div className="lg:col-span-2 space-y-5">
+            {selectedProject && (
+              <>
+                {/* Header card */}
+                <div className="bg-white border border-zinc-100 rounded-2xl p-6">
+                  <div className="flex items-start justify-between mb-5">
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-1">
+                        <h3 className="text-lg font-semibold text-zinc-900">
+                          {selectedProject.name}
+                        </h3>
+                        <span
+                          className={cn(
+                            "px-2.5 py-0.5 rounded-full text-xs font-medium",
+                            statusConfig[selectedProject.status]?.bg || "bg-zinc-100",
+                            statusConfig[selectedProject.status]?.color || "text-zinc-600",
+                          )}
+                        >
+                          {statusConfig[selectedProject.status]?.label ||
+                            selectedProject.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-zinc-500">
+                        <MapPin className="w-3.5 h-3.5" />
+                        {selectedProject.location}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedProject.location}
-                    </p>
+                    <button
+                      onClick={() => setShowSellModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded-xl text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+                    >
+                      <DollarSign className="w-4 h-4" />
+                      Sell Tokens
+                    </button>
                   </div>
-                  <Button
-                    onClick={() => setShowSellModal(true)}
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                  >
-                    <DollarSign className="h-4 w-4" />
-                    Sell Tokens
-                  </Button>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {[
+                      {
+                        label: "Tokens Owned",
+                        value: selectedProject.tokensOwned,
+                      },
+                      {
+                        label: "Current Value",
+                        value: `$${selectedProject.tokenValue.toLocaleString()}`,
+                      },
+                      {
+                        label: "Total Yield",
+                        value: `$${selectedProject.cumulativeYield.toFixed(2)}`,
+                        emerald: true,
+                      },
+                      {
+                        label: "ROI",
+                        value:
+                          selectedProject.purchasePrice > 0
+                            ? `+${(((selectedProject.tokenValue + selectedProject.cumulativeYield) / selectedProject.purchasePrice - 1) * 100).toFixed(1)}%`
+                            : "N/A",
+                        emerald: true,
+                      },
+                    ].map((stat) => (
+                      <div key={stat.label}>
+                        <p className="text-xs text-zinc-400 mb-1">
+                          {stat.label}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-lg font-semibold",
+                            stat.emerald ? "text-emerald-600" : "text-zinc-900",
+                          )}
+                        >
+                          {stat.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Tokens Owned
-                    </p>
-                    <p className="text-lg font-semibold">
-                      {selectedProject.tokensOwned}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Current Value
-                    </p>
-                    <p className="text-lg font-semibold">
-                      ${selectedProject.tokenValue.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Total Yield
-                    </p>
-                    <p className="text-lg font-semibold text-emerald-600">
-                      ${selectedProject.cumulativeYield.toFixed(2)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">ROI</p>
-                    <p className="text-lg font-semibold text-emerald-600">
-                      {selectedProject.purchasePrice > 0
-                        ? `+${(((selectedProject.tokenValue + selectedProject.cumulativeYield) / selectedProject.purchasePrice - 1) * 100).toFixed(1)}%`
-                        : "N/A"}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                <SecondaryMarket
+                  key={refreshKey}
+                  projectId={selectedProject.projectId}
+                  projectName={selectedProject.name}
+                  currentPrice={selectedProject.pricePerToken}
+                />
 
-              {/* Secondary Market */}
-              <SecondaryMarket
-                key={refreshKey}
-                projectId={selectedProject.projectId}
-                projectName={selectedProject.name}
-                currentPrice={selectedProject.pricePerToken}
-              />
+                {selectedProject.status === "producing" && (
+                  <EnergyProductionChart />
+                )}
 
-              {/* Energy production chart */}
-              {selectedProject.status === "producing" && (
-                <EnergyProductionChart />
-              )}
-
-              {(selectedProject.status === "funding" ||
-                selectedProject.status === "pending") && (
-                <div className="bg-card border border-border rounded-2xl p-6 text-center">
-                  <Battery className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <h4 className="font-medium mb-2">Project Still Funding</h4>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    This project is still in the funding phase. Energy
-                    production data will be available once the project is
-                    operational.
-                  </p>
-                  <button className="px-4 py-2 bg-zinc-100 text-foreground rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors">
-                    View Project Details
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+                {(selectedProject.status === "funding" ||
+                  selectedProject.status === "pending") && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6 text-center">
+                    <Battery className="w-10 h-10 text-amber-400 mx-auto mb-3" />
+                    <h4 className="font-medium text-zinc-900 mb-1">
+                      Project in Funding Phase
+                    </h4>
+                    <p className="text-sm text-zinc-500">
+                      Energy production data will be available once the project
+                      is fully funded and operational.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Sell Tokens Modal */}
       {selectedProject && (
         <SellTokensModal
           isOpen={showSellModal}
@@ -407,9 +386,7 @@ export function ProjectsSection() {
           projectName={selectedProject.name}
           availableTokens={selectedProject.tokensOwned}
           currentPrice={selectedProject.pricePerToken}
-          onSuccess={() => {
-            setRefreshKey((prev) => prev + 1);
-          }}
+          onSuccess={() => setRefreshKey((prev) => prev + 1)}
         />
       )}
     </div>
