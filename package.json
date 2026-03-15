@@ -13,6 +13,7 @@
     "db:generate": "pnpm --filter database db:generate",
     "db:push": "pnpm --filter database db:push",
     "db:migrate": "pnpm --filter database db:migrate",
+    "db:migrate:deploy": "pnpm --filter @aethera/database db:migrate:deploy",
     "contracts:build": "pnpm --filter contracts build",
     "contracts:test": "pnpm --filter contracts test",
     "contracts:deploy-core": "node scripts/contracts/deploy-core.js",

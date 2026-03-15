@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: aethera-api
+    runtime: node
+    region: oregon
+    plan: starter
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm turbo build --filter=@aethera/api
+    startCommand: node apps/api/dist/index.js
+    healthCheckPath: /health
+    # Run DB migrations just before each new deployment goes live
+    preDeployCommand: pnpm --filter @aethera/database db:migrate:deploy
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # ── Database ────────────────────────────────────────────────────────
+      # PostgreSQL connection string (add ?schema=public if using Supabase)
+      - key: DATABASE_URL
+        sync: false
+
+      # ── Clerk Auth ───────────────────────────────────────────────────────
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
+        sync: false
+
+      # ── Stellar / Blockchain ─────────────────────────────────────────────
+      # TESTNET or MAINNET
+      - key: STELLAR_NETWORK
+        value: TESTNET
+      # Secret key of the relayer/admin Stellar account (used for token minting)
+      - key: STAT_RELAYER_SECRET
+        sync: false
+      # Encryption passphrase for storing user wallet secrets in DB
+      - key: STELLAR_SECRET_ENCRYPTION_KEY
+        sync: false
+      # Encryption passphrase for wallet operations
+      - key: WALLET_ENCRYPTION_SECRET
+        sync: false
+      # Encrypted admin relayer secret for project activation (capital release)
+      - key: ADMIN_RELAYER_SECRET_ENCRYPTED
+        sync: false
+
+      # ── CORS ─────────────────────────────────────────────────────────────
+      # Comma-separated list of allowed frontend origins
+      # e.g. https://your-frontend.vercel.app,https://yourdomain.com
+      - key: FRONTEND_URL
+        sync: false
+
+      # ── KYC (optional — omit if not using Sumsub) ────────────────────────
+      - key: SUMSUB_APP_TOKEN
+        sync: false
+      - key: SUMSUB_SECRET_KEY
+        sync: false
+
+      # ── Misc ─────────────────────────────────────────────────────────────
+      # Set to "true" to bypass KYC checks in production (NOT recommended)
+      - key: MOCK_KYC
+        value: "false"
+      # Set to "true" to skip startup env validation (NOT recommended)
+      - key: SKIP_ENV_VALIDATION
+        value: "false"
