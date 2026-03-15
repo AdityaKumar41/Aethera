@@ -111,13 +111,17 @@ export class YieldService {
       }
     } catch (error: any) {
       console.error("On-chain distribution failed:", error);
-      // We still return the DB distribution, but marked as not on-chain yet
+      return {
+        success: false,
+        distributionId: distribution.id,
+        error: `On-chain anchoring failed: ${error.message || "Unknown error"}. Claims were created but are not claimable until on-chain distribution succeeds.`,
+      };
     }
 
     return {
       success: true,
       distributionId: distribution.id,
-      notice: "On-chain anchoring failed or skipped",
+      notice: "On-chain anchoring skipped (no contract configured). Claims created in DB only.",
     };
   }
 

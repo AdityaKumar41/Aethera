@@ -310,6 +310,13 @@ router.post(
         throw createApiError("Project not found", 404);
       }
 
+      if (project.status !== "APPROVED") {
+        throw createApiError(
+          `Project must be in APPROVED status to deploy token (current: ${project.status})`,
+          400,
+        );
+      }
+
       if (project.tokenContractId) {
         throw createApiError("Token contract already deployed", 400);
       }
@@ -359,10 +366,13 @@ router.post(
         BigInt(Math.floor(Number(project.pricePerToken) * 1_000_000)),
       );
 
-      // 4. Store the real contract ID in the database
+      // 4. Store the real contract ID and transition to FUNDING
       await prisma.project.update({
         where: { id: req.params.projectId },
-        data: { tokenContractId: deployed.contractId },
+        data: {
+          tokenContractId: deployed.contractId,
+          status: "FUNDING",
+        },
       });
 
       res.json({

@@ -185,6 +185,10 @@ export const adminApi = {
     }),
   activateProject: (id: string) =>
     apiRequest<any>(`/api/admin/projects/${id}/activate`, { method: "POST" }),
+  deployToken: (projectId: string) =>
+    apiRequest<any>(`/api/stellar/admin/deploy-token/${projectId}`, {
+      method: "POST",
+    }),
   verifyMilestone: (id: string) =>
     apiRequest<any>(`/api/milestones/${id}/verify`, { method: "POST" }),
   rejectMilestone: (id: string, reason: string) =>
@@ -193,6 +197,17 @@ export const adminApi = {
       body: { reason },
     }),
   getSubmittedMilestones: () => apiRequest<any[]>("/api/milestones/submitted"),
+  getActiveProjects: () =>
+    apiRequest<Project[]>("/api/admin/projects/active"),
+  distributeYield: (data: {
+    projectId: string;
+    periodStart: string;
+    periodEnd: string;
+    revenuePerKwh?: number;
+    platformFeePercent?: number;
+    notes?: string;
+  }) =>
+    apiRequest<any>("/api/yields/distribute", { method: "POST", body: data }),
 };
 
 export const milestoneApi = {

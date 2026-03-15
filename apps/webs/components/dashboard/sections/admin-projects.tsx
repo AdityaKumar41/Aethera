@@ -15,6 +15,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Zap,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest, adminApi, type Project } from "@/lib/api";
@@ -22,7 +23,7 @@ import { toast } from "sonner";
 
 export function AdminProjectsSection() {
   const [activeTab, setActiveTab] = useState<
-    "projects" | "activation" | "milestones"
+    "projects" | "activation" | "milestones" | "yield"
   >("projects");
   const [projects, setProjects] = useState<Project[]>([]);
   const [milestones, setMilestones] = useState<any[]>([]);
@@ -72,6 +73,20 @@ export function AdminProjectsSection() {
     }
   };
 
+  const fetchActiveProjects = async () => {
+    setLoading(true);
+    try {
+      const response = await adminApi.getActiveProjects();
+      if (response.success) {
+        setProjects(response.data || []);
+      }
+    } catch (err) {
+      toast.error("Failed to fetch active projects");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     setProjects([]);
     setMilestones([]);
@@ -79,6 +94,8 @@ export function AdminProjectsSection() {
       fetchPendingProjects();
     } else if (activeTab === "activation") {
       fetchFundedProjects();
+    } else if (activeTab === "yield") {
+      fetchActiveProjects();
     } else {
       fetchSubmittedMilestones();
     }
@@ -88,12 +105,25 @@ export function AdminProjectsSection() {
     setProcessingId(id);
     try {
       const response = await adminApi.approveProject(id);
-      if (response.success) {
-        toast.success("Project approved and token contract deployed!");
-        setProjects((prev) => prev.filter((p) => p.id !== id));
-      } else {
+      if (!response.success) {
         toast.error(response.error || "Failed to approve project");
+        return;
       }
+
+      // Chain token deployment (APPROVED → FUNDING)
+      const deployResponse = await adminApi.deployToken(id);
+      if (!deployResponse.success) {
+        toast.warning(
+          "Project approved but token deployment failed: " +
+            (deployResponse.error || "Unknown error") +
+            ". Try deploying the token manually.",
+        );
+        setProjects((prev) => prev.filter((p) => p.id !== id));
+        return;
+      }
+
+      toast.success("Project approved and token contract deployed!");
+      setProjects((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       toast.error("An error occurred during approval");
     } finally {
@@ -183,6 +213,32 @@ export function AdminProjectsSection() {
     }
   };
 
+  const handleDistributeYield = async (projectId: string) => {
+    const periodEnd = new Date();
+    const periodStart = new Date();
+    periodStart.setDate(periodStart.getDate() - 30);
+
+    setProcessingId(projectId);
+    try {
+      const response = await adminApi.distributeYield({
+        projectId,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+        revenuePerKwh: 0.12,
+        platformFeePercent: 10,
+      });
+      if (response.success) {
+        toast.success(response.message || "Yield distributed successfully!");
+      } else {
+        toast.error(response.error || "Yield distribution failed");
+      }
+    } catch (err) {
+      toast.error("An error occurred during yield distribution");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   /* Existing handleReject ... */
   /* Existing filteredProjects ... */
 
@@ -235,6 +291,17 @@ export function AdminProjectsSection() {
             >
               Milestones
             </button>
+            <button
+              onClick={() => setActiveTab("yield")}
+              className={cn(
+                "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                activeTab === "yield"
+                  ? "bg-white text-amber-600 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-900",
+              )}
+            >
+              Yield
+            </button>
           </div>
           {/* Search bar ... */}
         </div>
@@ -250,7 +317,7 @@ export function AdminProjectsSection() {
         filteredProjects.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl py-20 text-center">
             <Building2 className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">
+            <h3 className="text-lg font-semibold text-zinc-900">
               No pending projects
             </h3>
             <p className="text-zinc-500 max-w-[280px] mx-auto">
@@ -276,7 +343,7 @@ export function AdminProjectsSection() {
         filteredProjects.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl py-20 text-center">
             <Zap className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">
+            <h3 className="text-lg font-semibold text-zinc-900">
               No projects ready for activation
             </h3>
             <p className="text-zinc-500 max-w-[280px] mx-auto">
@@ -296,15 +363,105 @@ export function AdminProjectsSection() {
             ))}
           </div>
         )
-      ) : (
+      ) : activeTab === "milestones" ? (
         /* Render Milestones */
-        /* ... existing milestone rendering ... */
         <MilestoneList
           milestones={milestones}
           onVerify={handleVerifyMilestone}
           onReject={handleRejectMilestone}
           processingId={processingId}
         />
+      ) : (
+        /* Render Yield Distribution */
+        filteredProjects.length === 0 ? (
+          <div className="bg-white border border-zinc-200 rounded-2xl py-20 text-center">
+            <DollarSign className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-zinc-900">
+              No active projects
+            </h3>
+            <p className="text-zinc-500 max-w-[280px] mx-auto">
+              Projects will appear here once they are active and generating
+              energy.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-6">
+            {filteredProjects.map((project) => (
+              <div
+                key={project.id}
+                className="bg-white border border-zinc-200 rounded-2xl p-6 hover:shadow-md transition-all"
+              >
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="flex-1 space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md tracking-wider bg-emerald-50 text-emerald-700">
+                        {project.status}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold">{project.name}</h3>
+                    <p className="text-sm text-zinc-500 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {project.location}, {project.country}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                      <div className="p-3 bg-zinc-50 rounded-xl">
+                        <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
+                          Capacity
+                        </p>
+                        <p className="text-sm font-bold">
+                          {project.capacity} kW
+                        </p>
+                      </div>
+                      <div className="p-3 bg-zinc-50 rounded-xl">
+                        <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
+                          Investors
+                        </p>
+                        <p className="text-sm font-bold">
+                          {(project as any)._count?.investments || 0}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-zinc-50 rounded-xl">
+                        <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
+                          IoT Devices
+                        </p>
+                        <p className="text-sm font-bold">
+                          {(project as any)._count?.iotDevices || 0}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-zinc-50 rounded-xl">
+                        <p className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
+                          Funding Raised
+                        </p>
+                        <p className="text-sm font-bold text-emerald-600">
+                          ${Number(project.fundingRaised).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:w-[220px] flex flex-col gap-3 justify-center border-t lg:border-t-0 lg:border-l border-zinc-200 pt-6 lg:pt-0 lg:pl-6">
+                    <button
+                      onClick={() => handleDistributeYield(project.id)}
+                      disabled={!!processingId}
+                      className="w-full py-3 px-4 bg-amber-500 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {processingId === project.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <DollarSign className="w-4 h-4" />
+                      )}
+                      Distribute Yield
+                    </button>
+                    <p className="text-[10px] text-zinc-500 text-center leading-tight">
+                      Distributes yield for the last 30 days at $0.12/kWh with
+                      10% platform fee.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   );
@@ -471,7 +628,7 @@ function MilestoneList({ milestones, onVerify, onReject, processingId }: any) {
     return (
       <div className="bg-white border border-zinc-200 rounded-2xl py-20 text-center">
         <Clock className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-lg font-semibold text-zinc-900">
           No pending milestones
         </h3>
         <p className="text-zinc-500 max-w-[280px] mx-auto">

@@ -137,6 +137,31 @@ router.get("/projects/funded", async (req, res, next) => {
 });
 
 // ============================================
+// Active Projects (for Yield Distribution)
+// ============================================
+
+router.get("/projects/active", async (req, res, next) => {
+  try {
+    const projects = await prisma.project.findMany({
+      where: { status: { in: ["ACTIVE", "ACTIVE_PENDING_DATA", "COMPLETED"] } },
+      include: {
+        installer: {
+          select: { id: true, name: true, email: true, company: true },
+        },
+        _count: {
+          select: { investments: true, iotDevices: true },
+        },
+      },
+      orderBy: { startDate: "desc" },
+    });
+
+    res.json({ success: true, data: projects });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
 // Approve Project
 // ============================================
 
