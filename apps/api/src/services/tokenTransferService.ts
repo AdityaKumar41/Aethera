@@ -62,7 +62,7 @@ export class TokenTransferService {
     });
 
     const totalTokensOwned = investments.reduce(
-      (sum, inv) => sum + inv.tokenAmount,
+      (sum: number, inv: any) => sum + inv.tokenAmount,
       0,
     );
 

@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: starter
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile && pnpm turbo build --filter=@aethera/api
+    buildCommand: pnpm install && pnpm turbo build --filter=@aethera/api
     startCommand: node apps/api/dist/index.js
     healthCheckPath: /health
     # Run DB migrations just before each new deployment goes live

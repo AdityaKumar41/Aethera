@@ -166,7 +166,7 @@ export class MilestoneService {
       );
     }
 
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: any) => {
       // 1. Update milestone status
       const updatedMilestone = await tx.projectMilestone.update({
         where: { id: milestoneId },

@@ -202,7 +202,7 @@ export class EventIndexerService {
       .call();
 
     const newLedgers = ledgerResponse.records.filter(
-      (l) => l.sequence > this.state.lastIndexedLedger,
+      (l: any) => l.sequence > this.state.lastIndexedLedger,
     );
 
     for (const ledger of newLedgers.reverse()) {

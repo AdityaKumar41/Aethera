@@ -283,7 +283,7 @@ router.post(
 
       // Calculate total amount
       const totalAmount = claims.reduce(
-        (sum, claim) => sum + Number(claim.amount),
+        (sum: number, claim: any) => sum + Number(claim.amount),
         0,
       );
 
@@ -334,8 +334,8 @@ router.get(
         YieldDistributionService.calculatePendingYield(req.auth?.userId!),
       ]);
 
-      const pendingClaims = allClaims.filter((c) => !c.claimed);
-      const claimedClaims = allClaims.filter((c) => c.claimed);
+      const pendingClaims = allClaims.filter((c: any) => !c.claimed);
+      const claimedClaims = allClaims.filter((c: any) => c.claimed);
 
       res.json({
         success: true,

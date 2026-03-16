@@ -58,11 +58,21 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. curl, server-to-server)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
         callback(null, true);
-      } else {
-        callback(new Error(`CORS: origin ${origin} not allowed`));
+        return;
       }
+      // Allow explicitly listed origins
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      // Allow all Vercel preview/production deployments
+      if (origin.endsWith(".vercel.app")) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
   }),

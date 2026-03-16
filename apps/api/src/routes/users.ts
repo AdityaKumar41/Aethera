@@ -359,11 +359,11 @@ router.get("/portfolio", async (req: AuthenticatedRequest, res, next) => {
 
     // Calculate portfolio stats
     const totalInvested = investments.reduce(
-      (sum: number, inv) => sum + Number(inv.amount),
+      (sum: number, inv: any) => sum + Number(inv.amount),
       0,
     );
     const totalTokens = investments.reduce(
-      (sum: number, inv) => sum + inv.tokenAmount,
+      (sum: number, inv: any) => sum + inv.tokenAmount,
       0,
     );
 
@@ -379,7 +379,7 @@ router.get("/portfolio", async (req: AuthenticatedRequest, res, next) => {
     });
 
     const pendingYieldAmount = pendingYields.reduce(
-      (sum: number, y) => sum + Number(y.amount),
+      (sum: number, y: any) => sum + Number(y.amount),
       0,
     );
 
