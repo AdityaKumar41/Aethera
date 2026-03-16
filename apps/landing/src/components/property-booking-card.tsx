@@ -1,23 +1,30 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import { Sun, ShieldCheck, MapPin, Zap, CheckCircle, Database } from "lucide-react"
-import { cn } from "@/lib/utils"
+import Image from "next/image";
+import {
+  Sun,
+  ShieldCheck,
+  MapPin,
+  Zap,
+  CheckCircle,
+  Database,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface PropertyBookingCardProps {
-  propertyName: string
-  location: string
-  duration: string
-  availableDate: string
-  image: string
-  pricePerNight: number
-  currency?: string
-  propertyType?: string
-  features?: string[]
-  amenities?: string[]
-  rating?: number
-  onBook?: () => void
-  className?: string
+  propertyName: string;
+  location: string;
+  duration: string;
+  availableDate: string;
+  image: string;
+  pricePerNight: number;
+  currency?: string;
+  propertyType?: string;
+  features?: string[];
+  amenities?: string[];
+  rating?: number;
+  onBook?: () => void;
+  className?: string;
 }
 
 export function PropertyBookingCard({
@@ -37,15 +44,23 @@ export function PropertyBookingCard({
 }: PropertyBookingCardProps) {
   return (
     <div
-      className={cn("w-full h-full flex flex-col overflow-hidden rounded-3xl bg-white shadow-card", className)}
+      className={cn(
+        "w-full h-full flex flex-col overflow-hidden rounded-3xl bg-white shadow-card",
+        className,
+      )}
       style={{
         boxShadow:
           "rgba(14, 63, 126, 0.04) 0px 0px 0px 1px, rgba(42, 51, 69, 0.04) 0px 1px 1px -0.5px, rgba(42, 51, 70, 0.04) 0px 3px 3px -1.5px, rgba(42, 51, 70, 0.04) 0px 6px 6px -3px, rgba(14, 63, 126, 0.04) 0px 12px 12px -6px, rgba(14, 63, 126, 0.04) 0px 24px 24px -12px",
       }}
     >
       {/* Image */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden" style={{ position: 'relative' }}>
-        <Image src={image || "/images/solar-field.png"} alt={propertyName} fill className="object-cover" />
+      <div className="relative aspect-[16/9] w-full overflow-hidden">
+        <Image
+          src={image || "/images/solar-field.png"}
+          alt={propertyName}
+          fill
+          className="object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
         {rating && (
@@ -57,9 +72,15 @@ export function PropertyBookingCard({
         <div className="absolute bottom-3 left-3 right-3">
           <div className="mb-1 flex items-center gap-2">
             <Sun className="h-5 w-5 text-white" />
-            {propertyType && <span className="text-sm font-medium text-white/90">{propertyType}</span>}
+            {propertyType && (
+              <span className="text-sm font-medium text-white/90">
+                {propertyType}
+              </span>
+            )}
           </div>
-          <h3 className="text-balance text-2xl font-bold text-white">{propertyName}</h3>
+          <h3 className="text-balance text-2xl font-bold text-white">
+            {propertyName}
+          </h3>
         </div>
       </div>
 
@@ -82,10 +103,15 @@ export function PropertyBookingCard({
         {/* Features */}
         {features.length > 0 && (
           <div className="mb-4">
-            <div className="mb-2 text-sm font-semibold text-slate-900">Project Highlights</div>
+            <div className="mb-2 text-sm font-semibold text-slate-900">
+              Project Highlights
+            </div>
             <div className="flex flex-wrap gap-2">
               {features.slice(0, 3).map((feature, index) => (
-                <span key={index} className="rounded-lg bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+                <span
+                  key={index}
+                  className="rounded-lg bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700"
+                >
                   {feature}
                 </span>
               ))}
@@ -102,17 +128,21 @@ export function PropertyBookingCard({
         {amenities.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-3">
             {amenities.slice(0, 3).map((amenity, index) => {
-              let Icon = CheckCircle
-              if (amenity.toLowerCase().includes("verified")) Icon = ShieldCheck
-              if (amenity.toLowerCase().includes("data")) Icon = Database
-              if (amenity.toLowerCase().includes("tokenized")) Icon = Zap
+              let Icon = CheckCircle;
+              if (amenity.toLowerCase().includes("verified"))
+                Icon = ShieldCheck;
+              if (amenity.toLowerCase().includes("data")) Icon = Database;
+              if (amenity.toLowerCase().includes("tokenized")) Icon = Zap;
 
               return (
-                <div key={index} className="flex items-center gap-1.5 text-sm text-slate-600">
+                <div
+                  key={index}
+                  className="flex items-center gap-1.5 text-sm text-slate-600"
+                >
                   <Icon className="h-4 w-4" />
                   <span>{amenity}</span>
                 </div>
-              )
+              );
             })}
           </div>
         )}
@@ -124,7 +154,10 @@ export function PropertyBookingCard({
             <div className="text-2xl font-bold text-slate-900">
               {currency}
               {pricePerNight}
-              <span className="text-sm font-normal text-slate-500"> / fraction</span>
+              <span className="text-sm font-normal text-slate-500">
+                {" "}
+                / fraction
+              </span>
             </div>
           </div>
           <a
@@ -136,5 +169,5 @@ export function PropertyBookingCard({
         </div>
       </div>
     </div>
-  )
+  );
 }

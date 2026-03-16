@@ -1,5 +1,5 @@
-import { ArrowUpRight, ArrowRight } from "lucide-react"
-import { AnimatedRevenueChart } from "./animated-revenue-chart"
+import { ArrowUpRight, ArrowRight } from "lucide-react";
+import { AnimatedRevenueChart } from "./animated-revenue-chart";
 
 export function CTASection() {
   return (
@@ -16,18 +16,25 @@ export function CTASection() {
             Ready to fund the future?
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto mb-10">
-            Join the Aethera network and help bridge the $350B global financing gap for renewable energy.
+            Join the Aethera network and help bridge the $350B global financing
+            gap for renewable energy.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="https://aethera-webs.vercel.app" className="relative flex items-center justify-center gap-0 bg-foreground text-background rounded-full pl-6 pr-1.5 py-1.5 transition-all duration-300 group overflow-hidden">
+            <a
+              href="https://aethera-webs.vercel.app"
+              className="relative flex items-center justify-center gap-0 bg-foreground text-background rounded-full pl-6 pr-1.5 py-1.5 transition-all duration-300 group overflow-hidden"
+            >
               <span className="text-sm pr-4">Invest Now</span>
               <span className="w-10 h-10 bg-background rounded-full flex items-center justify-center">
                 <ArrowUpRight className="w-4 h-4 text-foreground" />
               </span>
             </a>
 
-            <a href="https://aethera-webs.vercel.app" className="relative flex items-center justify-center gap-0 border border-border rounded-full pl-6 pr-1.5 py-1.5 transition-all duration-300 group overflow-hidden">
+            <a
+              href="https://aethera-webs.vercel.app"
+              className="relative flex items-center justify-center gap-0 border border-border rounded-full pl-6 pr-1.5 py-1.5 transition-all duration-300 group overflow-hidden"
+            >
               <span className="absolute inset-0 bg-foreground rounded-full scale-x-0 origin-right group-hover:scale-x-100 transition-transform duration-300" />
               <span className="text-sm text-foreground group-hover:text-background pr-4 relative z-10 transition-colors duration-300">
                 Get Funding
@@ -47,18 +54,24 @@ export function CTASection() {
         <div className="flex flex-col md:flex-row items-center justify-center gap-16">
           <div className="text-center">
             <p className="text-7xl font-light text-foreground">10K+</p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Global Investors</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              Global Investors
+            </p>
           </div>
           <div className="text-center">
             <p className="text-7xl font-light text-foreground">25+</p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Solar Assets</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              Solar Assets
+            </p>
           </div>
           <div className="text-center">
             <p className="text-7xl font-light text-foreground">$1.2B+</p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Project Pipeline</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              Project Pipeline
+            </p>
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }
