@@ -20,14 +20,14 @@ export function CTASection() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="http://localhost:3001" className="relative flex items-center justify-center gap-0 bg-foreground text-background rounded-full pl-6 pr-1.5 py-1.5 transition-all duration-300 group overflow-hidden">
+            <a href="https://aethera-webs.vercel.app" className="relative flex items-center justify-center gap-0 bg-foreground text-background rounded-full pl-6 pr-1.5 py-1.5 transition-all duration-300 group overflow-hidden">
               <span className="text-sm pr-4">Invest Now</span>
               <span className="w-10 h-10 bg-background rounded-full flex items-center justify-center">
                 <ArrowUpRight className="w-4 h-4 text-foreground" />
               </span>
             </a>
 
-            <a href="http://localhost:3001" className="relative flex items-center justify-center gap-0 border border-border rounded-full pl-6 pr-1.5 py-1.5 transition-all duration-300 group overflow-hidden">
+            <a href="https://aethera-webs.vercel.app" className="relative flex items-center justify-center gap-0 border border-border rounded-full pl-6 pr-1.5 py-1.5 transition-all duration-300 group overflow-hidden">
               <span className="absolute inset-0 bg-foreground rounded-full scale-x-0 origin-right group-hover:scale-x-100 transition-transform duration-300" />
               <span className="text-sm text-foreground group-hover:text-background pr-4 relative z-10 transition-colors duration-300">
                 Get Funding

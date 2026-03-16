@@ -128,7 +128,7 @@ export function PropertyBookingCard({
             </div>
           </div>
           <a
-            href="http://localhost:3001"
+            href="https://aethera-webs.vercel.app"
             className="rounded-xl bg-foreground px-6 py-3 font-semibold text-background transition-colors hover:bg-foreground/90 text-sm"
           >
             Invest Now
