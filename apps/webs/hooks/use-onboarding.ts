@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
+import { userApi } from "@/lib/api";
 
 interface UserProfile {
   id: string;
@@ -49,25 +50,20 @@ export function useOnboardingStatus(): OnboardingStatus {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
-          credentials: "include",
-        });
+        const result = await userApi.getMe();
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data) {
-            const userData = data.data as UserProfile;
-            // User exists in our DB with a role
-            setStatus({
-              isComplete: userData.role !== 'UNSET',
-              role: userData.role,
-              loading: false,
-              user: userData,
-              walletAddress: userData.stellarPubKey,
-              kycStatus: userData.kycStatus,
-            });
-            return;
-          }
+        if (result.success && result.data) {
+          const userData = result.data as UserProfile;
+          // User exists in our DB with a role
+          setStatus({
+            isComplete: userData.role !== 'UNSET',
+            role: userData.role,
+            loading: false,
+            user: userData,
+            walletAddress: userData.stellarPubKey,
+            kycStatus: userData.kycStatus,
+          });
+          return;
         }
 
         // User doesn't exist or API error

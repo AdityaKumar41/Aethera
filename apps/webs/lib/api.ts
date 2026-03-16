@@ -97,6 +97,12 @@ export const userApi = {
     apiRequest<WalletBalances>("/api/users/wallet/balances"),
   getWalletTransactions: () =>
     apiRequest<Transaction[]>("/api/users/wallet/transactions"),
+  sync: (data: any) =>
+    apiRequest<UserProfile>("/api/auth/sync", {
+      method: "POST",
+      body: data,
+    }),
+  getMe: () => apiRequest<UserProfile>("/api/auth/me"),
 };
 
 export interface Transaction {

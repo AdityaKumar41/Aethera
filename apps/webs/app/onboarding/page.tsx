@@ -47,24 +47,15 @@ export default function OnboardingPage() {
     setError(null);
 
     try {
-      // Sync user with backend including role
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email: user?.primaryEmailAddress?.emailAddress,
-          name: data.name || user?.fullName,
-          role: data.role,
-          company: data.company,
-          phone: data.phone,
-          country: data.country,
-        }),
+      // Sync user with backend including role using the authenticated client
+      const result = await userApi.sync({
+        email: user?.primaryEmailAddress?.emailAddress,
+        name: data.name || user?.fullName,
+        role: data.role,
+        company: data.company,
+        phone: data.phone,
+        country: data.country,
       });
-
-      const result = await response.json();
 
       if (result.success) {
         // Redirect to appropriate dashboard
