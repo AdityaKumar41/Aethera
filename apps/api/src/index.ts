@@ -50,7 +50,9 @@ const PORT = process.env.PORT || 3001;
 // ============================================
 
 // CORS
-const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:3000,http://localhost:3001")
+const allowedOrigins = (
+  process.env.FRONTEND_URL || "http://localhost:3000,http://localhost:3001"
+)
   .split(",")
   .map((o) => o.trim());
 

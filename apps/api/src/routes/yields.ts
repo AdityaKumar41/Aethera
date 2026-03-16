@@ -278,7 +278,7 @@ router.post(
       // Process batch claim through YieldService
       const results = await yieldService.batchClaim(
         claimIds,
-        req.auth?.userId!
+        req.auth?.userId!,
       );
 
       // Calculate total amount
