@@ -6,9 +6,9 @@
  * all deployed Soroban contracts, with TransactionLog persistence.
  */
 
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { prisma } from "@aethera/database";
+import { prisma, TransactionLog } from "@aethera/database";
 import { contractService, getContractAddresses } from "@aethera/stellar";
 import {
   Keypair,
@@ -142,7 +142,7 @@ router.get(
   "/status",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const deployed = getDeployedContracts();
       const adminKeypair = getAdminKeypair();
@@ -217,7 +217,7 @@ router.post(
   "/pause/:contractKey",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { contractKey } = req.params;
       const { reason } = pauseSchema.parse(req.body);
@@ -317,7 +317,7 @@ router.post(
   "/unpause/:contractKey",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { contractKey } = req.params;
       const { reason } = pauseSchema.parse(req.body);
@@ -414,7 +414,7 @@ router.post(
   "/emergency-pause-all",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { reason } = pauseSchema.parse(req.body);
       const adminId = req.auth?.userId!;
@@ -511,7 +511,7 @@ router.post(
   "/unpause-all",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { reason } = pauseSchema.parse(req.body);
       const adminId = req.auth?.userId!;
@@ -603,7 +603,7 @@ router.get(
   "/history",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const limit = Math.min(
         parseInt(req.query.limit as string, 10) || 50,
@@ -618,7 +618,7 @@ router.get(
         take: limit,
       });
 
-      const history: PauseEvent[] = logs.map((log) => {
+      const history: PauseEvent[] = logs.map((log: TransactionLog) => {
         const meta = (log.metadata as Record<string, unknown>) || {};
         return {
           id: log.id,
@@ -650,7 +650,7 @@ router.get(
   "/contract/:contractKey",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { contractKey } = req.params;
 
@@ -700,7 +700,7 @@ router.get(
         take: 10,
       });
 
-      const history: PauseEvent[] = historyLogs.map((log) => {
+      const history: PauseEvent[] = historyLogs.map((log: TransactionLog) => {
         const meta = (log.metadata as Record<string, unknown>) || {};
         return {
           id: log.id,

@@ -13,8 +13,8 @@ import {
   Networks,
 } from "@stellar/stellar-sdk";
 import type { Horizon } from "@stellar/stellar-sdk";
-import { StellarClient, stellarClient } from "./client";
-import { getNetworkConfig } from "./config";
+import { StellarClient, stellarClient } from "./client.js";
+import { getNetworkConfig } from "./config.js";
 import crypto from "crypto";
 
 export interface RelayerWalletInfo {

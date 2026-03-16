@@ -2,7 +2,7 @@
 // Oracle Service - Production Data Management
 // ============================================
 
-import { prisma } from "./index";
+import { prisma } from "./index.js";
 import { Prisma } from "@prisma/client";
 
 /**

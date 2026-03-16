@@ -6,9 +6,9 @@ config({ path: path.resolve(__dirname, "../../../.env.local") });
 
 import { Keypair, Asset, Operation, TransactionBuilder, BASE_FEE } from "@stellar/stellar-sdk";
 import { prisma } from "@aethera/database";
-import { walletService } from "./wallet";
-import { stellarClient } from "./client";
-import { getOrCreateRelayerAccount } from "./relayer";
+import { walletService } from "./wallet.js";
+import { stellarClient } from "./client.js";
+import { getOrCreateRelayerAccount } from "./relayer.js";
 
 const USDC_ASSET_TESTNET = new Asset(
   "USDC",

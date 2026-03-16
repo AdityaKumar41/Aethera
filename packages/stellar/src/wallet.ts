@@ -6,7 +6,7 @@ import {
   Asset,
 } from "@stellar/stellar-sdk";
 import crypto from "crypto";
-import { stellarClient } from "./client";
+import { stellarClient } from "./client.js";
 
 // Note: trustlineService import would create circular dependency
 // Trustline creation happens separately after wallet creation

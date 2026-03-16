@@ -5,8 +5,8 @@
 import { Response, NextFunction } from "express";
 import { trustlineService, walletService } from "@aethera/stellar";
 import { prisma } from "@aethera/database";
-import { createApiError } from "./error";
-import type { AuthenticatedRequest } from "./auth";
+import { createApiError } from "./error.js";
+import type { AuthenticatedRequest } from "./auth.js";
 import { Keypair } from "@stellar/stellar-sdk";
 
 /**

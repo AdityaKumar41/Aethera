@@ -11,7 +11,7 @@ import {
   KYC_LEVELS,
   REVIEW_ANSWERS,
   type KycLevel,
-} from "./config";
+} from "./config.js";
 import type {
   SumsubApplicant,
   AccessToken,
@@ -19,7 +19,7 @@ import type {
   ApplicantStatusResponse,
   WebhookPayload,
   WebhookEventType,
-} from "./types";
+} from "./types.js";
 
 export class SumsubService {
   private config: SumsubConfig;

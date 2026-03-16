@@ -5,9 +5,9 @@
  * Interacts with the on-chain Governance contract via Soroban.
  */
 
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { prisma } from "@aethera/database";
+import { prisma, TransactionLog } from "@aethera/database";
 import {
   contractService,
   walletService,
@@ -122,7 +122,7 @@ interface Proposal {
 // Get Governance Info
 // ============================================
 
-router.get("/info", async (req, res, next) => {
+router.get("/info", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const governanceAddr = getGovernanceAddress();
 
@@ -169,7 +169,7 @@ router.get("/info", async (req, res, next) => {
 // List Active Proposals (DB-backed cache)
 // ============================================
 
-router.get("/proposals", async (req, res, next) => {
+router.get("/proposals", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { status, proposer, limit = "10", offset = "0" } = req.query;
     const take = Math.min(parseInt(limit as string, 10) || 10, 100);
@@ -195,7 +195,7 @@ router.get("/proposals", async (req, res, next) => {
       prisma.transactionLog.count({ where }),
     ]);
 
-    const proposals: Proposal[] = logs.map((log) => {
+    const proposals: Proposal[] = logs.map((log: TransactionLog) => {
       const meta = (log.metadata as Record<string, unknown>) || {};
       return {
         id: Number(meta.proposalId ?? 0),
@@ -229,7 +229,7 @@ router.get("/proposals", async (req, res, next) => {
 // Get Proposal by ID (on-chain)
 // ============================================
 
-router.get("/proposals/:id", async (req, res, next) => {
+router.get("/proposals/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const proposalId = parseInt(req.params.id, 10);
     const governanceAddr = getGovernanceAddress();
@@ -296,7 +296,7 @@ const createProposalSchema = z.object({
 router.post(
   "/proposals",
   authenticate,
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const data = createProposalSchema.parse(req.body);
       const userId = req.auth?.userId!;
@@ -391,7 +391,7 @@ const voteSchema = z.object({
 router.post(
   "/proposals/:id/vote",
   authenticate,
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const proposalId = parseInt(req.params.id, 10);
       const { choice } = voteSchema.parse(req.body);
@@ -640,7 +640,7 @@ router.post("/proposals/:id/execute", async (req, res, next) => {
 router.post(
   "/proposals/:id/cancel",
   authenticate,
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const proposalId = parseInt(req.params.id, 10);
       const userId = req.auth?.userId!;
@@ -713,7 +713,7 @@ router.post(
 router.get(
   "/my-votes",
   authenticate,
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const userId = req.auth?.userId!;
 
@@ -736,7 +736,7 @@ router.get(
         take: 50,
       });
 
-      const votes = voteLogs.map((log) => {
+      const votes = voteLogs.map((log: TransactionLog) => {
         const meta = (log.metadata as Record<string, unknown>) || {};
         return {
           proposalId: meta.proposalId,
@@ -761,7 +761,7 @@ router.get(
 router.get(
   "/voting-power",
   authenticate,
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const userId = req.auth?.userId!;
 
@@ -831,7 +831,7 @@ router.post(
   "/pause",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const governanceAddr = getGovernanceAddress();
       const adminKeypair = getAdminKeypair();
@@ -883,7 +883,7 @@ router.post(
   "/unpause",
   authenticate,
   requireRole("ADMIN"),
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const governanceAddr = getGovernanceAddress();
       const adminKeypair = getAdminKeypair();

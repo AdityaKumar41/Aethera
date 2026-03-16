@@ -2,9 +2,9 @@
 // Yield Distribution Service
 // ============================================
 
-import { prisma } from "./index";
-import { OracleService } from "./oracle";
-import { AuditLogger } from "./audit";
+import prisma from "./index.js";
+import { OracleService } from "./oracle.js";
+import { AuditLogger } from "./audit.js";
 import { Prisma } from "@prisma/client";
 
 /**

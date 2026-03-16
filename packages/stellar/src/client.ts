@@ -3,7 +3,7 @@
 // ============================================
 
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { getNetworkConfig, type NetworkType } from './config';
+import { getNetworkConfig, type NetworkType } from './config.js';
 
 export class StellarClient {
   private network: NetworkType;

@@ -5,11 +5,11 @@
  */
 
 // Configuration
-export { getSumsubConfig, KYC_LEVELS, REVIEW_STATUSES, REVIEW_ANSWERS } from "./config";
-export type { SumsubConfig, KycLevel, ReviewStatus, ReviewAnswer } from "./config";
+export { getSumsubConfig, KYC_LEVELS, REVIEW_STATUSES, REVIEW_ANSWERS } from "./config.js";
+export type { SumsubConfig, KycLevel, ReviewStatus, ReviewAnswer } from "./config.js";
 
 // Sumsub Service
-export { SumsubService, getSumsubService } from "./sumsub";
+export { SumsubService, getSumsubService } from "./sumsub.js";
 
 // Types
 export type {
@@ -22,4 +22,4 @@ export type {
   WebhookEventType,
   CreateApplicantRequest,
   ApplicantStatusResponse,
-} from "./types";
+} from "./types.js";

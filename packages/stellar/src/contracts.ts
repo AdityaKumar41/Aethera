@@ -3,9 +3,9 @@
 // ============================================
 
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { StellarClient } from './client';
-import { type NetworkType } from './config';
-import { getRelayerService } from './relayer';
+import { StellarClient } from './client.js';
+import { type NetworkType } from './config.js';
+import { getRelayerService } from './relayer.js';
 
 export interface ContractInvocationResult {
   success: boolean;

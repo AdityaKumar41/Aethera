@@ -3,26 +3,26 @@
 // ============================================
 
 // Configuration
-export { getNetworkConfig, NETWORKS, type NetworkType } from "./config";
+export { getNetworkConfig, NETWORKS, type NetworkType } from "./config.js";
 
 // Client
-export { StellarClient, stellarClient } from "./client";
+export { StellarClient, stellarClient } from "./client.js";
 
 // Wallet Service
-export { WalletService, walletService, fundWithFriendbot } from "./wallet";
+export { WalletService, walletService, fundWithFriendbot } from "./wallet.js";
 
 // Contract Service
 export {
   ContractService,
   contractService,
   type ContractInvocationResult,
-} from "./contracts";
+} from "./contracts.js";
 
 // Contract Deployment Service
 export {
   ContractDeploymentService,
   contractDeploymentService,
-} from "./deployment";
+} from "./deployment.js";
 
 // Trustline Service
 export {
@@ -31,10 +31,10 @@ export {
   getUSDCAsset,
   USDC_ASSET_TESTNET,
   USDC_ASSET_MAINNET,
-} from "./trustline";
+} from "./trustline.js";
 
 // Soroban Contract Service
-export { SorobanContractService, getSorobanService } from "./soroban";
+export { SorobanContractService, getSorobanService } from "./soroban.js";
 
 // Relayer Service (Admin gas sponsorship)
 export {
@@ -42,7 +42,7 @@ export {
   getRelayerService,
   relayerService,
   getOrCreateRelayerAccount,
-} from "./relayer";
+} from "./relayer.js";
 
 // Contract Registry
 export {
@@ -52,7 +52,7 @@ export {
   NETWORK_CONFIGS,
   type ContractAddresses,
   type NetworkConfig as RegistryNetworkConfig,
-} from "./registry";
+} from "./registry.js";
 
 // Re-export useful Stellar SDK items
 export {

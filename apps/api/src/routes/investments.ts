@@ -2,9 +2,9 @@
 // Investment Routes
 // ============================================
 
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { prisma, InvestmentStateMachine, AuditLogger } from "@aethera/database";
+import { prisma, InvestmentStateMachine, AuditLogger, Prisma } from "@aethera/database";
 import { MIN_INVESTMENT_AMOUNT, MAX_INVESTMENT_AMOUNT } from "@aethera/config";
 import {
   authenticate,
@@ -33,7 +33,7 @@ router.post(
   "/",
   requireRole("INVESTOR"),
   requireTrustline, // Verify USDC trustline before allowing investment
-  async (req: AuthenticatedRequest, res, next) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       console.log("\n🔵 INVESTMENT REQUEST STARTED");
       console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
@@ -151,7 +151,7 @@ router.post(
       console.log("✅ Investment service successful");
 
       // Update project funding (in transaction)
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const newFundingRaised = Number(project.fundingRaised) + data.amount;
         const newTokensRemaining = (project.tokensRemaining ?? 0) - tokenAmount;
 
@@ -212,7 +212,7 @@ router.post(
 // Get Investment Status (with on-chain verification)
 // ============================================
 
-router.get("/:id/status", async (req: AuthenticatedRequest, res, next) => {
+router.get("/:id/status", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const investmentService = getInvestmentService();
     const investment = await investmentService.getInvestmentStatus(
@@ -250,7 +250,7 @@ router.get("/:id/status", async (req: AuthenticatedRequest, res, next) => {
 // Cancel Pending Investment
 // ============================================
 
-router.post("/:id/cancel", async (req: AuthenticatedRequest, res, next) => {
+router.post("/:id/cancel", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const investmentService = getInvestmentService();
     await investmentService.cancelInvestment(req.params.id, req.auth?.userId!);
@@ -302,7 +302,7 @@ router.get(
 // Get Single Investment
 // ============================================
 
-router.get("/:id", async (req: AuthenticatedRequest, res, next) => {
+router.get("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const investment = await prisma.investment.findFirst({
       where: {

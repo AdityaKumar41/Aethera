@@ -1,6 +1,6 @@
 import { Asset, Operation, TransactionBuilder } from "@stellar/stellar-sdk";
-import { getOrCreateRelayerAccount } from "./relayer";
-import { stellarClient } from "./client";
+import { getOrCreateRelayerAccount } from "./relayer.js";
+import { stellarClient } from "./client.js";
 
 async function main() {
   const destinationAddress = "GCORR7O73GS6W5IHJQE2GR3CMXVMSVKCRHAY3W2F6TVQXGQ7WVMINRQY";

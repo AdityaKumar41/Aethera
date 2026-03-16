@@ -12,8 +12,8 @@ import {
   BASE_FEE,
   xdr,
 } from "@stellar/stellar-sdk";
-import { StellarClient } from "./client";
-import { getNetworkConfig } from "./config";
+import { StellarClient } from "./client.js";
+import { getNetworkConfig } from "./config.js";
 
 export class SorobanContractService {
   private client: StellarClient;

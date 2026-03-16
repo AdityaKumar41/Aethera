@@ -40,8 +40,8 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export * from "@prisma/client";
-export * from "./state-machine";
-export * from "./audit";
-export * from "./oracle";
-export * from "./yield-distribution";
+export * from "./state-machine.js";
+export * from "./audit.js";
+export * from "./oracle.js";
+export * from "./yield-distribution.js";
 export default prisma;

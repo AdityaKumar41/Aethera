@@ -3,7 +3,7 @@ import path from "path";
 config({ path: path.resolve(__dirname, "../../../.env") });
 config({ path: path.resolve(__dirname, "../../../.env.local") });
 
-import { contractService } from "./contracts";
+import { contractService } from "./contracts.js";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
 async function main() {

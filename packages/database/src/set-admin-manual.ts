@@ -3,7 +3,7 @@ import path from "path";
 config({ path: path.resolve(__dirname, "../../../.env") });
 config({ path: path.resolve(__dirname, "../../../.env.local") });
 
-import prisma from "./index";
+import prisma from "./index.js";
 
 async function main() {
   const email = "adityamoharana80@gmail.com";

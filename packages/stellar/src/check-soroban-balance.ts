@@ -3,7 +3,7 @@ import path from "path";
 config({ path: path.resolve(__dirname, "../../../.env") });
 config({ path: path.resolve(__dirname, "../../../.env.local") });
 
-import { contractService } from "./contracts";
+import { contractService } from "./contracts.js";
 
 async function main() {
   const usdcTokenId = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";

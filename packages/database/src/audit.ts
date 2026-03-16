@@ -2,7 +2,7 @@
 // Audit Trail System
 // ============================================
 
-import { prisma } from "./index";
+import { prisma } from "./index.js";
 
 export interface StateChangeEvent {
   entityType: "PROJECT" | "INVESTMENT" | "USER" | "KYC";

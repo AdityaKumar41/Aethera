@@ -4,8 +4,8 @@
 
 import * as StellarSdk from "@stellar/stellar-sdk";
 import crypto from "crypto";
-import { StellarClient } from "./client";
-import { type NetworkType } from "./config";
+import { StellarClient } from "./client.js";
+import { type NetworkType } from "./config.js";
 
 interface DeployedContract {
   contractId: string;
