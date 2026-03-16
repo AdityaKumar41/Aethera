@@ -44,7 +44,7 @@ export function PropertyBookingCard({
       }}
     >
       {/* Image */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden">
+      <div className="relative aspect-[16/9] w-full overflow-hidden" style={{ position: 'relative' }}>
         <Image src={image || "/images/solar-field.png"} alt={propertyName} fill className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 

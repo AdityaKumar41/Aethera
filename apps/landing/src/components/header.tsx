@@ -163,7 +163,7 @@ export function Header() {
               className={`flex flex-col gap-3 mt-4 pt-4 border-t ${isScrolled ? "border-zinc-200" : "border-border"}`}
             >
               <a
-                href="https://aethera-webs.vercel.app"
+                href="http://localhost:3001"
                 className={`relative flex items-center gap-0 border rounded-full pl-5 pr-1 py-1 w-fit transition-all duration-300 group overflow-hidden ${isScrolled ? "border-zinc-300" : "border-border"
                   }`}
               >
