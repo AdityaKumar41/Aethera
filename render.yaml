@@ -28,7 +28,7 @@ services:
       # ── Stellar / Blockchain ─────────────────────────────────────────────
       # TESTNET or MAINNET
       - key: STELLAR_NETWORK
-        value: TESTNET
+        value: testnet
       # Secret key of the relayer/admin Stellar account (used for token minting)
       - key: STAT_RELAYER_SECRET
         sync: false

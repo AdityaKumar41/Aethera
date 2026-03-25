@@ -99,6 +99,19 @@ function getGovernanceAddress(): string {
   return addr;
 }
 
+/**
+ * Governance contract expects proposal IDs as u32.
+ */
+function toProposalIdU32(proposalId: number): number {
+  if (!Number.isInteger(proposalId) || proposalId < 0) {
+    throw createApiError("Invalid proposal ID", 400);
+  }
+  if (proposalId > 0xffffffff) {
+    throw createApiError("Proposal ID out of range", 400);
+  }
+  return proposalId;
+}
+
 // ============================================
 // Types
 // ============================================
@@ -169,111 +182,117 @@ router.get("/info", async (req: Request, res: Response, next: NextFunction) => {
 // List Active Proposals (DB-backed cache)
 // ============================================
 
-router.get("/proposals", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { status, proposer, limit = "10", offset = "0" } = req.query;
-    const take = Math.min(parseInt(limit as string, 10) || 10, 100);
-    const skip = parseInt(offset as string, 10) || 0;
+router.get(
+  "/proposals",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { status, proposer, limit = "10", offset = "0" } = req.query;
+      const take = Math.min(parseInt(limit as string, 10) || 10, 100);
+      const skip = parseInt(offset as string, 10) || 0;
 
-    // Build filter for TransactionLog entries that represent proposals
-    const where: Record<string, unknown> = { type: "GOVERNANCE_PROPOSAL" };
+      // Build filter for TransactionLog entries that represent proposals
+      const where: Record<string, unknown> = { type: "GOVERNANCE_PROPOSAL" };
 
-    if (status) {
-      where.metadata = { path: ["status"], equals: status };
+      if (status) {
+        where.metadata = { path: ["status"], equals: status };
+      }
+      if (proposer) {
+        where.sourceAccount = proposer as string;
+      }
+
+      const [logs, total] = await Promise.all([
+        prisma.transactionLog.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          take,
+          skip,
+        }),
+        prisma.transactionLog.count({ where }),
+      ]);
+
+      const proposals: Proposal[] = logs.map((log: TransactionLog) => {
+        const meta = (log.metadata as Record<string, unknown>) || {};
+        return {
+          id: Number(meta.proposalId ?? 0),
+          title: (meta.title as string) ?? "",
+          description: (meta.description as string) ?? "",
+          proposalType: (meta.proposalType as string) ?? "General",
+          status: (meta.status as string) ?? log.status,
+          yesVotes: String(meta.yesVotes ?? "0"),
+          noVotes: String(meta.noVotes ?? "0"),
+          abstainVotes: String(meta.abstainVotes ?? "0"),
+          startTime: Number(meta.startTime ?? 0),
+          endTime: Number(meta.endTime ?? 0),
+          quorumRequired: String(meta.quorumRequired ?? "0"),
+          proposer: (meta.proposer as string) ?? log.sourceAccount ?? "",
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          data: proposals,
+          pagination: { limit: take, offset: skip, total },
+        },
+      });
+    } catch (error) {
+      next(error);
     }
-    if (proposer) {
-      where.sourceAccount = proposer as string;
-    }
-
-    const [logs, total] = await Promise.all([
-      prisma.transactionLog.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        take,
-        skip,
-      }),
-      prisma.transactionLog.count({ where }),
-    ]);
-
-    const proposals: Proposal[] = logs.map((log: TransactionLog) => {
-      const meta = (log.metadata as Record<string, unknown>) || {};
-      return {
-        id: Number(meta.proposalId ?? 0),
-        title: (meta.title as string) ?? "",
-        description: (meta.description as string) ?? "",
-        proposalType: (meta.proposalType as string) ?? "General",
-        status: (meta.status as string) ?? log.status,
-        yesVotes: String(meta.yesVotes ?? "0"),
-        noVotes: String(meta.noVotes ?? "0"),
-        abstainVotes: String(meta.abstainVotes ?? "0"),
-        startTime: Number(meta.startTime ?? 0),
-        endTime: Number(meta.endTime ?? 0),
-        quorumRequired: String(meta.quorumRequired ?? "0"),
-        proposer: (meta.proposer as string) ?? log.sourceAccount ?? "",
-      };
-    });
-
-    res.json({
-      success: true,
-      data: {
-        data: proposals,
-        pagination: { limit: take, offset: skip, total },
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 // ============================================
 // Get Proposal by ID (on-chain)
 // ============================================
 
-router.get("/proposals/:id", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const proposalId = parseInt(req.params.id, 10);
-    const governanceAddr = getGovernanceAddress();
+router.get(
+  "/proposals/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const proposalId = toProposalIdU32(parseInt(req.params.id, 10));
+      const governanceAddr = getGovernanceAddress();
 
-    const adminKeypair = getAdminKeypair();
-    const result = await contractService.simulateContractCall(
-      governanceAddr,
-      "get_proposal",
-      [nativeToScVal(BigInt(proposalId), { type: "u64" })],
-      adminKeypair.publicKey(),
-    );
-
-    if (!result.success) {
-      throw createApiError(
-        result.error || "Failed to fetch proposal from contract",
-        404,
+      const adminKeypair = getAdminKeypair();
+      const result = await contractService.simulateContractCall(
+        governanceAddr,
+        "get_proposal",
+        [nativeToScVal(proposalId, { type: "u32" })],
+        adminKeypair.publicKey(),
       );
+
+      if (!result.success) {
+        throw createApiError(
+          result.error || "Failed to fetch proposal from contract",
+          404,
+        );
+      }
+
+      const raw = scValToNative(result.result as xdr.ScVal);
+
+      const proposal: Proposal = {
+        id: Number(raw.id),
+        title: raw.title,
+        description: raw.description,
+        proposalType:
+          typeof raw.proposal_type === "number"
+            ? (PROPOSAL_TYPE_LABEL[raw.proposal_type] ?? "General")
+            : String(raw.proposal_type ?? "General"),
+        status: raw.status ?? "Active",
+        yesVotes: String(raw.yes_votes ?? "0"),
+        noVotes: String(raw.no_votes ?? "0"),
+        abstainVotes: String(raw.abstain_votes ?? "0"),
+        startTime: Number(raw.start_time ?? 0),
+        endTime: Number(raw.end_time ?? 0),
+        quorumRequired: String(raw.quorum_required ?? "0"),
+        proposer: raw.proposer ?? "",
+      };
+
+      res.json({ success: true, data: proposal });
+    } catch (error) {
+      next(error);
     }
-
-    const raw = scValToNative(result.result as xdr.ScVal);
-
-    const proposal: Proposal = {
-      id: Number(raw.id),
-      title: raw.title,
-      description: raw.description,
-      proposalType:
-        typeof raw.proposal_type === "number"
-          ? (PROPOSAL_TYPE_LABEL[raw.proposal_type] ?? "General")
-          : String(raw.proposal_type ?? "General"),
-      status: raw.status ?? "Active",
-      yesVotes: String(raw.yes_votes ?? "0"),
-      noVotes: String(raw.no_votes ?? "0"),
-      abstainVotes: String(raw.abstain_votes ?? "0"),
-      startTime: Number(raw.start_time ?? 0),
-      endTime: Number(raw.end_time ?? 0),
-      quorumRequired: String(raw.quorum_required ?? "0"),
-      proposer: raw.proposer ?? "",
-    };
-
-    res.json({ success: true, data: proposal });
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 // ============================================
 // Create Proposal (Authenticated)
@@ -393,7 +412,7 @@ router.post(
   authenticate,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const proposalId = parseInt(req.params.id, 10);
+      const proposalId = toProposalIdU32(parseInt(req.params.id, 10));
       const { choice } = voteSchema.parse(req.body);
       const userId = req.auth?.userId!;
 
@@ -408,7 +427,7 @@ router.post(
       // On-chain: vote(voter, proposal_id, choice)
       const args: xdr.ScVal[] = [
         nativeToScVal(publicKey, { type: "address" }),
-        nativeToScVal(BigInt(proposalId), { type: "u64" }),
+        nativeToScVal(proposalId, { type: "u32" }),
         nativeToScVal(choiceU32, { type: "u32" }),
       ];
 
@@ -451,7 +470,7 @@ router.post(
         const onChain = await contractService.simulateContractCall(
           governanceAddr,
           "get_proposal",
-          [nativeToScVal(BigInt(proposalId), { type: "u64" })],
+          [nativeToScVal(proposalId, { type: "u32" })],
           publicKey,
         );
         if (onChain.success && onChain.result) {
@@ -494,16 +513,14 @@ router.post(
 
 router.post("/proposals/:id/finalize", async (req, res, next) => {
   try {
-    const proposalId = parseInt(req.params.id, 10);
+    const proposalId = toProposalIdU32(parseInt(req.params.id, 10));
     const governanceAddr = getGovernanceAddress();
 
     // finalize_proposal has no auth requirement; use admin keypair as the tx signer
     const adminKeypair = getAdminKeypair();
 
     // On-chain: finalize_proposal(proposal_id)
-    const args: xdr.ScVal[] = [
-      nativeToScVal(BigInt(proposalId), { type: "u64" }),
-    ];
+    const args: xdr.ScVal[] = [nativeToScVal(proposalId, { type: "u32" })];
 
     const result = await contractService.invokeContract(
       governanceAddr,
@@ -521,7 +538,7 @@ router.post("/proposals/:id/finalize", async (req, res, next) => {
     const onChain = await contractService.simulateContractCall(
       governanceAddr,
       "get_proposal",
-      [nativeToScVal(BigInt(proposalId), { type: "u64" })],
+      [nativeToScVal(proposalId, { type: "u32" })],
       adminKeypair.publicKey(),
     );
     if (onChain.success && onChain.result) {
@@ -573,16 +590,14 @@ router.post("/proposals/:id/finalize", async (req, res, next) => {
 
 router.post("/proposals/:id/execute", async (req, res, next) => {
   try {
-    const proposalId = parseInt(req.params.id, 10);
+    const proposalId = toProposalIdU32(parseInt(req.params.id, 10));
     const governanceAddr = getGovernanceAddress();
 
     // execute_proposal has no auth requirement; use admin keypair as the tx signer
     const adminKeypair = getAdminKeypair();
 
     // On-chain: execute_proposal(proposal_id)
-    const args: xdr.ScVal[] = [
-      nativeToScVal(BigInt(proposalId), { type: "u64" }),
-    ];
+    const args: xdr.ScVal[] = [nativeToScVal(proposalId, { type: "u32" })];
 
     const result = await contractService.invokeContract(
       governanceAddr,
@@ -642,7 +657,7 @@ router.post(
   authenticate,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const proposalId = parseInt(req.params.id, 10);
+      const proposalId = toProposalIdU32(parseInt(req.params.id, 10));
       const userId = req.auth?.userId!;
 
       const { keypair, publicKey } = await getUserKeypair(userId);
@@ -651,7 +666,7 @@ router.post(
       // On-chain: cancel_proposal(caller, proposal_id)
       const args: xdr.ScVal[] = [
         nativeToScVal(publicKey, { type: "address" }),
-        nativeToScVal(BigInt(proposalId), { type: "u64" }),
+        nativeToScVal(proposalId, { type: "u32" }),
       ];
 
       const result = await contractService.invokeContract(
@@ -837,9 +852,7 @@ router.post(
       const adminKeypair = getAdminKeypair();
 
       // On-chain: pause(admin)
-      const args: xdr.ScVal[] = [
-        nativeToScVal(adminKeypair.publicKey(), { type: "address" }),
-      ];
+      const args: xdr.ScVal[] = [];
 
       const result = await contractService.invokeContract(
         governanceAddr,
@@ -889,9 +902,7 @@ router.post(
       const adminKeypair = getAdminKeypair();
 
       // On-chain: unpause(admin)
-      const args: xdr.ScVal[] = [
-        nativeToScVal(adminKeypair.publicKey(), { type: "address" }),
-      ];
+      const args: xdr.ScVal[] = [];
 
       const result = await contractService.invokeContract(
         governanceAddr,

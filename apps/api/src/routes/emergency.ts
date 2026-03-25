@@ -10,12 +10,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { prisma, TransactionLog } from "@aethera/database";
 import { contractService, getContractAddresses } from "@aethera/stellar";
-import {
-  Keypair,
-  nativeToScVal,
-  scValToNative,
-  xdr,
-} from "@stellar/stellar-sdk";
+import { Keypair, scValToNative, xdr } from "@stellar/stellar-sdk";
 import {
   authenticate,
   requireRole,
@@ -83,7 +78,9 @@ function getDeployedContracts(): Map<
   const map = new Map<string, { name: string; address: string }>();
 
   for (const [key, displayName] of Object.entries(CONTRACT_DISPLAY_NAMES)) {
-    const address = (contracts as unknown as Record<string, string | undefined>)[key];
+    const address = (
+      contracts as unknown as Record<string, string | undefined>
+    )[key];
     if (address) {
       map.set(key, { name: displayName, address });
     }
@@ -242,11 +239,11 @@ router.post(
         throw createApiError(`${contractInfo.name} is already paused`, 400);
       }
 
-      // Submit on-chain pause(admin)
+      // Submit on-chain pause()
       const result = await contractService.invokeContract(
         contractInfo.address,
         "pause",
-        [nativeToScVal(adminPubKey, { type: "address" })],
+        [],
         adminKeypair,
       );
 
@@ -342,11 +339,11 @@ router.post(
         throw createApiError(`${contractInfo.name} is not paused`, 400);
       }
 
-      // Submit on-chain unpause(admin)
+      // Submit on-chain unpause()
       const result = await contractService.invokeContract(
         contractInfo.address,
         "unpause",
-        [nativeToScVal(adminPubKey, { type: "address" })],
+        [],
         adminKeypair,
       );
 
@@ -447,11 +444,11 @@ router.post(
           continue;
         }
 
-        // Submit on-chain pause(admin)
+        // Submit on-chain pause()
         const result = await contractService.invokeContract(
           address,
           "pause",
-          [nativeToScVal(adminPubKey, { type: "address" })],
+          [],
           adminKeypair,
         );
 
@@ -540,11 +537,11 @@ router.post(
           continue;
         }
 
-        // Submit on-chain unpause(admin)
+        // Submit on-chain unpause()
         const result = await contractService.invokeContract(
           address,
           "unpause",
-          [nativeToScVal(adminPubKey, { type: "address" })],
+          [],
           adminKeypair,
         );
 

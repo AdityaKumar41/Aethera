@@ -5,7 +5,7 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
 import crypto from "crypto";
 import { StellarClient } from "./client.js";
-import { type NetworkType } from "./config.js";
+import { resolveNetworkType, type NetworkType } from "./config.js";
 
 interface DeployedContract {
   contractId: string;
@@ -41,55 +41,69 @@ export class ContractDeploymentService {
   ): Promise<DeployedContract> {
     try {
       console.log(`Deploying asset token for project: ${metadata.projectId}`);
-      
-      const wasmHash = "4f2432ecba57cfe1ffa67586d50e2cf91c935e2961f01d6835a1e118a8d366e8";
+
+      const wasmHash =
+        "4f2432ecba57cfe1ffa67586d50e2cf91c935e2961f01d6835a1e118a8d366e8";
       const account = await this.rpcServer.getAccount(adminKeypair.publicKey());
-      
+
       const salt = crypto.randomBytes(32);
 
       const op = StellarSdk.Operation.createCustomContract({
-          address: StellarSdk.Address.fromString(adminKeypair.publicKey()),
-          wasmHash: Buffer.from(wasmHash, "hex"),
-          salt: salt
+        address: StellarSdk.Address.fromString(adminKeypair.publicKey()),
+        wasmHash: Buffer.from(wasmHash, "hex"),
+        salt: salt,
       });
 
       let tx = new StellarSdk.TransactionBuilder(account, {
-          fee: StellarSdk.BASE_FEE,
-          networkPassphrase: this.client.getNetworkPassphrase(),
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: this.client.getNetworkPassphrase(),
       })
-      .addOperation(op)
-      .setTimeout(180)
-      .build();
+        .addOperation(op)
+        .setTimeout(180)
+        .build();
 
       const simulation = await this.rpcServer.simulateTransaction(tx);
       if (StellarSdk.rpc.Api.isSimulationError(simulation)) {
-          throw new Error(`Simulation failed: ${simulation.error}`);
+        throw new Error(`Simulation failed: ${simulation.error}`);
       }
 
       tx = await StellarSdk.rpc.assembleTransaction(tx, simulation).build();
       tx.sign(adminKeypair);
       const result = await this.client.submitTransaction(tx);
-      
+
       // Robust contract ID calculation
-      const scAddress = StellarSdk.Address.fromString(adminKeypair.publicKey()).toScAddress();
-      const contractIdPreimageFromAddress = new StellarSdk.xdr.ContractIdPreimageFromAddress({
+      const scAddress = StellarSdk.Address.fromString(
+        adminKeypair.publicKey(),
+      ).toScAddress();
+      const contractIdPreimageFromAddress =
+        new StellarSdk.xdr.ContractIdPreimageFromAddress({
           address: scAddress,
-          salt: salt
-      });
+          salt: salt,
+        });
 
       const preimage = StellarSdk.xdr.HashIdPreimage.envelopeTypeContractId(
-          new StellarSdk.xdr.HashIdPreimageContractId({
-              networkId: StellarSdk.hash(Buffer.from(this.client.getNetworkPassphrase())),
-              contractIdPreimage: StellarSdk.xdr.ContractIdPreimage.contractIdPreimageFromAddress(
-                  contractIdPreimageFromAddress
-              )
-          })
+        new StellarSdk.xdr.HashIdPreimageContractId({
+          networkId: StellarSdk.hash(
+            Buffer.from(this.client.getNetworkPassphrase()),
+          ),
+          contractIdPreimage:
+            StellarSdk.xdr.ContractIdPreimage.contractIdPreimageFromAddress(
+              contractIdPreimageFromAddress,
+            ),
+        }),
       );
 
-      const contractId = StellarSdk.StrKey.encodeContract(StellarSdk.hash(preimage.toXDR()));
+      const contractId = StellarSdk.StrKey.encodeContract(
+        StellarSdk.hash(preimage.toXDR()),
+      );
 
       console.log(`Contract deployed! ID: ${contractId}`);
-      await this.initializeAssetToken(contractId, adminKeypair, metadata, adminAddress);
+      await this.initializeAssetToken(
+        contractId,
+        adminKeypair,
+        metadata,
+        adminAddress,
+      );
 
       return {
         contractId,
@@ -127,35 +141,35 @@ export class ContractDeploymentService {
     adminAddress?: string, // Optional manual admin override
   ): Promise<string> {
     console.log(`Initializing contract ${contractId}`);
-    
+
     const account = await this.rpcServer.getAccount(adminKeypair.publicKey());
     const contract = new StellarSdk.Contract(contractId);
 
     const actualAdmin = adminAddress || adminKeypair.publicKey();
 
     let tx = new StellarSdk.TransactionBuilder(account, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: this.client.getNetworkPassphrase(),
+      fee: StellarSdk.BASE_FEE,
+      networkPassphrase: this.client.getNetworkPassphrase(),
     })
-    .addOperation(
+      .addOperation(
         contract.call(
-            "initialize",
-            StellarSdk.nativeToScVal(actualAdmin, { type: "address" }),
-            StellarSdk.nativeToScVal(metadata.projectId, { type: "string" }),
-            StellarSdk.nativeToScVal(metadata.name, { type: "string" }),
-            StellarSdk.nativeToScVal(metadata.symbol, { type: "string" }),
-            StellarSdk.nativeToScVal(metadata.capacityKw, { type: "u32" }),
-            StellarSdk.nativeToScVal(metadata.expectedYieldBps, { type: "u32" }),
-            StellarSdk.nativeToScVal(metadata.totalSupply, { type: "i128" })
-        )
-    )
-    .setTimeout(180)
-    .build();
+          "initialize",
+          StellarSdk.nativeToScVal(actualAdmin, { type: "address" }),
+          StellarSdk.nativeToScVal(metadata.projectId, { type: "string" }),
+          StellarSdk.nativeToScVal(metadata.name, { type: "string" }),
+          StellarSdk.nativeToScVal(metadata.symbol, { type: "string" }),
+          StellarSdk.nativeToScVal(metadata.capacityKw, { type: "u32" }),
+          StellarSdk.nativeToScVal(metadata.expectedYieldBps, { type: "u32" }),
+          StellarSdk.nativeToScVal(metadata.totalSupply, { type: "i128" }),
+        ),
+      )
+      .setTimeout(180)
+      .build();
 
     const simulation = await this.rpcServer.simulateTransaction(tx);
-    
+
     if (StellarSdk.rpc.Api.isSimulationError(simulation)) {
-        throw new Error(`Simulation failed: ${simulation.error}`);
+      throw new Error(`Simulation failed: ${simulation.error}`);
     }
 
     tx = await StellarSdk.rpc.assembleTransaction(tx, simulation).build();
@@ -211,32 +225,34 @@ export class ContractDeploymentService {
     platformFeeBps: number,
     pricePerToken: bigint,
   ): Promise<string> {
-    console.log(`Creating escrow for project ${projectId} in Treasury ${treasuryContractId}`);
-    
+    console.log(
+      `Creating escrow for project ${projectId} in Treasury ${treasuryContractId}`,
+    );
+
     const account = await this.rpcServer.getAccount(adminKeypair.publicKey());
     const treasury = new StellarSdk.Contract(treasuryContractId);
 
     let tx = new StellarSdk.TransactionBuilder(account, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: this.client.getNetworkPassphrase(),
+      fee: StellarSdk.BASE_FEE,
+      networkPassphrase: this.client.getNetworkPassphrase(),
     })
-    .addOperation(
+      .addOperation(
         treasury.call(
-            "create_project_escrow",
-            StellarSdk.nativeToScVal(projectId, { type: "string" }),
-            StellarSdk.nativeToScVal(assetTokenAddress, { type: "address" }),
-            StellarSdk.nativeToScVal(installerAddress, { type: "address" }),
-            StellarSdk.nativeToScVal(fundingTarget, { type: "i128" }),
-            StellarSdk.nativeToScVal(platformFeeBps, { type: "u32" }),
-            StellarSdk.nativeToScVal(pricePerToken, { type: "i128" })
-        )
-    )
-    .setTimeout(180)
-    .build();
+          "create_project_escrow",
+          StellarSdk.nativeToScVal(projectId, { type: "string" }),
+          StellarSdk.nativeToScVal(assetTokenAddress, { type: "address" }),
+          StellarSdk.nativeToScVal(installerAddress, { type: "address" }),
+          StellarSdk.nativeToScVal(fundingTarget, { type: "i128" }),
+          StellarSdk.nativeToScVal(platformFeeBps, { type: "u32" }),
+          StellarSdk.nativeToScVal(pricePerToken, { type: "i128" }),
+        ),
+      )
+      .setTimeout(180)
+      .build();
 
     const simulation = await this.rpcServer.simulateTransaction(tx);
     if (StellarSdk.rpc.Api.isSimulationError(simulation)) {
-        throw new Error(`Simulation failed: ${simulation.error}`);
+      throw new Error(`Simulation failed: ${simulation.error}`);
     }
 
     tx = await StellarSdk.rpc.assembleTransaction(tx, simulation).build();
@@ -279,5 +295,5 @@ export class ContractDeploymentService {
 }
 
 export const contractDeploymentService = new ContractDeploymentService(
-  (process.env.STELLAR_NETWORK as NetworkType) || "testnet",
+  resolveNetworkType(process.env.STELLAR_NETWORK),
 );

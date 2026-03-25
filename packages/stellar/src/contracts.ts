@@ -2,10 +2,10 @@
 // Soroban Contract Interaction Service
 // ============================================
 
-import * as StellarSdk from '@stellar/stellar-sdk';
-import { StellarClient } from './client.js';
-import { type NetworkType } from './config.js';
-import { getRelayerService } from './relayer.js';
+import * as StellarSdk from "@stellar/stellar-sdk";
+import { StellarClient } from "./client.js";
+import { resolveNetworkType, type NetworkType } from "./config.js";
+import { getRelayerService } from "./relayer.js";
 
 export interface ContractInvocationResult {
   success: boolean;
@@ -18,7 +18,7 @@ export class ContractService {
   private client: StellarClient;
   private rpcServer: StellarSdk.rpc.Server;
 
-  constructor(network: NetworkType = 'testnet') {
+  constructor(network: NetworkType = "testnet") {
     this.client = new StellarClient(network);
     this.rpcServer = this.client.getRpcServer();
   }
@@ -34,7 +34,7 @@ export class ContractService {
     contractId: string,
     method: string,
     args: StellarSdk.xdr.ScVal[] = [],
-    sourcePublicKey: string
+    sourcePublicKey: string,
   ): Promise<ContractInvocationResult> {
     try {
       const contract = new StellarSdk.Contract(contractId);
@@ -58,7 +58,10 @@ export class ContractService {
       }
 
       // Extract result from simulation
-      if (StellarSdk.rpc.Api.isSimulationSuccess(simulation) && simulation.result) {
+      if (
+        StellarSdk.rpc.Api.isSimulationSuccess(simulation) &&
+        simulation.result
+      ) {
         return {
           success: true,
           result: simulation.result,
@@ -69,7 +72,7 @@ export class ContractService {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
@@ -81,11 +84,13 @@ export class ContractService {
     contractId: string,
     method: string,
     args: StellarSdk.xdr.ScVal[],
-    signerKeypair: StellarSdk.Keypair
+    signerKeypair: StellarSdk.Keypair,
   ): Promise<ContractInvocationResult> {
     try {
       const contract = new StellarSdk.Contract(contractId);
-      const sourceAccount = await this.client.getAccount(signerKeypair.publicKey());
+      const sourceAccount = await this.client.getAccount(
+        signerKeypair.publicKey(),
+      );
 
       // Build the transaction
       const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
@@ -107,10 +112,9 @@ export class ContractService {
       }
 
       // Prepare transaction with simulation results
-      const preparedTx = StellarSdk.rpc.assembleTransaction(
-        transaction,
-        simulation
-      ).build();
+      const preparedTx = StellarSdk.rpc
+        .assembleTransaction(transaction, simulation)
+        .build();
 
       // Sign the transaction
       preparedTx.sign(signerKeypair);
@@ -124,28 +128,31 @@ export class ContractService {
         try {
           finalTx = await relayer.sponsorTransaction(preparedTx);
         } catch (sponsorError) {
-          console.warn('[Relayer] Sponsorship failed, falling back to user fee:', sponsorError);
+          console.warn(
+            "[Relayer] Sponsorship failed, falling back to user fee:",
+            sponsorError,
+          );
         }
       }
 
       // Submit the transaction
       const sendResponse = await this.rpcServer.sendTransaction(finalTx);
 
-      if (sendResponse.status === 'ERROR') {
+      if (sendResponse.status === "ERROR") {
         return {
           success: false,
-          error: 'Transaction failed to submit',
+          error: "Transaction failed to submit",
         };
       }
 
       // Wait for confirmation
       const txResult = await this.waitForTransaction(sendResponse.hash);
-      
+
       return txResult;
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
@@ -155,26 +162,26 @@ export class ContractService {
    */
   private async waitForTransaction(
     hash: string,
-    maxAttempts: number = 30
+    maxAttempts: number = 30,
   ): Promise<ContractInvocationResult> {
     for (let i = 0; i < maxAttempts; i++) {
       try {
         const txResponse = await this.rpcServer.getTransaction(hash);
 
-        if (txResponse.status === 'SUCCESS') {
+        if (txResponse.status === "SUCCESS") {
           return {
             success: true,
             txHash: hash,
             result: txResponse.returnValue,
           };
-        } else if (txResponse.status === 'FAILED') {
+        } else if (txResponse.status === "FAILED") {
           return {
             success: false,
             txHash: hash,
-            error: 'Transaction failed',
+            error: "Transaction failed",
           };
         }
-        
+
         // Wait before next attempt
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (error) {
@@ -186,7 +193,7 @@ export class ContractService {
     return {
       success: false,
       txHash: hash,
-      error: 'Transaction timeout',
+      error: "Transaction timeout",
     };
   }
 
@@ -201,14 +208,14 @@ export class ContractService {
     contractId: string,
     adminKeypair: StellarSdk.Keypair,
     recipientPublicKey: string,
-    amount: bigint
+    amount: bigint,
   ): Promise<ContractInvocationResult> {
     const args = [
-      StellarSdk.nativeToScVal(recipientPublicKey, { type: 'address' }),
-      StellarSdk.nativeToScVal(amount, { type: 'i128' }),
+      StellarSdk.nativeToScVal(recipientPublicKey, { type: "address" }),
+      StellarSdk.nativeToScVal(amount, { type: "i128" }),
     ];
 
-    return await this.invokeContract(contractId, 'mint', args, adminKeypair);
+    return await this.invokeContract(contractId, "mint", args, adminKeypair);
   }
 
   /**
@@ -216,17 +223,17 @@ export class ContractService {
    */
   async getTokenBalance(
     contractId: string,
-    ownerPublicKey: string
+    ownerPublicKey: string,
   ): Promise<{ balance: bigint } | null> {
     const args = [
-      StellarSdk.nativeToScVal(ownerPublicKey, { type: 'address' }),
+      StellarSdk.nativeToScVal(ownerPublicKey, { type: "address" }),
     ];
 
     const result = await this.simulateContractCall(
       contractId,
-      'balance',
+      "balance",
       args,
-      ownerPublicKey
+      ownerPublicKey,
     );
 
     if (result.success && result.result) {
@@ -242,13 +249,13 @@ export class ContractService {
    */
   async getTotalSupply(
     contractId: string,
-    sourcePublicKey: string
+    sourcePublicKey: string,
   ): Promise<bigint | null> {
     const result = await this.simulateContractCall(
       contractId,
-      'total_supply',
+      "total_supply",
       [],
-      sourcePublicKey
+      sourcePublicKey,
     );
 
     if (result.success && result.result) {
@@ -269,15 +276,22 @@ export class ContractService {
     contractId: string,
     investorKeypair: StellarSdk.Keypair,
     projectId: string,
-    amount: bigint
+    amount: bigint,
   ): Promise<ContractInvocationResult> {
     const args = [
-      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
-      StellarSdk.nativeToScVal(investorKeypair.publicKey(), { type: 'address' }),
-      StellarSdk.nativeToScVal(amount, { type: 'i128' }),
+      StellarSdk.nativeToScVal(projectId, { type: "string" }),
+      StellarSdk.nativeToScVal(investorKeypair.publicKey(), {
+        type: "address",
+      }),
+      StellarSdk.nativeToScVal(amount, { type: "i128" }),
     ];
 
-    return await this.invokeContract(contractId, 'process_investment', args, investorKeypair);
+    return await this.invokeContract(
+      contractId,
+      "process_investment",
+      args,
+      investorKeypair,
+    );
   }
 
   /**
@@ -286,13 +300,16 @@ export class ContractService {
   async releaseCapital(
     contractId: string,
     adminKeypair: StellarSdk.Keypair,
-    projectId: string
+    projectId: string,
   ): Promise<ContractInvocationResult> {
-    const args = [
-      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
-    ];
+    const args = [StellarSdk.nativeToScVal(projectId, { type: "string" })];
 
-    return await this.invokeContract(contractId, 'release_capital', args, adminKeypair);
+    return await this.invokeContract(
+      contractId,
+      "release_capital",
+      args,
+      adminKeypair,
+    );
   }
 
   /**
@@ -303,15 +320,20 @@ export class ContractService {
     adminKeypair: StellarSdk.Keypair,
     projectId: string,
     milestoneIndex: number,
-    amount: bigint
+    amount: bigint,
   ): Promise<ContractInvocationResult> {
     const args = [
-      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
-      StellarSdk.nativeToScVal(milestoneIndex, { type: 'u32' }),
-      StellarSdk.nativeToScVal(amount, { type: 'i128' }),
+      StellarSdk.nativeToScVal(projectId, { type: "string" }),
+      StellarSdk.nativeToScVal(milestoneIndex, { type: "u32" }),
+      StellarSdk.nativeToScVal(amount, { type: "i128" }),
     ];
 
-    return await this.invokeContract(contractId, 'release_milestone', args, adminKeypair);
+    return await this.invokeContract(
+      contractId,
+      "release_milestone",
+      args,
+      adminKeypair,
+    );
   }
 
   // ============================================
@@ -329,18 +351,23 @@ export class ContractService {
     periodStart: number,
     periodEnd: number,
     totalEnergyKwh: bigint,
-    revenuePerKwh: bigint
+    revenuePerKwh: bigint,
   ): Promise<ContractInvocationResult> {
     const args = [
-      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
-      StellarSdk.nativeToScVal(assetTokenAddress, { type: 'address' }),
-      StellarSdk.nativeToScVal(periodStart, { type: 'u64' }),
-      StellarSdk.nativeToScVal(periodEnd, { type: 'u64' }),
-      StellarSdk.nativeToScVal(totalEnergyKwh, { type: 'i128' }),
-      StellarSdk.nativeToScVal(revenuePerKwh, { type: 'i128' }),
+      StellarSdk.nativeToScVal(projectId, { type: "string" }),
+      StellarSdk.nativeToScVal(assetTokenAddress, { type: "address" }),
+      StellarSdk.nativeToScVal(periodStart, { type: "u64" }),
+      StellarSdk.nativeToScVal(periodEnd, { type: "u64" }),
+      StellarSdk.nativeToScVal(totalEnergyKwh, { type: "i128" }),
+      StellarSdk.nativeToScVal(revenuePerKwh, { type: "i128" }),
     ];
 
-    return await this.invokeContract(contractId, 'create_distribution', args, adminKeypair);
+    return await this.invokeContract(
+      contractId,
+      "create_distribution",
+      args,
+      adminKeypair,
+    );
   }
 
   /**
@@ -349,14 +376,21 @@ export class ContractService {
   async claimYield(
     contractId: string,
     investorKeypair: StellarSdk.Keypair,
-    distributionId: bigint
+    distributionId: bigint,
   ): Promise<ContractInvocationResult> {
     const args = [
-      StellarSdk.nativeToScVal(distributionId, { type: 'u64' }),
-      StellarSdk.nativeToScVal(investorKeypair.publicKey(), { type: 'address' }),
+      StellarSdk.nativeToScVal(distributionId, { type: "u64" }),
+      StellarSdk.nativeToScVal(investorKeypair.publicKey(), {
+        type: "address",
+      }),
     ];
 
-    return await this.invokeContract(contractId, 'claim_yield', args, investorKeypair);
+    return await this.invokeContract(
+      contractId,
+      "claim_yield",
+      args,
+      investorKeypair,
+    );
   }
 
   /**
@@ -371,16 +405,21 @@ export class ContractService {
     projectId: string,
     periodStart: number,
     periodEnd: number,
-    energyKwh: bigint
+    energyKwh: bigint,
   ): Promise<ContractInvocationResult> {
     const args = [
-      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
-      StellarSdk.nativeToScVal(periodStart, { type: 'u64' }),
-      StellarSdk.nativeToScVal(periodEnd, { type: 'u64' }),
-      StellarSdk.nativeToScVal(energyKwh, { type: 'i128' }),
+      StellarSdk.nativeToScVal(projectId, { type: "string" }),
+      StellarSdk.nativeToScVal(periodStart, { type: "u64" }),
+      StellarSdk.nativeToScVal(periodEnd, { type: "u64" }),
+      StellarSdk.nativeToScVal(energyKwh, { type: "i128" }),
     ];
 
-    return await this.invokeContract(contractId, 'commit_production', args, signerKeypair);
+    return await this.invokeContract(
+      contractId,
+      "commit_production",
+      args,
+      signerKeypair,
+    );
   }
 
   /**
@@ -392,20 +431,25 @@ export class ContractService {
     projectId: string,
     investorPublicKey: string,
     amount: bigint,
-    pricePerToken: bigint
+    pricePerToken: bigint,
   ): Promise<ContractInvocationResult> {
     const args = [
-      StellarSdk.nativeToScVal(projectId, { type: 'string' }),
-      StellarSdk.nativeToScVal(investorPublicKey, { type: 'address' }),
-      StellarSdk.nativeToScVal(amount, { type: 'i128' }),
-      StellarSdk.nativeToScVal(pricePerToken, { type: 'i128' }),
+      StellarSdk.nativeToScVal(projectId, { type: "string" }),
+      StellarSdk.nativeToScVal(investorPublicKey, { type: "address" }),
+      StellarSdk.nativeToScVal(amount, { type: "i128" }),
+      StellarSdk.nativeToScVal(pricePerToken, { type: "i128" }),
     ];
 
-    return await this.invokeContract(contractId, 'buyback_tokens', args, adminKeypair);
+    return await this.invokeContract(
+      contractId,
+      "buyback_tokens",
+      args,
+      adminKeypair,
+    );
   }
 }
 
 // Export singleton
 export const contractService = new ContractService(
-  (process.env.STELLAR_NETWORK as NetworkType) || 'testnet'
+  resolveNetworkType(process.env.STELLAR_NETWORK),
 );

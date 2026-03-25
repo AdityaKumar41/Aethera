@@ -37,6 +37,12 @@ const NETWORKS: Record<NetworkType, NetworkConfig> = {
   },
 };
 
+export function resolveNetworkType(raw?: string): NetworkType {
+  const normalized = (raw || "testnet").trim().toLowerCase();
+  if (normalized === "mainnet") return "mainnet";
+  return "testnet";
+}
+
 export function getNetworkConfig(
   network: NetworkType = "testnet",
 ): NetworkConfig {

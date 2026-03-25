@@ -2,8 +2,12 @@
 // Stellar Client - Horizon & Soroban RPC
 // ============================================
 
-import * as StellarSdk from '@stellar/stellar-sdk';
-import { getNetworkConfig, type NetworkType } from './config.js';
+import * as StellarSdk from "@stellar/stellar-sdk";
+import {
+  getNetworkConfig,
+  resolveNetworkType,
+  type NetworkType,
+} from "./config.js";
 
 export class StellarClient {
   private network: NetworkType;
@@ -11,7 +15,7 @@ export class StellarClient {
   private rpcServer: StellarSdk.rpc.Server;
   private networkPassphrase: string;
 
-  constructor(network: NetworkType = 'testnet') {
+  constructor(network: NetworkType = "testnet") {
     this.network = network;
     const config = getNetworkConfig(network);
     this.networkPassphrase = config.networkPassphrase;
@@ -47,7 +51,9 @@ export class StellarClient {
   /**
    * Get account details from Horizon
    */
-  async getAccount(publicKey: string): Promise<StellarSdk.Horizon.AccountResponse> {
+  async getAccount(
+    publicKey: string,
+  ): Promise<StellarSdk.Horizon.AccountResponse> {
     return await this.horizonServer.loadAccount(publicKey);
   }
 
@@ -67,17 +73,17 @@ export class StellarClient {
    * Fund account on testnet using friendbot
    */
   async fundTestnetAccount(publicKey: string): Promise<boolean> {
-    if (this.network !== 'testnet') {
-      throw new Error('Friendbot only available on testnet');
+    if (this.network !== "testnet") {
+      throw new Error("Friendbot only available on testnet");
     }
 
     try {
       const response = await fetch(
-        `https://friendbot.stellar.org?addr=${encodeURIComponent(publicKey)}`
+        `https://friendbot.stellar.org?addr=${encodeURIComponent(publicKey)}`,
       );
       return response.ok;
     } catch (error) {
-      console.error('Friendbot funding failed:', error);
+      console.error("Friendbot funding failed:", error);
       return false;
     }
   }
@@ -92,15 +98,18 @@ export class StellarClient {
   async getXLMBalance(publicKey: string): Promise<string> {
     const account = await this.getAccount(publicKey);
     const nativeBalance = account.balances.find(
-      (b): b is StellarSdk.Horizon.HorizonApi.BalanceLineNative => b.asset_type === 'native'
+      (b): b is StellarSdk.Horizon.HorizonApi.BalanceLineNative =>
+        b.asset_type === "native",
     );
-    return nativeBalance?.balance ?? '0';
+    return nativeBalance?.balance ?? "0";
   }
 
   /**
    * Get all balances for an account
    */
-  async getBalances(publicKey: string): Promise<StellarSdk.Horizon.HorizonApi.BalanceLine[]> {
+  async getBalances(
+    publicKey: string,
+  ): Promise<StellarSdk.Horizon.HorizonApi.BalanceLine[]> {
     const account = await this.getAccount(publicKey);
     return account.balances;
   }
@@ -111,17 +120,17 @@ export class StellarClient {
   async getAssetBalance(
     publicKey: string,
     assetCode: string,
-    assetIssuer: string
+    assetIssuer: string,
   ): Promise<string> {
     const account = await this.getAccount(publicKey);
     const assetBalance = account.balances.find(
       (b): b is StellarSdk.Horizon.HorizonApi.BalanceLineAsset =>
-        b.asset_type !== 'native' &&
-        b.asset_type !== 'liquidity_pool_shares' &&
+        b.asset_type !== "native" &&
+        b.asset_type !== "liquidity_pool_shares" &&
         b.asset_code === assetCode &&
-        b.asset_issuer === assetIssuer
+        b.asset_issuer === assetIssuer,
     );
-    return assetBalance?.balance ?? '0';
+    return assetBalance?.balance ?? "0";
   }
 
   // ============================================
@@ -136,7 +145,7 @@ export class StellarClient {
     destinationPublicKey: string,
     asset: StellarSdk.Asset,
     amount: string,
-    memo?: string
+    memo?: string,
   ): Promise<StellarSdk.Transaction> {
     const sourceAccount = await this.getAccount(sourceKeypair.publicKey());
 
@@ -149,7 +158,7 @@ export class StellarClient {
           destination: destinationPublicKey,
           asset: asset,
           amount: amount,
-        })
+        }),
       )
       .setTimeout(180);
 
@@ -167,7 +176,7 @@ export class StellarClient {
    * Submit a signed transaction to the network
    */
   async submitTransaction(
-    transaction: StellarSdk.Transaction
+    transaction: StellarSdk.Transaction,
   ): Promise<StellarSdk.Horizon.HorizonApi.SubmitTransactionResponse> {
     return await this.horizonServer.submitTransaction(transaction);
   }
@@ -180,7 +189,7 @@ export class StellarClient {
     destinationPublicKey: string,
     asset: StellarSdk.Asset,
     amount: string,
-    memo?: string
+    memo?: string,
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
       const transaction = await this.buildPaymentTransaction(
@@ -188,15 +197,15 @@ export class StellarClient {
         destinationPublicKey,
         asset,
         amount,
-        memo
+        memo,
       );
       const result = await this.submitTransaction(transaction);
       return { success: true, txHash: result.hash };
     } catch (error) {
-      console.error('Payment failed:', error);
+      console.error("Payment failed:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
@@ -211,7 +220,7 @@ export class StellarClient {
   async createTrustline(
     accountKeypair: StellarSdk.Keypair,
     asset: StellarSdk.Asset,
-    limit?: string
+    limit?: string,
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
       const account = await this.getAccount(accountKeypair.publicKey());
@@ -224,7 +233,7 @@ export class StellarClient {
           StellarSdk.Operation.changeTrust({
             asset: asset,
             limit: limit,
-          })
+          }),
         )
         .setTimeout(180)
         .build();
@@ -233,10 +242,10 @@ export class StellarClient {
       const result = await this.submitTransaction(transaction);
       return { success: true, txHash: result.hash };
     } catch (error) {
-      console.error('Trustline creation failed:', error);
+      console.error("Trustline creation failed:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
@@ -264,5 +273,5 @@ export class StellarClient {
 
 // Export singleton for default usage
 export const stellarClient = new StellarClient(
-  (process.env.STELLAR_NETWORK as NetworkType) || 'testnet'
+  resolveNetworkType(process.env.STELLAR_NETWORK),
 );

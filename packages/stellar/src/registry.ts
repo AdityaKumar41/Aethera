@@ -1,6 +1,6 @@
 /**
  * Contract Registry
- * 
+ *
  * Stores deployed contract addresses for different environments.
  * This is the source of truth for contract IDs used by the backend.
  */
@@ -38,7 +38,7 @@ const TESTNET_CONTRACTS: ContractAddresses = {
  */
 const MAINNET_CONTRACTS: ContractAddresses = {
   assetToken: "", // Not deployed yet
-  treasury: "",   // Not deployed yet
+  treasury: "", // Not deployed yet
 };
 
 export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
@@ -65,17 +65,21 @@ export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
   },
 };
 
+function resolveNetworkName(raw?: string): string {
+  return (raw || "testnet").trim().toLowerCase();
+}
+
 /**
  * Get the network configuration for the current environment
  */
 export function getNetworkConfig(): NetworkConfig {
-  const network = process.env.STELLAR_NETWORK || "testnet";
+  const network = resolveNetworkName(process.env.STELLAR_NETWORK);
   const config = NETWORK_CONFIGS[network];
-  
+
   if (!config) {
     throw new Error(`Unknown network: ${network}`);
   }
-  
+
   return config;
 }
 
@@ -99,11 +103,11 @@ export function getContractAddresses(): ContractAddresses {
  */
 export function validateContractsDeployed(): void {
   const contracts = getContractAddresses();
-  
+
   if (!contracts.assetToken) {
     throw new Error("Asset Token contract not deployed");
   }
-  
+
   if (!contracts.treasury) {
     throw new Error("Treasury contract not deployed");
   }

@@ -33,6 +33,11 @@ export function validateEnv(): void {
     "STELLAR_SECRET_ENCRYPTION_KEY",
     "WALLET_ENCRYPTION_SECRET",
     "STELLAR_NETWORK",
+    "ASSET_TOKEN_CONTRACT_ID",
+    "TREASURY_CONTRACT_ID",
+    "YIELD_DISTRIBUTOR_CONTRACT_ID",
+    "GOVERNANCE_CONTRACT_ID",
+    "ORACLE_CONTRACT_ID",
   ];
 
   const isProd = process.env.NODE_ENV === "production";
@@ -48,6 +53,12 @@ export function validateEnv(): void {
   }
 
   // Log optional config status
-  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-  console.log(`[API] Email notifications: ${smtpConfigured ? "SMTP configured" : "console-only (set SMTP_HOST, SMTP_USER, SMTP_PASS to enable)"}`);
+  const smtpConfigured = !!(
+    process.env.SMTP_HOST &&
+    process.env.SMTP_USER &&
+    process.env.SMTP_PASS
+  );
+  console.log(
+    `[API] Email notifications: ${smtpConfigured ? "SMTP configured" : "console-only (set SMTP_HOST, SMTP_USER, SMTP_PASS to enable)"}`,
+  );
 }
