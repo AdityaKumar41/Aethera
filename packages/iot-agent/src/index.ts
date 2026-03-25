@@ -4,6 +4,10 @@ import * as dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import fs from "fs";
+import { SimulationAdapter } from "./adapters/simulation.js";
+import { SolarEdgeAdapter } from "./adapters/solaredge.js";
+import { SMAAdapter } from "./adapters/sma.js";
+import { IoTAdapter } from "./adapters/base.js";
 
 dotenv.config();
 
@@ -15,8 +19,10 @@ const __dirname = dirname(__filename);
 // ============================================
 
 const API_BASE_URL = process.env.AETHERA_API_URL || "http://localhost:3002/api";
-const PROJECT_ID = process.env.PROJECT_ID; // The project this device belongs to
-const INTERVAL_MS = parseInt(process.env.POLLING_INTERVAL || "30000"); // 30 seconds
+const PROJECT_ID = process.env.PROJECT_ID; 
+const ACTIVATION_CODE = process.env.ACTIVATION_CODE; // One-time activation code
+const INTERVAL_MS = parseInt(process.env.POLLING_INTERVAL || "60000"); // 1 minute default
+const ADAPTER_TYPE = process.env.ADAPTER_TYPE || "simulation";
 
 // ============================================
 // Device Identity
@@ -28,7 +34,6 @@ function getDeviceKeypair(): StellarSdk.Keypair {
     return StellarSdk.Keypair.fromSecret(envKey);
   }
 
-  // Load from local file if exists, otherwise generate
   const keyPath = join(__dirname, "../device-key.json");
   if (fs.existsSync(keyPath)) {
     const data = JSON.parse(fs.readFileSync(keyPath, "utf-8"));
@@ -50,74 +55,89 @@ function getDeviceKeypair(): StellarSdk.Keypair {
 const deviceKp = getDeviceKeypair();
 
 // ============================================
-// Telemetry Simulation
+// Adapter Strategy
 // ============================================
 
-let totalWh = 0;
-
-function simulateProduction(): number {
-  // Simulate 100W - 500W production for the 30s interval
-  const watts = 100 + Math.random() * 400;
-  const wh = (watts * (INTERVAL_MS / 1000)) / 3600;
-  totalWh += wh;
-  return parseFloat(wh.toFixed(4));
+function createAdapter(): IoTAdapter {
+  switch (ADAPTER_TYPE.toLowerCase()) {
+    case "solaredge":
+      return new SolarEdgeAdapter(
+        process.env.SOLAREDGE_SITE_ID || "",
+        process.env.SOLAREDGE_API_KEY || ""
+      );
+    case "sma":
+      return new SMAAdapter(
+        process.env.SMA_SYSTEM_ID || "",
+        process.env.SMA_API_USERNAME || "",
+        process.env.SMA_API_PASSWORD || ""
+      );
+    case "simulation":
+    default:
+      return new SimulationAdapter();
+  }
 }
 
+const adapter = createAdapter();
+
 // ============================================
-// Ingestion
+// Device Provisioning & Ingestion
 // ============================================
 
-async function registerDevice() {
-  if (!PROJECT_ID) {
-    console.error("❌ PROJECT_ID not configured. Device registration skipped.");
+async function activateDevice() {
+  if (!ACTIVATION_CODE) {
+    console.warn("⚠️ ACTIVATION_CODE not provided. Checking if already activated...");
     return;
   }
 
   try {
-    console.log("📡 Registering device with Aethera Oracle...");
-    const response = await axios.post(`${API_BASE_URL}/oracle/devices/register`, {
-      projectId: PROJECT_ID,
+    console.log(`📡 Activating device with code: ${ACTIVATION_CODE}...`);
+    const info = await adapter.getDeviceInfo();
+    
+    const response = await axios.post(`${API_BASE_URL}/oracle/devices/activate`, {
+      activationCode: ACTIVATION_CODE,
       publicKey: deviceKp.publicKey(),
       metadata: {
-        model: "Aethera-ADA-Sim-v1",
-        version: "0.1.0",
-        location: "Simulated-Node"
+        ...info,
+        version: "0.2.0"
       }
     });
-    console.log("✅ Device registered successfully:", response.data.data.deviceId);
+    
+    console.log("✅ Device activated successfully:", response.data.data.deviceId);
+    // Unset activation code after success to avoid redundant calls
+    process.env.ACTIVATION_CODE = "";
   } catch (error: any) {
     if (error.response?.status === 409) {
-      console.log("ℹ️ Device already registered.");
+      console.log("ℹ️ Device already activated for this project.");
     } else {
-      console.error("❌ Registration failed:", error.response?.data || error.message);
+      console.error("❌ Activation failed:", error.response?.data || error.message);
     }
   }
 }
 
 async function sendTelemetry() {
-  const whProduced = simulateProduction();
-  const timestamp = Date.now();
-
-  // Create payload
-  const payload = JSON.stringify({
-    wh: whProduced,
-    totalWh: parseFloat(totalWh.toFixed(4)),
-    timestamp,
-    deviceId: deviceKp.publicKey(),
-  });
-
-  // Sign payload
-  const signature = deviceKp.sign(Buffer.from(payload)).toString("hex");
-
   try {
-    console.log(`📤 Sending telemetry: ${whProduced} Wh (Total: ${totalWh.toFixed(2)} Wh)`);
+    const reading = await adapter.readProduction();
+    
+    // Create payload
+    const payload = JSON.stringify({
+      wh: reading.energyWh, // We use lifetime Wh for the oracle per newer logic
+      power: reading.powerW,
+      timestamp: reading.timestamp.getTime(),
+      deviceId: deviceKp.publicKey(),
+    });
+
+    // Sign payload
+    const signature = deviceKp.sign(Buffer.from(payload)).toString("hex");
+
+    console.log(`📤 Sending production update: ${reading.energyWh.toFixed(2)} Wh (Power: ${reading.powerW?.toFixed(1) || 0}W)`);
+    
     await axios.post(`${API_BASE_URL}/oracle/ingest`, {
       payload,
       signature,
       publicKey: deviceKp.publicKey()
     });
   } catch (error: any) {
-    console.error("❌ Telemetry ingestion failed:", error.response?.data || error.message);
+    console.error("❌ Telemetry failed:", error.response?.data || error.message);
   }
 }
 
@@ -127,12 +147,21 @@ async function sendTelemetry() {
 
 async function main() {
   console.log("🚀 Aethera Device Agent (ADA) starting...");
-  console.log("🆔 Public Key:", deviceKp.publicKey());
+  console.log("🆔 Device ID:", deviceKp.publicKey());
+  console.log("🔌 Adapter Type:", ADAPTER_TYPE);
 
-  await registerDevice();
+  try {
+    await adapter.connect();
+    await activateDevice();
 
-  console.log(`⏱️ Starting production simulation (Interval: ${INTERVAL_MS}ms)`);
-  setInterval(sendTelemetry, INTERVAL_MS);
+    console.log(`⏱️ Starting production monitoring (Interval: ${INTERVAL_MS}ms)`);
+    // Run once immediately, then interval
+    await sendTelemetry();
+    setInterval(sendTelemetry, INTERVAL_MS);
+  } catch (error) {
+    console.error("❌ Critical agent failure:", error);
+    process.exit(1);
+  }
 }
 
 main().catch(console.error);

@@ -14,6 +14,7 @@ import {
 import { createApiError } from "../middleware/error.js";
 import { requireTrustline } from "../middleware/trustline.js";
 import { getInvestmentService } from "../services/investmentService.js";
+import { investmentLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -31,6 +32,7 @@ const createInvestmentSchema = z.object({
 
 router.post(
   "/",
+  investmentLimiter,
   requireRole("INVESTOR"),
   requireTrustline, // Verify USDC trustline before allowing investment
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

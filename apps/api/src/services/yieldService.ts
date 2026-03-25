@@ -18,6 +18,7 @@ import {
   investmentService,
   getInvestmentService,
 } from "./investmentService.js";
+import { notificationService } from "./notificationService.js";
 
 export class YieldService {
   private static instance: YieldService | null = null;
@@ -116,6 +117,33 @@ export class YieldService {
         distributionId: distribution.id,
         error: `On-chain anchoring failed: ${error.message || "Unknown error"}. Claims were created but are not claimable until on-chain distribution succeeds.`,
       };
+    }
+
+    // 3. Send notifications to all investors with new claims
+    try {
+      const claims = await prisma.yieldClaim.findMany({
+        where: { distributionId: distribution.id },
+        include: { investor: { select: { email: true, name: true } } },
+      });
+      const projectInfo = await prisma.project.findUnique({
+        where: { id: params.projectId },
+        select: { name: true },
+      });
+      const periodStr = `${params.periodStart.toLocaleDateString()} - ${params.periodEnd.toLocaleDateString()}`;
+
+      for (const claim of claims) {
+        if (claim.investor?.email) {
+          notificationService.notifyYieldAvailable({
+            email: claim.investor.email,
+            investorName: claim.investor.name || "Investor",
+            projectName: projectInfo?.name || params.projectId,
+            amount: Number(claim.amount),
+            period: periodStr,
+          }).catch((e) => console.error("Yield notification failed:", e));
+        }
+      }
+    } catch (notifError) {
+      console.error("Failed to send yield notifications:", notifError);
     }
 
     return {

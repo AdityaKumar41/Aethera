@@ -1,27 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockDeep, mockReset } from "vitest-mock-extended";
 import type { PrismaClient } from "@prisma/client";
-import { YieldDistributionService } from "../src/yield-distribution";
+import { YieldDistributionService } from "../src/yield-distribution.js";
 
 // Mock dependencies with factory function
-vi.mock("../src/index", () => ({
-  prisma: mockDeep<PrismaClient>(),
-}));
+vi.mock("../src/index.js", () => {
+  const m = mockDeep<PrismaClient>();
+  return {
+    prisma: m,
+    default: m,
+  };
+});
 
-vi.mock("../src/oracle", () => ({
+vi.mock("../src/oracle.js", () => ({
   OracleService: {
     calculateYield: vi.fn(),
   },
 }));
 
-vi.mock("../src/audit", () => ({
+vi.mock("../src/audit.js", () => ({
   AuditLogger: {
     logStateChange: vi.fn(),
   },
 }));
 
-const { prisma } = await import("../src/index");
-const { OracleService } = await import("../src/oracle");
+const { prisma } = await import("../src/index.js");
+const { OracleService } = await import("../src/oracle.js");
 
 describe("YieldDistributionService", () => {
   beforeEach(() => {

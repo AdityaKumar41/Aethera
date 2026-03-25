@@ -2,7 +2,8 @@
  * Monitoring and Alerts Service
  *
  * Real-time monitoring of contract health, performance metrics, and alerting.
- * Integrates with the event indexer to detect anomalies.
+ * Alerts are persisted to the database for durability across restarts.
+ * Metrics remain in-memory (ephemeral by nature).
  */
 
 import { prisma } from "@aethera/database";
@@ -28,19 +29,8 @@ export enum AlertType {
   LOW_BALANCE = "LOW_BALANCE",
   GOVERNANCE_PROPOSAL = "GOVERNANCE_PROPOSAL",
   SYSTEM_ERROR = "SYSTEM_ERROR",
-}
-
-interface Alert {
-  id: string;
-  type: AlertType;
-  severity: AlertSeverity;
-  title: string;
-  message: string;
-  data?: Record<string, any>;
-  createdAt: Date;
-  acknowledged: boolean;
-  acknowledgedAt?: Date;
-  acknowledgedBy?: string;
+  DEVICE_OFFLINE = "DEVICE_OFFLINE",
+  REVENUE_PENDING = "REVENUE_PENDING",
 }
 
 interface AlertRule {
@@ -63,6 +53,8 @@ interface SystemMetrics {
   activeOracles: number;
   openDisputes: number;
   activeProposals: number;
+  offlineDevices: number;
+  pendingRevenueReports: number;
   contractStatuses: Record<string, boolean>;
 }
 
@@ -73,7 +65,6 @@ interface SystemMetrics {
 export class MonitoringService {
   private static instance: MonitoringService | null = null;
 
-  private alerts: Alert[] = [];
   private rules: AlertRule[] = [];
   private metrics: SystemMetrics[] = [];
   private webhookUrls: string[] = [];
@@ -155,6 +146,7 @@ export class MonitoringService {
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
     const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
+    const deviceOfflineThreshold = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour
 
     // Run all DB queries in parallel
     const [
@@ -164,6 +156,8 @@ export class MonitoringService {
       tvlResult,
       activeOracles,
       openDisputes,
+      offlineDevices,
+      pendingRevenueReports,
     ] = await Promise.all([
       prisma.investment.count({
         where: { status: "PENDING_ONCHAIN" },
@@ -184,6 +178,15 @@ export class MonitoringService {
       prisma.oracleDispute.count({
         where: { status: { in: ["OPEN", "UNDER_REVIEW"] } },
       }),
+      prisma.ioTDevice.count({
+        where: {
+          status: "ACTIVE",
+          lastSeenAt: { lt: deviceOfflineThreshold },
+        },
+      }),
+      prisma.revenueReport.count({
+        where: { status: "PENDING" },
+      }),
     ]);
 
     const totalValueLocked = tvlResult._sum.fundingRaised
@@ -199,6 +202,8 @@ export class MonitoringService {
       activeOracles,
       openDisputes,
       activeProposals: 0,
+      offlineDevices,
+      pendingRevenueReports,
       contractStatuses: {
         assetToken: !!contracts.assetToken,
         treasury: !!contracts.treasury,
@@ -209,50 +214,54 @@ export class MonitoringService {
   }
 
   // ============================================
-  // Alert Management
+  // Alert Management (DB-backed)
   // ============================================
 
-  private async createAlert(params: {
-    type: AlertType;
-    severity: AlertSeverity;
+  async createAlert(params: {
+    type: AlertType | string;
+    severity: AlertSeverity | string;
     title: string;
     message: string;
     data?: Record<string, any>;
-  }): Promise<Alert> {
-    const alert: Alert = {
-      id: `alert-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      ...params,
-      createdAt: new Date(),
-      acknowledged: false,
-    };
+  }): Promise<any> {
+    try {
+      const alert = await prisma.alert.create({
+        data: {
+          type: params.type,
+          severity: params.severity as any,
+          title: params.title,
+          message: params.message,
+          data: params.data || undefined,
+        },
+      });
 
-    this.alerts.unshift(alert);
+      console.log(`🚨 Alert [${alert.severity}]: ${alert.title}`);
 
-    // Keep last 1000 alerts
-    if (this.alerts.length > 1000) {
-      this.alerts.pop();
+      // Send webhooks for critical alerts
+      if (params.severity === AlertSeverity.CRITICAL) {
+        await this.sendWebhooks(alert);
+      }
+
+      return alert;
+    } catch (error) {
+      // Fallback to console if DB write fails
+      console.error(`🚨 [ALERT FALLBACK] [${params.severity}]: ${params.title} - ${params.message}`);
+      return null;
     }
-
-    console.log(`🚨 Alert [${alert.severity}]: ${alert.title}`);
-
-    // Send webhooks for critical alerts
-    if (alert.severity === AlertSeverity.CRITICAL) {
-      await this.sendWebhooks(alert);
-    }
-
-    return alert;
   }
 
   private async triggerAlert(
     rule: AlertRule,
     metrics: SystemMetrics,
   ): Promise<void> {
-    // Check if similar alert was created recently (debounce)
-    const recentSimilar = this.alerts.find(
-      (a) =>
-        a.type === rule.type &&
-        Date.now() - a.createdAt.getTime() < 5 * 60 * 1000, // 5 min
-    );
+    // Check if similar alert was created recently (debounce — 5 min)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const recentSimilar = await prisma.alert.findFirst({
+      where: {
+        type: rule.type,
+        createdAt: { gte: fiveMinutesAgo },
+      },
+    });
 
     if (recentSimilar) return;
 
@@ -261,17 +270,19 @@ export class MonitoringService {
       severity: rule.severity,
       title: rule.name,
       message: rule.messageTemplate,
-      data: { metrics, ruleId: rule.id },
+      data: { ruleId: rule.id },
     });
   }
 
   async acknowledgeAlert(alertId: string, userId: string): Promise<void> {
-    const alert = this.alerts.find((a) => a.id === alertId);
-    if (alert) {
-      alert.acknowledged = true;
-      alert.acknowledgedAt = new Date();
-      alert.acknowledgedBy = userId;
-    }
+    await prisma.alert.update({
+      where: { id: alertId },
+      data: {
+        acknowledged: true,
+        acknowledgedAt: new Date(),
+        acknowledgedBy: userId,
+      },
+    });
   }
 
   // ============================================
@@ -288,7 +299,7 @@ export class MonitoringService {
     this.webhookUrls = this.webhookUrls.filter((u) => u !== url);
   }
 
-  private async sendWebhooks(alert: Alert): Promise<void> {
+  private async sendWebhooks(alert: any): Promise<void> {
     for (const url of this.webhookUrls) {
       try {
         await fetch(url, {
@@ -302,7 +313,7 @@ export class MonitoringService {
               severity: alert.severity,
               title: alert.title,
               message: alert.message,
-              timestamp: alert.createdAt.toISOString(),
+              timestamp: alert.createdAt,
             },
           }),
         });
@@ -357,34 +368,51 @@ export class MonitoringService {
         messageTemplate: "One or more contracts are paused",
         condition: (m) => Object.values(m.contractStatuses).some((s) => !s),
       },
+      {
+        id: "devices-offline",
+        name: "Devices Offline",
+        type: AlertType.DEVICE_OFFLINE,
+        enabled: true,
+        threshold: 1,
+        severity: AlertSeverity.WARNING,
+        messageTemplate: "One or more IoT devices have gone offline",
+        condition: (m) => m.offlineDevices > 0,
+      },
+      {
+        id: "pending-revenue",
+        name: "Pending Revenue Reports",
+        type: AlertType.REVENUE_PENDING,
+        enabled: true,
+        threshold: 5,
+        severity: AlertSeverity.INFO,
+        messageTemplate: "Revenue reports awaiting admin review",
+        condition: (m) => m.pendingRevenueReports > 5,
+      },
     ];
   }
 
   // ============================================
-  // Queries
+  // Queries (DB-backed)
   // ============================================
 
-  getAlerts(options?: {
-    severity?: AlertSeverity;
-    type?: AlertType;
+  async getAlerts(options?: {
+    severity?: string;
+    type?: string;
     acknowledged?: boolean;
     limit?: number;
-  }): Alert[] {
-    let filtered = [...this.alerts];
+  }): Promise<any[]> {
+    const where: any = {};
 
-    if (options?.severity) {
-      filtered = filtered.filter((a) => a.severity === options.severity);
-    }
-    if (options?.type) {
-      filtered = filtered.filter((a) => a.type === options.type);
-    }
-    if (options?.acknowledged !== undefined) {
-      filtered = filtered.filter(
-        (a) => a.acknowledged === options.acknowledged,
-      );
-    }
+    if (options?.severity) where.severity = options.severity;
+    if (options?.type) where.type = options.type;
+    if (options?.acknowledged !== undefined)
+      where.acknowledged = options.acknowledged;
 
-    return filtered.slice(0, options?.limit || 50);
+    return prisma.alert.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: options?.limit || 50,
+    });
   }
 
   getMetrics(limit: number = 60): SystemMetrics[] {
@@ -402,17 +430,22 @@ export class MonitoringService {
     }
   }
 
-  getStats(): {
+  async getStats(): Promise<{
     totalAlerts: number;
     unacknowledged: number;
     critical: number;
     lastCheck?: Date;
-  } {
+  }> {
+    const [totalAlerts, unacknowledged, critical] = await Promise.all([
+      prisma.alert.count(),
+      prisma.alert.count({ where: { acknowledged: false } }),
+      prisma.alert.count({ where: { severity: "CRITICAL" } }),
+    ]);
+
     return {
-      totalAlerts: this.alerts.length,
-      unacknowledged: this.alerts.filter((a) => !a.acknowledged).length,
-      critical: this.alerts.filter((a) => a.severity === AlertSeverity.CRITICAL)
-        .length,
+      totalAlerts,
+      unacknowledged,
+      critical,
       lastCheck: this.metrics[0]?.timestamp,
     };
   }

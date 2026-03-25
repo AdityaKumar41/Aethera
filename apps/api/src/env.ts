@@ -46,4 +46,8 @@ export function validateEnv(): void {
     }
     console.warn(message);
   }
+
+  // Log optional config status
+  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  console.log(`[API] Email notifications: ${smtpConfigured ? "SMTP configured" : "console-only (set SMTP_HOST, SMTP_USER, SMTP_PASS to enable)"}`);
 }

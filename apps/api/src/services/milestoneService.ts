@@ -6,6 +6,7 @@ import {
 } from "@aethera/database";
 import { contractService, getContractAddresses } from "@aethera/stellar";
 import { Keypair } from "@stellar/stellar-sdk";
+import { notificationService } from "./notificationService.js";
 
 export class MilestoneService {
   /**
@@ -33,7 +34,7 @@ export class MilestoneService {
       throw new Error(`Cannot submit milestone in ${milestone.status} status`);
     }
 
-    return await prisma.projectMilestone.update({
+    const updated = await prisma.projectMilestone.update({
       where: { id: milestoneId },
       data: {
         status: MilestoneStatus.SUBMITTED,
@@ -41,6 +42,27 @@ export class MilestoneService {
         submittedAt: new Date(),
       },
     });
+
+    // Notify installer of submission confirmation
+    try {
+      const installer = await prisma.user.findUnique({
+        where: { id: installerId },
+        select: { email: true, name: true },
+      });
+      if (installer?.email) {
+        notificationService.notifyMilestoneStatusChange({
+          email: installer.email,
+          userName: installer.name || "Installer",
+          projectName: milestone.project.name,
+          milestoneName: milestone.name,
+          status: "SUBMITTED",
+        });
+      }
+    } catch (e) {
+      console.error("Milestone notification failed:", e);
+    }
+
+    return updated;
   }
 
   /**
@@ -82,13 +104,35 @@ export class MilestoneService {
   }) {
     const { milestoneId, adminId, reason } = params;
 
-    return await prisma.projectMilestone.update({
+    const rejected = await prisma.projectMilestone.update({
       where: { id: milestoneId },
       data: {
         status: MilestoneStatus.REJECTED,
         rejectionReason: reason,
       },
     });
+
+    // Notify installer of rejection
+    try {
+      const milestoneData = await prisma.projectMilestone.findUnique({
+        where: { id: milestoneId },
+        include: { project: { include: { installer: true } } },
+      });
+      if (milestoneData?.project?.installer?.email) {
+        notificationService.notifyMilestoneStatusChange({
+          email: milestoneData.project.installer.email,
+          userName: milestoneData.project.installer.name || "Installer",
+          projectName: milestoneData.project.name,
+          milestoneName: milestoneData.name,
+          status: "REJECTED",
+          reason,
+        });
+      }
+    } catch (e) {
+      console.error("Milestone rejection notification failed:", e);
+    }
+
+    return rejected;
   }
 
   /**

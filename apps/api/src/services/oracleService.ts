@@ -163,38 +163,67 @@ export class OracleService {
   // ============================================
 
   /**
-   * Register a new IoT device (ADA)
+   * Generate an activation code for a new device (Installer/Admin)
    */
-  async registerDevice(input: {
-    projectId: string;
+  async generateActivationCode(projectId: string): Promise<string> {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) throw new Error("Project not found");
+
+    // Generate a 8-character alphanumeric code
+    const activationCode = randomBytes(4).toString("hex").toUpperCase();
+
+    await prisma.ioTDevice.create({
+      data: {
+        projectId,
+        activationCode,
+        status: "INACTIVE",
+        publicKey: `PENDING-${activationCode}`, // Placeholder until activated
+      },
+    });
+
+    return activationCode;
+  }
+
+  /**
+   * Activate a device using a code (ADA calls this)
+   */
+  async activateDevice(input: {
+    activationCode: string;
     publicKey: string;
     metadata?: any;
   }): Promise<{ deviceId: string }> {
-    // 1. Check if project exists
-    const project = await prisma.project.findUnique({
-      where: { id: input.projectId },
+    // 1. Find device by activation code
+    const device = await prisma.ioTDevice.findUnique({
+      where: { activationCode: input.activationCode },
     });
 
-    if (!project) {
-      throw new Error("Project not found");
+    if (!device) {
+      throw new Error("Invalid activation code");
     }
 
-    // 2. Register or update device
-    const device = await prisma.ioTDevice.upsert({
-      where: { publicKey: input.publicKey },
-      update: {
-        projectId: input.projectId,
-        metadata: input.metadata,
-        status: "ACTIVE",
-      },
-      create: {
-        projectId: input.projectId,
+    if (device.activatedAt) {
+      throw new Error("Device already activated");
+    }
+
+    // 2. Update device with real public key and status
+    const updated = await prisma.ioTDevice.update({
+      where: { id: device.id },
+      data: {
         publicKey: input.publicKey,
+        status: "ACTIVE",
+        activatedAt: new Date(),
+        lastSeenAt: new Date(),
         metadata: input.metadata,
+        firmwareVersion: input.metadata?.version || input.metadata?.firmware,
+        model: input.metadata?.model,
+        manufacturer: input.metadata?.manufacturer,
       },
     });
 
-    return { deviceId: device.id };
+    return { deviceId: updated.id };
   }
 
   /**

@@ -36,6 +36,7 @@ import milestoneRoutes from "./routes/milestones.js";
 import { getTransactionMonitor } from "./services/transactionMonitor.js";
 import { eventIndexer } from "./services/eventIndexer.js";
 import { monitoringService } from "./services/monitoringService.js";
+import { deviceHealthService } from "./services/deviceHealthService.js";
 
 // Import middleware
 import { clerkMiddleware } from "@clerk/express";
@@ -213,6 +214,7 @@ app.listen(PORT, () => {
     getTransactionMonitor().start();
     eventIndexer.start();
     monitoringService.start();
+    deviceHealthService.start();
     console.log("✅ All background services active");
   } catch (error) {
     console.error("❌ Failed to start background services:", error);

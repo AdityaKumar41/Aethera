@@ -25,6 +25,7 @@ import {
   Contract,
 } from "@stellar/stellar-sdk";
 import crypto from "crypto";
+import { notificationService } from "./notificationService.js";
 
 interface InvestmentInput {
   investorId: string;
@@ -164,6 +165,30 @@ export class InvestmentService {
         }
         */
 
+        // Send investment confirmation notification
+        try {
+          const investorUser = await prisma.user.findUnique({
+            where: { id: investorId },
+            select: { email: true, name: true },
+          });
+          const projectInfo = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { name: true },
+          });
+          if (investorUser?.email) {
+            notificationService.notifyInvestmentConfirmed({
+              email: investorUser.email,
+              investorName: investorUser.name || "Investor",
+              projectName: projectInfo?.name || projectId,
+              amount,
+              tokenAmount,
+              txHash,
+            });
+          }
+        } catch (notifError) {
+          console.error("Failed to send investment notification:", notifError);
+        }
+
         return {
           success: true,
           investmentId: investment.id,
@@ -178,6 +203,29 @@ export class InvestmentService {
             txError: txError.message,
           },
         });
+
+        // Send failure notification
+        try {
+          const investorUser = await prisma.user.findUnique({
+            where: { id: investorId },
+            select: { email: true, name: true },
+          });
+          const projectInfo = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { name: true },
+          });
+          if (investorUser?.email) {
+            notificationService.notifyInvestmentFailed({
+              email: investorUser.email,
+              investorName: investorUser.name || "Investor",
+              projectName: projectInfo?.name || projectId,
+              amount,
+              error: txError.message,
+            });
+          }
+        } catch (notifError) {
+          console.error("Failed to send investment failure notification:", notifError);
+        }
 
         return {
           success: false,

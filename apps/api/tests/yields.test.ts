@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
 import express from "express";
-import yieldsRouter from "../src/routes/yields";
+import yieldsRouter from "../src/routes/yields.js";
 
 // Mock dependencies
 vi.mock("@aethera/database", () => ({
@@ -9,6 +9,7 @@ vi.mock("@aethera/database", () => ({
     yieldClaim: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
+      update: vi.fn(),
     },
     transactionLog: {
       create: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock("@aethera/database", () => ({
   },
 }));
 
-vi.mock("../src/middleware/auth", () => ({
+vi.mock("../src/middleware/auth.js", () => ({
   authenticate: (req: any, res: any, next: any) => {
     req.auth = { userId: "user_123", role: "INVESTOR" };
     next();
@@ -37,7 +38,20 @@ vi.mock("../src/middleware/auth", () => ({
   requireRole: () => (req: any, res: any, next: any) => next(),
 }));
 
+vi.mock("../src/services/yieldService.js", () => ({
+  yieldService: {
+    distributeYield: vi.fn(),
+    claimYield: vi.fn(),
+    batchClaim: vi.fn(),
+  },
+}));
+
+vi.mock("../src/middleware/rateLimiter.js", () => ({
+  claimLimiter: (req: any, res: any, next: any) => next(),
+}));
+
 const { YieldDistributionService } = await import("@aethera/database");
+const { yieldService } = await import("../src/services/yieldService.js");
 
 describe("Yields API", () => {
   let app: express.Application;
@@ -121,6 +135,11 @@ describe("Yields API", () => {
       vi.mocked(
         YieldDistributionService.getDistributionSummary,
       ).mockResolvedValue(mockSummary as any);
+      vi.mocked(yieldService.distributeYield).mockResolvedValue({
+        distributionId: "dist_123",
+        txHash: "tx_123",
+        success: true,
+      } as any);
 
       const response = await request(app).post("/api/yields/distribute").send({
         projectId: "project_123",

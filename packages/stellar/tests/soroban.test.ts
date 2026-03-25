@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SorobanContractService } from "../src/soroban";
-import { SorobanRpc } from "@stellar/stellar-sdk";
+import { SorobanContractService } from "../src/soroban.js";
+import { rpc } from "@stellar/stellar-sdk";
 
 describe("SorobanContractService", () => {
   let service: SorobanContractService;
@@ -27,7 +27,7 @@ describe("SorobanContractService", () => {
         "CBRCDA3COGVNJJEM22MC7V5KZCF3OTNJ2CYHT4OFDJO5SRHFNVDSQJ3N",
       );
       expect(ids.treasury).toBe(
-        "CDTQZM37IUOU7KDQZVDVWFLO2FSF2OPL2KTRABH7Y5UUGXKA5XCSRX3Q",
+        "CAZ2XELSAAX2SSFWK67KCSPJTB7NU6BREDBMVGJXR4FCA7SENR6PTZCE",
       );
     });
   });

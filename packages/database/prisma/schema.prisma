@@ -78,6 +78,8 @@ model Project {
   tokenTransfers            TokenTransfer[]
   yieldDistributions        YieldDistribution[]
   iotDevices                IoTDevice[]
+  revenueReports            RevenueReport[]
+  tariffs                   ProjectTariff[]
 
   @@index([installerId])
   @@index([status])
@@ -336,19 +338,25 @@ enum DisputeStatus {
 }
 
 model IoTDevice {
-  id             String           @id @default(cuid())
-  projectId      String
-  publicKey      String           @unique
-  status         DeviceStatus     @default(ACTIVE)
-  lastSeenAt     DateTime?
-  metadata       Json?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  project        Project          @relation(fields: [projectId], references: [id])
-  productionData ProductionData[]
+  id              String           @id @default(cuid())
+  projectId       String
+  publicKey       String           @unique
+  status          DeviceStatus     @default(ACTIVE)
+  lastSeenAt      DateTime?
+  metadata        Json?
+  activationCode  String?          @unique
+  activatedAt     DateTime?
+  firmwareVersion String?
+  model           String?
+  manufacturer    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  project         Project          @relation(fields: [projectId], references: [id])
+  productionData  ProductionData[]
 
   @@index([projectId])
   @@index([publicKey])
+  @@index([activationCode])
 }
 
 enum DeviceStatus {
@@ -423,4 +431,90 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([userId])
   @@index([createdAt])
+}
+
+// ============================================
+// Revenue Tracking
+// ============================================
+
+model RevenueReport {
+  id              String          @id @default(cuid())
+  projectId       String
+  installerId     String
+  amount          Decimal         @db.Decimal(18, 2)
+  currency        String          @default("USDC")
+  periodStart     DateTime
+  periodEnd       DateTime
+  evidence        Json?
+  status          RevenueStatus   @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+  distributionId  String?
+  totalKwh        Decimal?        @db.Decimal(18, 4)
+  revenuePerKwh   Decimal?        @db.Decimal(18, 6)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  project         Project         @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([installerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum RevenueStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISTRIBUTED
+}
+
+// ============================================
+// PPA / Tariff Configuration
+// ============================================
+
+model ProjectTariff {
+  id              String    @id @default(cuid())
+  projectId       String
+  ratePerKwh      Decimal   @db.Decimal(18, 6)
+  currency        String    @default("USDC")
+  ppaContractRef  String?
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([effectiveFrom])
+}
+
+// ============================================
+// Persistent Alerts
+// ============================================
+
+model Alert {
+  id              String         @id @default(cuid())
+  type            String
+  severity        AlertSeverity  @default(INFO)
+  title           String
+  message         String
+  data            Json?
+  acknowledged    Boolean        @default(false)
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  createdAt       DateTime       @default(now())
+
+  @@index([severity])
+  @@index([type])
+  @@index([acknowledged])
+  @@index([createdAt])
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
 }

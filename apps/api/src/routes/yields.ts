@@ -18,6 +18,7 @@ import {
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
 import { createApiError } from "../middleware/error.js";
+import { claimLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -65,6 +66,7 @@ router.get(
 
 router.post(
   "/claim/:claimId",
+  claimLimiter,
   requireRole("INVESTOR"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
@@ -253,6 +255,7 @@ const batchClaimSchema = z.object({
 
 router.post(
   "/claim/batch",
+  claimLimiter,
   requireRole("INVESTOR"),
   async (req: AuthenticatedRequest, res, next) => {
     try {
