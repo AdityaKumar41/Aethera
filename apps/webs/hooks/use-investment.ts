@@ -40,8 +40,7 @@ export function useInvestment(): UseInvestmentReturn {
 
     while (attempts < maxAttempts) {
       try {
-        const response = await fetch(`/api/investments/${investmentId}/status`);
-        const data = await response.json();
+        const data = await investmentApi.getInvestmentStatus(investmentId);
 
         if (data.success && data.data) {
           const invStatus = data.data.status;

@@ -29,17 +29,34 @@ services:
       # TESTNET or MAINNET
       - key: STELLAR_NETWORK
         value: testnet
-      # Secret key of the relayer/admin Stellar account (used for token minting)
+      # Legacy plain relayer/admin Stellar secret used by older services
       - key: STAT_RELAYER_SECRET
-        sync: false
-      # Encryption passphrase for storing user wallet secrets in DB
-      - key: STELLAR_SECRET_ENCRYPTION_KEY
         sync: false
       # Encryption passphrase for wallet operations
       - key: WALLET_ENCRYPTION_SECRET
         sync: false
+      # Legacy encryption key still used by some existing wallet flows
+      - key: STELLAR_SECRET_ENCRYPTION_KEY
+        sync: false
+      # Public key for the encrypted admin relayer wallet
+      - key: ADMIN_RELAYER_PUBLIC_KEY
+        sync: false
       # Encrypted admin relayer secret for project activation (capital release)
       - key: ADMIN_RELAYER_SECRET_ENCRYPTED
+        sync: false
+      # Canonical Stellar USDC token contract used by investments/funding
+      - key: USDC_CONTRACT_ID
+        sync: false
+      # Treasury contract that escrows project funds and mints project tokens
+      - key: TREASURY_CONTRACT_ID
+        sync: false
+      - key: ASSET_TOKEN_CONTRACT_ID
+        sync: false
+      - key: YIELD_DISTRIBUTOR_CONTRACT_ID
+        sync: false
+      - key: GOVERNANCE_CONTRACT_ID
+        sync: false
+      - key: ORACLE_CONTRACT_ID
         sync: false
 
       # ── CORS ─────────────────────────────────────────────────────────────

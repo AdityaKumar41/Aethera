@@ -30,7 +30,7 @@ export const tokenTransferApi = {
   // Create a new token listing (sell tokens)
   createListing: async (data: CreateListingData): Promise<TokenListing> => {
     const response = await apiRequest<TokenListing>(
-      "/token-transfers/listings",
+      "/api/token-transfers/listings",
       {
         method: "POST",
         body: data,
@@ -45,7 +45,7 @@ export const tokenTransferApi = {
   // Get all available listings for a project
   getProjectListings: async (projectId: string): Promise<TokenListing[]> => {
     const response = await apiRequest<TokenListing[]>(
-      `/token-transfers/projects/${projectId}/listings`,
+      `/api/token-transfers/projects/${projectId}/listings`,
     );
     if (!response.success || !response.data) {
       throw new Error(response.error || "Failed to load listings");
@@ -56,7 +56,7 @@ export const tokenTransferApi = {
   // Get user's own listings
   getUserListings: async (): Promise<TokenListing[]> => {
     const response = await apiRequest<TokenListing[]>(
-      "/token-transfers/my-listings",
+      "/api/token-transfers/my-listings",
     );
     if (!response.success || !response.data) {
       throw new Error(response.error || "Failed to load listings");
@@ -67,7 +67,7 @@ export const tokenTransferApi = {
   // Accept/buy a listing
   acceptListing: async (listingId: string): Promise<TokenListing> => {
     const response = await apiRequest<TokenListing>(
-      `/token-transfers/listings/${listingId}/accept`,
+      `/api/token-transfers/listings/${listingId}/accept`,
       {
         method: "POST",
       },
@@ -81,7 +81,7 @@ export const tokenTransferApi = {
   // Cancel a listing
   cancelListing: async (listingId: string): Promise<void> => {
     const response = await apiRequest(
-      `/token-transfers/listings/${listingId}`,
+      `/api/token-transfers/listings/${listingId}`,
       {
         method: "DELETE",
       },

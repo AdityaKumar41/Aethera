@@ -29,20 +29,36 @@ export function validateEnv(): void {
   const requiredProd = [
     "JWT_SECRET",
     "CLERK_SECRET_KEY",
-    "STAT_RELAYER_SECRET",
-    "STELLAR_SECRET_ENCRYPTION_KEY",
     "WALLET_ENCRYPTION_SECRET",
     "STELLAR_NETWORK",
     "ASSET_TOKEN_CONTRACT_ID",
     "TREASURY_CONTRACT_ID",
+    "USDC_CONTRACT_ID",
     "YIELD_DISTRIBUTOR_CONTRACT_ID",
     "GOVERNANCE_CONTRACT_ID",
     "ORACLE_CONTRACT_ID",
+  ];
+  const requiredProdOneOf = [
+    ["STAT_RELAYER_SECRET", "ADMIN_RELAYER_SECRET_ENCRYPTED"],
+    ["STELLAR_SECRET_ENCRYPTION_KEY", "WALLET_ENCRYPTION_SECRET"],
+  ];
+  const recommendedProd = [
+    "ADMIN_RELAYER_PUBLIC_KEY",
+    "ADMIN_RELAYER_SECRET_ENCRYPTED",
+    "FRONTEND_URL",
   ];
 
   const isProd = process.env.NODE_ENV === "production";
   const required = isProd ? [...requiredBase, ...requiredProd] : requiredBase;
   const missing = required.filter((key) => !process.env[key]);
+
+  if (isProd) {
+    for (const group of requiredProdOneOf) {
+      if (!group.some((key) => process.env[key])) {
+        missing.push(`${group.join(" or ")}`);
+      }
+    }
+  }
 
   if (missing.length > 0) {
     const message = `[API] Missing required env vars: ${missing.join(", ")}`;
@@ -50,6 +66,15 @@ export function validateEnv(): void {
       throw new Error(message);
     }
     console.warn(message);
+  }
+
+  if (isProd) {
+    const missingRecommended = recommendedProd.filter((key) => !process.env[key]);
+    if (missingRecommended.length > 0) {
+      console.warn(
+        `[API] Recommended production env vars not set: ${missingRecommended.join(", ")}`,
+      );
+    }
   }
 
   // Log optional config status
