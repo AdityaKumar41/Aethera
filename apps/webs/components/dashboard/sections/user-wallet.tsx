@@ -15,12 +15,15 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { toast } from "sonner";
+import { walletApi } from "@/lib/api";
 
 export function UserWalletSection() {
   const { balances, loading, refetch } = useWalletBalances();
   const claimableBalances = balances?.claimableBalances;
   const { claim, loading: claiming } = useClaimTokens();
   const [isRefetching, setIsRefetching] = useState(false);
+  const [activatingWallet, setActivatingWallet] = useState(false);
+  const walletFunded = Boolean(balances?.funded);
 
   const handleRefresh = async () => {
     setIsRefetching(true);
@@ -42,6 +45,24 @@ export function UserWalletSection() {
       }
     } catch {
       toast.error("An error occurred during settlement");
+    }
+  };
+
+  const handleActivateWallet = async () => {
+    setActivatingWallet(true);
+
+    try {
+      const response = await walletApi.fundTestnet();
+      if (response.success) {
+        toast.success(response.message || "Wallet activated on Stellar testnet");
+        await refetch();
+      } else {
+        toast.error(response.error || "Failed to activate wallet");
+      }
+    } catch {
+      toast.error("Failed to activate wallet");
+    } finally {
+      setActivatingWallet(false);
     }
   };
 
@@ -91,8 +112,13 @@ export function UserWalletSection() {
       <div className="bg-white border border-zinc-100 rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span className="text-xs font-semibold text-emerald-600">
-            Stellar Testnet · Custodial
+          <span
+            className={cn(
+              "text-xs font-semibold",
+              walletFunded ? "text-emerald-600" : "text-amber-600",
+            )}
+          >
+            Stellar Testnet · {walletFunded ? "Active" : "Awaiting Funding"}
           </span>
         </div>
 
@@ -125,10 +151,28 @@ export function UserWalletSection() {
                 {balances.publicKey}
               </code>
               <a
-                href={`https://stellar.expert/explorer/testnet/account/${balances.publicKey}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-lg bg-zinc-50 border border-zinc-100 text-zinc-500 hover:text-emerald-600 transition-colors"
+                href={
+                  walletFunded
+                    ? `https://stellar.expert/explorer/testnet/account/${balances.publicKey}`
+                    : undefined
+                }
+                target={walletFunded ? "_blank" : undefined}
+                rel={walletFunded ? "noopener noreferrer" : undefined}
+                aria-disabled={!walletFunded}
+                onClick={(event) => {
+                  if (!walletFunded) {
+                    event.preventDefault();
+                    toast.info(
+                      "This wallet needs its first testnet funding transaction before Stellar Expert can load it.",
+                    );
+                  }
+                }}
+                className={cn(
+                  "p-2 rounded-lg border transition-colors",
+                  walletFunded
+                    ? "bg-zinc-50 border-zinc-100 text-zinc-500 hover:text-emerald-600"
+                    : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed",
+                )}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -136,6 +180,38 @@ export function UserWalletSection() {
           </div>
         )}
       </div>
+
+      {!walletFunded && balances?.publicKey && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900 text-sm">
+                Wallet exists, but the Stellar account is not active yet
+              </h3>
+              <p className="text-xs text-blue-700 mt-0.5 mb-4">
+                The custodial keypair has been created. One Friendbot funding
+                transaction is still needed before Stellar Expert and on-chain
+                balances become available.
+              </p>
+              <button
+                onClick={handleActivateWallet}
+                disabled={activatingWallet}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {activatingWallet ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Zap className="w-3.5 h-3.5" />
+                )}
+                Activate Testnet Wallet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Claimable Balance Alert */}
       {claimableBalances && claimableBalances.length > 0 && (

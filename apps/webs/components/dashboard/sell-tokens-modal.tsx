@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ViewportPortal } from "@/components/ui/viewport-portal";
 import { Loader2, AlertCircle, X } from "lucide-react";
 import { tokenTransferApi } from "@/lib/token-transfer-api";
 
@@ -97,8 +98,9 @@ export function SellTokensModal({
     parseFloat(tokenAmount || "0") * parseFloat(pricePerToken || "0");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <Card className="w-full max-w-md p-6 relative">
+    <ViewportPortal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <Card className="w-full max-w-md p-6 relative">
         <button
           onClick={handleClose}
           className="absolute top-4 right-4 p-2 rounded-lg hover:bg-zinc-100 transition-colors"
@@ -272,7 +274,8 @@ export function SellTokensModal({
             </div>
           </div>
         )}
-      </Card>
-    </div>
+        </Card>
+      </div>
+    </ViewportPortal>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ProjectCard } from "@/components/dashboard/project-card";
 import { InvestModal } from "@/components/dashboard/invest-modal";
-import { ProjectDetailsModal } from "@/components/dashboard/project-details-modal";
 import {
   Search,
   Sun,
@@ -21,6 +21,7 @@ import type { Project } from "@/lib/api";
 type FilterStatus = "all" | "funding" | "funded" | "producing";
 
 export function MarketplaceSection() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const {
@@ -32,22 +33,16 @@ export function MarketplaceSection() {
   const projects = rawProjects || [];
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isInvestModalOpen, setIsInvestModalOpen] = useState(false);
 
   const handleViewDetails = (projectId: string) => {
-    const project = projects.find((p) => p.id === projectId);
-    if (project) {
-      setSelectedProject(project);
-      setIsDetailsModalOpen(true);
-    }
+    router.push(`/dashboard/marketplace/${projectId}`);
   };
 
   const handleInvestClick = (projectId: string) => {
     const project = projects.find((p) => p.id === projectId);
     if (project) {
       setSelectedProject(project);
-      setIsDetailsModalOpen(false);
       setIsInvestModalOpen(true);
     }
   };
@@ -255,16 +250,6 @@ export function MarketplaceSection() {
           )}
         </>
       )}
-
-      <ProjectDetailsModal
-        project={selectedProject}
-        isOpen={isDetailsModalOpen}
-        onClose={() => {
-          setIsDetailsModalOpen(false);
-          setSelectedProject(null);
-        }}
-        onInvest={handleInvestClick}
-      />
 
       <InvestModal
         project={selectedProject}

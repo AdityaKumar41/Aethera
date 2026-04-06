@@ -12,6 +12,7 @@ import {
   getContractAddresses,
   contractService,
   getRelayerService,
+  getUSDCAsset,
   walletService,
 } from "@aethera/stellar";
 import {
@@ -40,6 +41,10 @@ interface InvestmentResult {
   txHash?: string;
   error?: string;
 }
+
+const USDC_TOKEN_CONTRACT_ID =
+  process.env.USDC_CONTRACT_ID ||
+  "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
 export class InvestmentService {
   private stellar: StellarClient;
@@ -104,6 +109,60 @@ export class InvestmentService {
 
       if (project.status !== "FUNDING") {
         return { success: false, error: "Project not accepting investments" };
+      }
+
+      const sorobanUsdcBalance = await contractService.getTokenBalance(
+        USDC_TOKEN_CONTRACT_ID,
+        investor.stellarPubKey,
+      );
+      const spendableUsdcBalance =
+        Number(sorobanUsdcBalance?.balance ?? BigInt(0)) / 10_000_000;
+
+      if (spendableUsdcBalance < amount) {
+        const supportedUsdcIssuer = getUSDCAsset().issuer;
+        const onChainBalances = await walletService.getBalances(investor.stellarPubKey);
+        const unsupportedUsdcBalance = onChainBalances
+          .filter(
+            (balance: any) =>
+              balance.asset_code === "USDC" &&
+              balance.asset_issuer &&
+              balance.asset_issuer !== supportedUsdcIssuer,
+          )
+          .reduce((sum: number, balance: any) => sum + Number(balance.balance), 0);
+
+        const claimableBalances = await walletService.getClaimableBalances(
+          investor.stellarPubKey,
+        );
+        const claimableUsdcBalance = claimableBalances
+          .filter((balance: any) =>
+            String(balance.asset || "").split(":")[0] === "USDC" &&
+            String(balance.asset || "").split(":")[1] === supportedUsdcIssuer,
+          )
+          .reduce((sum: number, balance: any) => sum + Number(balance.amount), 0);
+
+        if (claimableUsdcBalance > 0) {
+          return {
+            success: false,
+            error:
+              `Insufficient spendable USDC. Wallet balance: ${spendableUsdcBalance.toFixed(2)} USDC. ` +
+              `Pending claimable USDC: ${claimableUsdcBalance.toFixed(2)}. Claim your pending wallet balances first.`,
+          };
+        }
+
+        if (unsupportedUsdcBalance > 0) {
+          return {
+            success: false,
+            error:
+              `Your wallet holds ${unsupportedUsdcBalance.toFixed(2)} legacy test USDC from an unsupported issuer. ` +
+              `Use the official test USDC funding action, then try the investment again.`,
+          };
+        }
+
+        return {
+          success: false,
+          error:
+            `Insufficient spendable USDC. Wallet balance: ${spendableUsdcBalance.toFixed(2)} USDC, required: ${amount.toFixed(2)} USDC.`,
+        };
       }
 
       // 3. Check funding limit

@@ -66,12 +66,41 @@ router.post('/clerk', async (req: Request, res: Response) => {
 
         if (!existingUserById) {
           if (existingUserByEmail) {
-            // Link existing user with Clerk ID
-            await prisma.user.update({
-              where: { email: email! },
-              data: { id }
-            });
-            console.log(`[Clerk Webhook] Linked Clerk ID ${id} to existing user with email ${email}`);
+            // Link existing user with Clerk ID by deleting and recreating or merging
+            // Note: Since 'id' is primary key, we can't update it. 
+            // If they have no foreign key data yet (check-sync), we can migrate them.
+            // For now, let's keep it simple: if they exist by email but have different ID,
+            // we'll update their record if we can, but since we use Clerk ID as 'id',
+            // we really should have used the Clerk ID from the start.
+            
+            console.log(`[Clerk Webhook] Found existing user with email ${email} but different ID. Migrating to Clerk ID ${id}`);
+            
+            try {
+              // Create new user with Clerk ID and metadata from existing user
+              const wallet = existingUserByEmail.stellarPubKey 
+                ? { publicKey: existingUserByEmail.stellarPubKey, encryptedSecret: existingUserByEmail.stellarSecretEncrypted }
+                : await walletService.createWallet();
+
+              await prisma.$transaction([
+                prisma.user.delete({ where: { email: email! } }),
+                prisma.user.create({
+                  data: {
+                    id,
+                    email: email!,
+                    name: existingUserByEmail.name || name,
+                    role: existingUserByEmail.role,
+                    stellarPubKey: wallet.publicKey,
+                    stellarSecretEncrypted: wallet.encryptedSecret,
+                    phone: existingUserByEmail.phone,
+                    company: existingUserByEmail.company,
+                  }
+                })
+              ]);
+              console.log(`[Clerk Webhook] Successfully migrated user ${email} to Clerk ID ${id}`);
+            } catch (migrateError) {
+              console.error(`[Clerk Webhook] Migration failed:`, migrateError);
+              throw migrateError; // Rethrow to be caught by main catch block
+            }
           } else {
             // Create new user
             const wallet = await walletService.createWallet();
@@ -106,9 +135,13 @@ router.post('/clerk', async (req: Request, res: Response) => {
       }
     }
     return res.status(200).json({ received: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[Clerk Webhook] Error:`, error);
-    return res.status(500).json({ error: 'Error processing webhook' });
+    return res.status(500).json({ 
+      error: 'Error processing webhook',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

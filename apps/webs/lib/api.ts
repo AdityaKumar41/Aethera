@@ -95,6 +95,11 @@ export const userApi = {
   getPortfolio: () => apiRequest<PortfolioData>("/api/users/portfolio"),
   getWalletBalances: () =>
     apiRequest<WalletBalances>("/api/users/wallet/balances"),
+  claimWalletBalances: (balanceIds: string[]) =>
+    apiRequest<{ txHash?: string }>("/api/users/wallet/claim", {
+      method: "POST",
+      body: { balanceIds },
+    }),
   getWalletTransactions: () =>
     apiRequest<Transaction[]>("/api/users/wallet/transactions"),
   sync: (data: any) =>
@@ -113,6 +118,12 @@ export interface Transaction {
   fee_charged: string;
   memo: string;
   successful: boolean;
+  operation_type?: string;
+  summary?: string;
+  amount?: string;
+  asset?: string;
+  direction?: "in" | "out" | "neutral";
+  counterparty?: string;
 }
 
 // KYC endpoints
@@ -179,6 +190,8 @@ export const adminApi = {
       body: { reason: reason || "Does not meet verification requirements" },
     }),
   getStats: () => apiRequest<any>("/api/admin/dashboard"),
+  getAllProjects: () => apiRequest<Project[]>("/api/admin/projects/all"),
+  getProject: (id: string) => apiRequest<Project>(`/api/admin/projects/${id}`),
   getPendingProjects: () =>
     apiRequest<Project[]>("/api/admin/projects/pending"),
   getFundedProjects: () => apiRequest<Project[]>("/api/admin/projects/funded"),
@@ -216,6 +229,46 @@ export const adminApi = {
     apiRequest<any>("/api/yields/distribute", { method: "POST", body: data }),
 };
 
+export interface AdminDashboardStats {
+  users: {
+    total: number;
+    investors: number;
+    installers: number;
+  };
+  projects: {
+    total: number;
+    pending: number;
+    approved: number;
+    active: number;
+    activePendingData: number;
+    funding: number;
+    funded: number;
+    completed: number;
+  };
+  kyc: {
+    pendingReview: number;
+  };
+  funding: {
+    totalRaised: number;
+    totalTarget: number;
+  };
+  queues: {
+    underReview: number;
+    approvedAwaitingDeployment: number;
+    fundingLive: number;
+    readyToActivate: number;
+    activeOperations: number;
+  };
+  recentProjects: Project[];
+  recentKycSubmissions: Array<{
+    id: string;
+    email: string;
+    name?: string | null;
+    role: "INVESTOR" | "INSTALLER" | "ADMIN";
+    kycSubmittedAt?: string | null;
+  }>;
+}
+
 export const milestoneApi = {
   getProjectMilestones: (projectId: string) =>
     apiRequest<ProjectMilestone[]>(`/api/milestones/project/${projectId}`),
@@ -249,6 +302,8 @@ export const investmentApi = {
   getMyInvestments: () => apiRequest<Investment[]>("/api/investments/my"),
   getInvestment: (id: string) =>
     apiRequest<Investment>(`/api/investments/${id}`),
+  getInvestmentStatus: (id: string) =>
+    apiRequest<InvestmentStatus>(`/api/investments/${id}/status`),
   createInvestment: (data: { projectId: string; amount: number }) =>
     apiRequest<Investment>("/api/investments", { method: "POST", body: data }),
 };
@@ -355,7 +410,8 @@ export interface Project {
   pricePerToken: number;
   totalTokens: number;
   tokensRemaining: number;
-  tokenSymbol: string;
+  tokenSymbol?: string | null;
+  tokenContractId?: string | null;
   status:
     | "DRAFT"
     | "PENDING_APPROVAL"
@@ -370,6 +426,9 @@ export interface Project {
     id: string;
     name: string;
     company?: string;
+    email?: string;
+    country?: string;
+    stellarPubKey?: string | null;
   };
   investorCount?: number;
   fundingPercentage?: number;
@@ -378,7 +437,24 @@ export interface Project {
   totalEscrowedAmount?: number;
   totalReleasedAmount?: number;
   milestones?: ProjectMilestone[];
+  iotDevices?: Array<{
+    id: string;
+    publicKey: string;
+    status: string;
+    createdAt: string;
+  }>;
+  _count?: {
+    investments?: number;
+    iotDevices?: number;
+    milestones?: number;
+    productionData?: number;
+  };
+  rejectionReason?: string | null;
   createdAt?: string;
+  approvedAt?: string | null;
+  updatedAt?: string;
+  estimatedCompletionDate?: string | null;
+  lastProductionUpdate?: string | null;
 }
 
 export interface ProjectMilestone {
@@ -404,6 +480,7 @@ export interface Investment {
   amount: number;
   tokenAmount: number;
   status: "PENDING" | "PENDING_ONCHAIN" | "CONFIRMED" | "FAILED" | "CANCELLED";
+  txHash?: string;
   createdAt: string;
   project: {
     id: string;
@@ -414,6 +491,18 @@ export interface Investment {
     location?: string;
     pricePerToken?: number;
   };
+}
+
+export interface InvestmentStatus {
+  id: string;
+  status: "PENDING" | "PENDING_ONCHAIN" | "CONFIRMED" | "FAILED" | "CANCELLED";
+  txHash?: string;
+  txLedger?: number;
+  txConfirmedAt?: string;
+  mintStatus?: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
+  mintConfirmedAt?: string;
+  amount: number;
+  tokenAmount: number;
 }
 
 export interface YieldSummary {

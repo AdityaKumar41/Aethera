@@ -5,13 +5,17 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "@aethera/database";
-import { walletService } from "@aethera/stellar";
+import { contractService, getUSDCAsset, walletService } from "@aethera/stellar";
 import { impactService } from "../services/impactService.js";
+import { ensureUserWallet } from "../services/userWalletService.js";
 import { authenticate, type AuthenticatedRequest } from "../middleware/auth.js";
 import { createApiError } from "../middleware/error.js";
 import { syncKycStatus } from "./kyc.js";
 
 const router = Router();
+const USDC_TOKEN_CONTRACT_ID =
+  process.env.USDC_CONTRACT_ID ||
+  "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
 // All routes require authentication
 router.use(authenticate);
@@ -107,40 +111,46 @@ router.patch("/profile", async (req: AuthenticatedRequest, res, next) => {
 
 router.get("/wallet/balances", async (req: AuthenticatedRequest, res, next) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.auth?.userId },
-      select: { stellarPubKey: true },
-    });
-
-    if (!user?.stellarPubKey) {
-      res.json({
-        success: true,
-        data: { balances: [], funded: false },
-      });
-      return;
+    const userId = req.auth?.userId;
+    if (!userId) {
+      throw createApiError("Authentication required", 401);
     }
 
-    const [rawBalances, claimableBalances, funded] = await Promise.all([
-      walletService.getBalances(user.stellarPubKey),
-      walletService.getClaimableBalances(user.stellarPubKey),
-      walletService.isAccountFunded(user.stellarPubKey),
+    const wallet = await ensureUserWallet(userId, { fundOnTestnet: true });
+
+    const supportedUsdcIssuer = getUSDCAsset().issuer;
+
+    const [rawBalances, rawClaimableBalances, funded, sorobanUsdcBalance] = await Promise.all([
+      walletService.getBalances(wallet.publicKey),
+      walletService.getClaimableBalances(wallet.publicKey),
+      Promise.resolve(wallet.funded),
+      contractService.getTokenBalance(USDC_TOKEN_CONTRACT_ID, wallet.publicKey),
     ]);
 
     // Transform and aggregate balances
     const balanceMap = new Map<string, { asset: string; balance: number }>();
 
     rawBalances.forEach((b: any) => {
-      const assetCode =
+      let assetCode =
         b.asset_type === "native" ? "XLM" : b.asset_code || "UNKNOWN";
+
+      if (assetCode === "USDC" && b.asset_issuer !== supportedUsdcIssuer) {
+        assetCode = "USDC (unsupported)";
+      }
+
       const balance = parseFloat(b.balance);
 
-      // Aggregate balances by asset code (combine all USDC from different issuers)
       if (balanceMap.has(assetCode)) {
         const existing = balanceMap.get(assetCode)!;
         existing.balance += balance;
       } else {
         balanceMap.set(assetCode, { asset: assetCode, balance });
       }
+    });
+
+    balanceMap.set("USDC", {
+      asset: "USDC",
+      balance: Number(sorobanUsdcBalance?.balance ?? BigInt(0)) / 10_000_000,
     });
 
     // Convert to array and filter out zero balances
@@ -151,10 +161,23 @@ router.get("/wallet/balances", async (req: AuthenticatedRequest, res, next) => {
         balance: b.balance.toFixed(7), // 7 decimals for Stellar assets
       }));
 
+    const claimableBalances = rawClaimableBalances.map((balance: any) => {
+      const [assetCode, assetIssuer] = String(balance.asset || "").split(":");
+      const asset =
+        assetCode === "USDC" && assetIssuer && assetIssuer !== supportedUsdcIssuer
+          ? "USDC (unsupported)"
+          : assetCode || balance.asset;
+
+      return {
+        ...balance,
+        asset,
+      };
+    });
+
     res.json({
       success: true,
       data: {
-        publicKey: user.stellarPubKey,
+        publicKey: wallet.publicKey,
         balances,
         claimableBalances,
         funded,
@@ -177,12 +200,14 @@ router.post("/wallet/claim", async (req: AuthenticatedRequest, res, next) => {
       throw createApiError("balanceIds array is required", 400);
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.auth?.userId },
-      select: { stellarSecretEncrypted: true },
-    });
+    const userId = req.auth?.userId;
+    if (!userId) {
+      throw createApiError("Authentication required", 401);
+    }
 
-    if (!user?.stellarSecretEncrypted) {
+    const wallet = await ensureUserWallet(userId);
+
+    if (!wallet.encryptedSecret) {
       throw createApiError(
         "Custodial wallet not configured or secret missing. Use the command line script with your secret.",
         400,
@@ -190,7 +215,7 @@ router.post("/wallet/claim", async (req: AuthenticatedRequest, res, next) => {
     }
 
     const result = await walletService.claimBalances(
-      user.stellarSecretEncrypted,
+      wallet.encryptedSecret,
       balanceIds,
     );
 
@@ -216,19 +241,14 @@ router.get(
   "/wallet/transactions",
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: req.auth?.userId },
-        select: { stellarPubKey: true },
-      });
-
-      if (!user?.stellarPubKey) {
-        res.json({ success: true, data: [] });
-        return;
+      const userId = req.auth?.userId;
+      if (!userId) {
+        throw createApiError("Authentication required", 401);
       }
 
-      const transactions = await walletService.getTransactions(
-        user.stellarPubKey,
-      );
+      const wallet = await ensureUserWallet(userId);
+
+      const transactions = await walletService.getTransactions(wallet.publicKey);
       res.json({ success: true, data: transactions });
     } catch (error) {
       next(error);
@@ -244,24 +264,23 @@ router.post(
   "/wallet/fund/friendbot",
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: req.auth?.userId },
-        select: { stellarPubKey: true },
-      });
-
-      if (!user?.stellarPubKey) {
-        throw createApiError("Stellar wallet not initialized", 400);
+      const userId = req.auth?.userId;
+      if (!userId) {
+        throw createApiError("Authentication required", 401);
       }
 
-      const success = await walletService.fundWithFriendbot(user.stellarPubKey);
-
-      if (!success) {
+      const wallet = await ensureUserWallet(userId, { fundOnTestnet: true });
+      if (!wallet.funded) {
         throw createApiError("Friendbot funding failed", 500);
       }
 
       res.json({
         success: true,
         message: "Account funded successfully",
+        data: {
+          publicKey: wallet.publicKey,
+          funded: wallet.funded,
+        },
       });
     } catch (error) {
       next(error);

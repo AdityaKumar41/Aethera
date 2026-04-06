@@ -168,6 +168,22 @@ export function ProjectDetailsSection({
     project.status,
   );
   const showAlert = ["FUNDED", "ACTIVE_PENDING_DATA"].includes(project.status);
+  const tokenSymbol = project.tokenSymbol?.trim();
+  const tokenContractId = project.tokenContractId?.trim();
+  const tokenDeployed = Boolean(tokenContractId);
+  const tokenExplorerUrl = tokenContractId
+    ? `https://stellar.expert/explorer/testnet/contract/${tokenContractId}`
+    : null;
+  const tokenLifecycleLabel = tokenDeployed
+    ? "Live on Stellar testnet"
+    : project.status === "PENDING_APPROVAL"
+      ? "Awaiting admin review"
+      : project.status === "APPROVED"
+        ? "Approved, waiting for token deployment"
+        : "Reserved off-chain";
+  const supplyLabel = tokenDeployed ? "issued" : "planned for launch";
+  const issuedLabel = tokenDeployed ? "Tokens Issued" : "Planned Supply";
+  const availableLabel = tokenDeployed ? "Available" : "Reserved for Launch";
 
   return (
     <div className="space-y-5">
@@ -203,6 +219,18 @@ export function ProjectDetailsSection({
         </div>
       )}
 
+      {tokenSymbol && !tokenDeployed && (
+        <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 flex items-start gap-3">
+          <Coins className="w-4 h-4 text-zinc-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-zinc-700">
+            <span className="font-medium">{tokenSymbol}</span> is only a
+            reserved project ticker right now. The real Stellar token contract
+            is created after admin approval and deployment, so the explorer
+            link stays hidden until that contract exists on-chain.
+          </p>
+        </div>
+      )}
+
       {/* Title row */}
       <div>
         <div className="flex items-center flex-wrap gap-2.5 mb-1.5">
@@ -217,9 +245,14 @@ export function ProjectDetailsSection({
             <div className={cn("w-1.5 h-1.5 rounded-full", statusInfo.dot)} />
             {statusInfo.label}
           </span>
-          {project.tokenSymbol && (
+          {tokenSymbol && (
             <span className="px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 text-xs font-mono font-medium">
-              {project.tokenSymbol}
+              {tokenSymbol}
+            </span>
+          )}
+          {tokenSymbol && !tokenDeployed && (
+            <span className="px-2 py-0.5 rounded-full bg-zinc-50 text-zinc-500 text-xs font-medium border border-zinc-200">
+              Reserved Ticker
             </span>
           )}
         </div>
@@ -350,7 +383,7 @@ export function ProjectDetailsSection({
                 {
                   label: "Total Tokens",
                   value: project.totalTokens?.toLocaleString() ?? "—",
-                  sub: "issued",
+                  sub: supplyLabel,
                   bold: "text-zinc-900",
                 },
               ].map((stat) => (
@@ -403,13 +436,13 @@ export function ProjectDetailsSection({
             <div className="space-y-3 pt-4 border-t border-zinc-100">
               {[
                 {
-                  label: "Tokens Issued",
+                  label: issuedLabel,
                   value: project.totalTokens?.toLocaleString() ?? "—",
                   icon: Coins,
                   accent: "text-blue-500",
                 },
                 {
-                  label: "Available",
+                  label: availableLabel,
                   value: project.tokensRemaining?.toLocaleString() ?? "—",
                   icon: ShieldCheck,
                   accent: "text-purple-500",
@@ -449,18 +482,54 @@ export function ProjectDetailsSection({
                 </span>
               </div>
 
-              {project.tokenSymbol && (
+              {tokenSymbol && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-500">Token</span>
+                  <span className="text-sm text-zinc-500">Ticker</span>
+                  <span className="text-sm font-mono font-medium text-zinc-700">
+                    {tokenSymbol}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-zinc-500">Asset Status</span>
+                <span
+                  className={cn(
+                    "text-xs font-medium px-2 py-1 rounded-full",
+                    tokenDeployed
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-zinc-100 text-zinc-600",
+                  )}
+                >
+                  {tokenLifecycleLabel}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-zinc-500">Explorer</span>
+                {tokenExplorerUrl ? (
                   <a
-                    href={`https://stellar.expert/explorer/testnet/asset/${project.tokenSymbol}`}
+                    href={tokenExplorerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
                   >
-                    {project.tokenSymbol}
+                    View Contract
                     <ExternalLink className="w-3 h-3" />
                   </a>
+                ) : (
+                  <span className="text-xs text-zinc-400">
+                    Available after deployment
+                  </span>
+                )}
+              </div>
+
+              {tokenContractId && (
+                <div className="pt-1">
+                  <p className="text-xs text-zinc-400 mb-1">Contract ID</p>
+                  <p className="text-xs font-mono text-zinc-600 break-all">
+                    {tokenContractId}
+                  </p>
                 </div>
               )}
 

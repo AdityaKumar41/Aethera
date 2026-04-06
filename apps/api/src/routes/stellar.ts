@@ -3,8 +3,6 @@
 // ============================================
 
 import { Router } from "express";
-import { z } from "zod";
-import { Keypair, Asset } from "@stellar/stellar-sdk";
 import { prisma } from "@aethera/database";
 import {
   walletService,
@@ -14,7 +12,10 @@ import {
   trustlineService,
   getOrCreateRelayerAccount,
   getContractAddresses,
-  USDC_ASSET_TESTNET,
+  NETWORK_CONFIGS,
+  getUSDCAsset,
+  nativeToScVal,
+  scValToNative,
 } from "@aethera/stellar";
 import {
   authenticate,
@@ -22,8 +23,137 @@ import {
   type AuthenticatedRequest,
 } from "../middleware/auth.js";
 import { createApiError } from "../middleware/error.js";
+import { ensureUserWallet } from "../services/userWalletService.js";
 
 const router = Router();
+
+async function projectEscrowExists(
+  treasuryContractId: string,
+  projectId: string,
+  sourcePublicKey: string,
+): Promise<boolean> {
+  const result = await contractService.simulateContractCall(
+    treasuryContractId,
+    "get_project",
+    [nativeToScVal(projectId, { type: "string" })],
+    sourcePublicKey,
+  );
+
+  if (!result.success || !result.result) {
+    return false;
+  }
+
+  try {
+    const native = scValToNative(result.result as any);
+    return Boolean(native);
+  } catch {
+    return true;
+  }
+}
+
+function getTreasuryCandidates(): string[] {
+  const configuredTreasury = getContractAddresses().treasury;
+  const canonicalTreasury =
+    NETWORK_CONFIGS[stellarClient.getNetwork()]?.contracts.treasury;
+
+  return Array.from(
+    new Set([configuredTreasury, canonicalTreasury].filter(Boolean)),
+  );
+}
+
+async function findProjectEscrowTreasury(
+  projectId: string,
+  sourcePublicKey: string,
+): Promise<string | null> {
+  const treasuryCandidates = getTreasuryCandidates();
+
+  for (const treasuryContractId of treasuryCandidates) {
+    const exists = await projectEscrowExists(
+      treasuryContractId,
+      projectId,
+      sourcePublicKey,
+    );
+
+    if (exists) {
+      return treasuryContractId;
+    }
+  }
+
+  return null;
+}
+
+function describeUnknownError(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Unknown error";
+}
+
+function unwrapSimulationScVal(result: unknown) {
+  if (!result) return null;
+  if ((result as any).switch && typeof (result as any).switch === "function") {
+    return result;
+  }
+  return (result as { retval?: unknown }).retval ?? null;
+}
+
+async function getAssetTokenAdmin(
+  tokenContractId: string,
+  sourcePublicKey: string,
+): Promise<string | null> {
+  const result = await contractService.simulateContractCall(
+    tokenContractId,
+    "get_metadata",
+    [],
+    sourcePublicKey,
+  );
+
+  if (!result.success || !result.result) {
+    return null;
+  }
+
+  const scVal = unwrapSimulationScVal(result.result);
+  if (!scVal) {
+    return null;
+  }
+
+  try {
+    const native = scValToNative(scVal as any) as Record<string, unknown>;
+    return typeof native?.admin === "string" ? native.admin : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getProjectEscrowAssetToken(
+  treasuryContractId: string,
+  projectId: string,
+  sourcePublicKey: string,
+): Promise<string | null> {
+  const result = await contractService.simulateContractCall(
+    treasuryContractId,
+    "get_project",
+    [nativeToScVal(projectId, { type: "string" })],
+    sourcePublicKey,
+  );
+
+  if (!result.success || !result.result) {
+    return null;
+  }
+
+  const scVal = unwrapSimulationScVal(result.result);
+  if (!scVal) {
+    return null;
+  }
+
+  try {
+    const native = scValToNative(scVal as any) as Record<string, unknown>;
+    return typeof native?.asset_token === "string" ? native.asset_token : null;
+  } catch {
+    return null;
+  }
+}
 
 // ============================================
 // Network Info (Public)
@@ -59,29 +189,19 @@ router.get(
   authenticate,
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: req.auth?.userId },
-        select: { stellarPubKey: true },
-      });
-
-      if (!user?.stellarPubKey) {
-        res.json({
-          success: true,
-          data: { funded: false, balances: [] },
-        });
-        return;
+      const userId = req.auth?.userId;
+      if (!userId) {
+        throw createApiError("Authentication required", 401);
       }
 
-      const [funded, balances] = await Promise.all([
-        walletService.isAccountFunded(user.stellarPubKey),
-        walletService.getBalances(user.stellarPubKey),
-      ]);
+      const wallet = await ensureUserWallet(userId, { fundOnTestnet: true });
+      const balances = await walletService.getBalances(wallet.publicKey);
 
       res.json({
         success: true,
         data: {
-          publicKey: user.stellarPubKey,
-          funded,
+          publicKey: wallet.publicKey,
+          funded: wallet.funded,
           balances,
         },
       });
@@ -104,24 +224,23 @@ router.post(
         throw createApiError("Friendbot only available on testnet", 400);
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: req.auth?.userId },
-        select: { stellarPubKey: true },
-      });
-
-      if (!user?.stellarPubKey) {
-        throw createApiError("No Stellar wallet found", 400);
+      const userId = req.auth?.userId;
+      if (!userId) {
+        throw createApiError("Authentication required", 401);
       }
 
-      const funded = await stellarClient.fundTestnetAccount(user.stellarPubKey);
-
-      if (!funded) {
+      const wallet = await ensureUserWallet(userId, { fundOnTestnet: true });
+      if (!wallet.funded) {
         throw createApiError("Failed to fund account via Friendbot", 500);
       }
 
       res.json({
         success: true,
         message: "Account funded with testnet XLM",
+        data: {
+          publicKey: wallet.publicKey,
+          funded: wallet.funded,
+        },
       });
     } catch (error) {
       next(error);
@@ -138,23 +257,21 @@ router.get(
   authenticate,
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: req.auth?.userId },
-        select: { stellarPubKey: true },
-      });
-
-      if (!user?.stellarPubKey) {
-        throw createApiError("No wallet found", 400);
+      const userId = req.auth?.userId;
+      if (!userId) {
+        throw createApiError("Authentication required", 401);
       }
 
+      const wallet = await ensureUserWallet(userId);
+
       const accountInfo = await trustlineService.getAccountInfo(
-        user.stellarPubKey,
+        wallet.publicKey,
       );
 
       res.json({
         success: true,
         data: {
-          publicKey: user.stellarPubKey,
+          publicKey: wallet.publicKey,
           exists: accountInfo.exists,
           hasTrustline: accountInfo.hasTrustline,
           xlmBalance: accountInfo.xlmBalance,
@@ -177,38 +294,39 @@ router.post(
   authenticate,
   async (req: AuthenticatedRequest, res, next) => {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: req.auth?.userId },
-        select: { stellarPubKey: true, stellarSecretEncrypted: true },
-      });
-
-      if (!user?.stellarPubKey || !user?.stellarSecretEncrypted) {
-        throw createApiError("No wallet found", 400);
+      const userId = req.auth?.userId;
+      if (!userId) {
+        throw createApiError("Authentication required", 401);
       }
 
-      // Check if already has trustline
-      const hasTrustline = await trustlineService.hasTrustline(
-        user.stellarPubKey,
-      );
-      if (hasTrustline) {
+      const wallet = await ensureUserWallet(userId, {
+        fundOnTestnet: true,
+        ensureUsdcTrustline: true,
+      });
+
+      if (!wallet.funded) {
+        throw createApiError(
+          "Wallet must be funded on Stellar testnet before creating a USDC trustline",
+          400,
+        );
+      }
+
+      if (wallet.hasUsdcTrustline && !wallet.trustlineCreated) {
         res.json({
           success: true,
           message: "USDC trustline already exists",
-          data: { txHash: "already_exists" },
+          data: { txHash: "already_exists", publicKey: wallet.publicKey },
         });
         return;
       }
 
-      // Decrypt secret and create trustline
-      const secret = walletService.decryptSecret(user.stellarSecretEncrypted);
-      const keypair = Keypair.fromSecret(secret);
-
-      const txHash = await trustlineService.createTrustline(keypair);
-
       res.json({
         success: true,
         message: "USDC trustline created successfully",
-        data: { txHash },
+        data: {
+          txHash: wallet.trustlineCreated ? "created_during_bootstrap" : "created",
+          publicKey: wallet.publicKey,
+        },
       });
     } catch (error) {
       next(error);
@@ -310,25 +428,49 @@ router.post(
         throw createApiError("Project not found", 404);
       }
 
-      if (project.status !== "APPROVED") {
+      // Allow re-entry: APPROVED + tokenContractId means escrow creation was attempted but
+      // didn't finish. FUNDING may also be repairable if token authority was misconfigured.
+      const isResuming = project.status === "APPROVED" && !!project.tokenContractId;
+
+      if (isResuming) {
+        console.log(`[DeployToken] Resuming finalization for project ${project.id} — token already deployed at ${project.tokenContractId}`);
+      } else {
+        console.log(`[DeployToken] Starting full deployment for project ${project.id}`);
+      }
+
+      let adminKeypair;
+      try {
+        adminKeypair = await getOrCreateRelayerAccount();
+        console.log(`[DeployToken] Admin relayer: ${adminKeypair.publicKey()}`);
+      } catch (error: any) {
         throw createApiError(
-          `Project must be in APPROVED status to deploy token (current: ${project.status})`,
-          400,
+          error?.message || "Admin relayer wallet is not configured correctly",
+          500,
+          "RELAYER_NOT_CONFIGURED",
         );
       }
 
-      if (project.tokenContractId) {
-        throw createApiError("Token contract already deployed", 400);
+      const contractAddresses = getContractAddresses();
+      const treasuryCandidates = getTreasuryCandidates();
+
+      if (treasuryCandidates.length === 0) {
+        throw createApiError(
+          "Treasury contract is not configured. Please set TREASURY_CONTRACT_ID in .env",
+          500,
+          "TREASURY_NOT_CONFIGURED",
+        );
       }
 
-      // 1. Get admin keypair from relayer secret
-      const adminSecret = process.env.STAT_RELAYER_SECRET;
-      if (!adminSecret) {
-        throw createApiError("Admin relayer secret not configured", 500);
+      if (
+        contractAddresses.treasury &&
+        treasuryCandidates.length > 1 &&
+        contractAddresses.treasury !== treasuryCandidates[0]
+      ) {
+        console.warn(
+          `[DeployToken] Treasury config mismatch detected. Configured ${contractAddresses.treasury}, falling back to ${treasuryCandidates[0]}.`,
+        );
       }
-      const adminKeypair = Keypair.fromSecret(adminSecret);
 
-      // 2. Deploy the asset token contract on-chain
       const totalSupply = project.totalTokens
         ? BigInt(project.totalTokens) * BigInt(1_000_000)
         : BigInt(
@@ -337,51 +479,229 @@ router.post(
             ),
           ) * BigInt(1_000_000);
 
-      const deployed = await contractDeploymentService.deployAssetToken(
-        adminKeypair,
-        {
-          projectId: project.id,
-          name: project.name,
-          symbol:
-            project.tokenSymbol || `SOL${project.id.slice(0, 4).toUpperCase()}`,
-          capacityKw: Math.floor(project.capacity),
-          expectedYieldBps: Math.floor(project.expectedYield * 100),
-          totalSupply,
-        },
+      let tokenContractId = project.tokenContractId;
+      let deploymentTxHash: string | null = null;
+      const preferredTreasuryContractId = treasuryCandidates[0]!;
+      const existingTokenAdmin = tokenContractId
+        ? await getAssetTokenAdmin(tokenContractId, adminKeypair.publicKey())
+        : null;
+      const existingEscrowAssetToken = tokenContractId
+        ? await getProjectEscrowAssetToken(
+            preferredTreasuryContractId,
+            project.id,
+            adminKeypair.publicKey(),
+          )
+        : null;
+      const tokenAuthorityBroken = Boolean(
+        tokenContractId &&
+          existingTokenAdmin &&
+          existingTokenAdmin !== preferredTreasuryContractId,
       );
+      const escrowPointsToDifferentToken = Boolean(
+        tokenContractId &&
+          existingEscrowAssetToken &&
+          existingEscrowAssetToken !== tokenContractId,
+      );
+      const needsFundingRepair =
+        tokenAuthorityBroken || escrowPointsToDifferentToken;
 
-      // 3. Create escrow in the treasury contract
-      const contractAddresses = getContractAddresses();
+      const canProceed =
+        project.status === "APPROVED" ||
+        (project.status === "FUNDING" && needsFundingRepair);
+
+      if (!canProceed) {
+        throw createApiError(
+          `Project must be in APPROVED status to deploy token or in repairable FUNDING state (current: ${project.status})`,
+          400,
+        );
+      }
+
+      if (project.status === "FUNDING" && tokenContractId && !needsFundingRepair) {
+        console.log(`[DeployToken] Project ${project.id} already in FUNDING state.`);
+        res.json({
+          success: true,
+          message: "Token and funding setup already completed",
+          data: {
+            contractId: project.tokenContractId,
+            deploymentTxHash: null,
+            tokenSymbol: project.tokenSymbol,
+          },
+        });
+        return;
+      }
+
+      if (
+        project.status === "FUNDING" &&
+        needsFundingRepair &&
+        Number(project.fundingRaised || 0) > 0
+      ) {
+        throw createApiError(
+          "Token authority is misconfigured, but this project already has recorded funding. Automatic repair is blocked to avoid corrupting live allocations.",
+          400,
+          "TOKEN_REPAIR_BLOCKED",
+        );
+      }
+
+      // Step 1: Deploy token contract (skip if resuming — already deployed)
+      if (!tokenContractId || needsFundingRepair) {
+        console.log(`[DeployToken] Step 1: Deploying asset token contract...`);
+        try {
+          const deployed = await contractDeploymentService.deployAssetToken(
+            adminKeypair,
+            {
+              projectId: project.id,
+              name: project.name,
+              symbol:
+                project.tokenSymbol ||
+                `SOL${project.id.slice(0, 4).toUpperCase()}`,
+              capacityKw: Math.floor(project.capacity),
+              expectedYieldBps: Math.floor(project.expectedYield * 100),
+              totalSupply,
+            },
+            preferredTreasuryContractId,
+          );
+
+          tokenContractId = deployed.contractId;
+          deploymentTxHash = deployed.deploymentTxHash;
+
+          console.log(`[DeployToken] Token deployed: ${tokenContractId} (tx: ${deploymentTxHash})`);
+
+          // Persist immediately so retries do not redeploy
+          await prisma.project.update({
+            where: { id: req.params.projectId },
+            data: { tokenContractId },
+          });
+        } catch (error: any) {
+          console.error(`[DeployToken] Token deployment error:`, error);
+          throw createApiError(
+            `Token deployment failed: ${error?.message || "Unknown deployment error"}`,
+            500,
+            "TOKEN_DEPLOYMENT_FAILED",
+          );
+        }
+      } else {
+        console.log(`[DeployToken] Step 1: Skipped — token already deployed at ${tokenContractId}`);
+      }
+
+      if (!tokenContractId) {
+        throw createApiError(
+          "Token contract ID was not created during deployment",
+          500,
+          "TOKEN_CONTRACT_MISSING",
+        );
+      }
+
+      // Step 2: Create project escrow in the Treasury contract
       const installerAddress =
         project.installer?.stellarPubKey || adminKeypair.publicKey();
 
-      await contractDeploymentService.createProjectEscrow(
-        contractAddresses.treasury,
-        adminKeypair,
+      console.log(`[DeployToken] Step 2: Checking if escrow already exists...`);
+      const escrowTreasury = await findProjectEscrowTreasury(
         project.id,
-        deployed.contractId,
-        installerAddress,
-        BigInt(Math.floor(Number(project.fundingTarget) * 1_000_000)),
-        200, // 2% platform fee in basis points
-        BigInt(Math.floor(Number(project.pricePerToken) * 1_000_000)),
+        adminKeypair.publicKey(),
       );
+      const escrowReady = Boolean(escrowTreasury);
+      const shouldRecreateEscrow = needsFundingRepair || !escrowReady;
 
-      // 4. Store the real contract ID and transition to FUNDING
+      if (shouldRecreateEscrow) {
+        console.log(`[DeployToken] Creating project escrow in treasury...`);
+        console.log(`[DeployToken]  - Project ID: ${project.id}`);
+        console.log(`[DeployToken]  - Token Contract: ${tokenContractId}`);
+        console.log(`[DeployToken]  - Installer: ${installerAddress}`);
+        console.log(`[DeployToken]  - Funding Target: ${project.fundingTarget} USDC (${BigInt(Math.floor(Number(project.fundingTarget) * 1_000_000))} stroops)`);
+        console.log(`[DeployToken]  - Price/Token: ${project.pricePerToken} USDC`);
+        console.log(`[DeployToken]  - Funding Model: ${project.fundingModel}`);
+
+        let lastEscrowError: unknown = null;
+
+        for (const treasuryContractId of [preferredTreasuryContractId]) {
+          try {
+            console.log(
+              `[DeployToken] Attempting escrow creation via treasury ${treasuryContractId}...`,
+            );
+
+            await contractDeploymentService.createProjectEscrow(
+              treasuryContractId,
+              adminKeypair,
+              project.id,
+              tokenContractId,
+              installerAddress,
+              BigInt(Math.floor(Number(project.fundingTarget) * 1_000_000)),
+              200,
+              BigInt(Math.floor(Number(project.pricePerToken) * 1_000_000)),
+            );
+
+            console.log(
+              `[DeployToken] Escrow created successfully via treasury ${treasuryContractId}.`,
+            );
+            lastEscrowError = null;
+            break;
+          } catch (error: unknown) {
+            lastEscrowError = error;
+            console.error(
+              `[DeployToken] Escrow creation error via treasury ${treasuryContractId}:`,
+              describeUnknownError(error),
+            );
+
+            const escrowRecovered = await projectEscrowExists(
+              treasuryContractId,
+              project.id,
+              adminKeypair.publicKey(),
+            );
+
+            if (escrowRecovered) {
+              console.log(
+                `[DeployToken] Escrow found on retry for treasury ${treasuryContractId} — it was created despite the error.`,
+              );
+              lastEscrowError = null;
+              break;
+            }
+          }
+        }
+
+        const escrowRecoveredAcrossCandidates = await findProjectEscrowTreasury(
+          project.id,
+          adminKeypair.publicKey(),
+        );
+
+        if (!escrowRecoveredAcrossCandidates && lastEscrowError) {
+          throw createApiError(
+            `Token contract is deployed (${tokenContractId}), but escrow setup failed. ` +
+              `Click 'Finalize Funding Setup' again to retry the escrow step. Error: ${describeUnknownError(lastEscrowError)}`,
+            500,
+            "TOKEN_ESCROW_FAILED",
+          );
+        }
+      } else {
+        console.log(
+          `[DeployToken] Step 2: Skipped — escrow already exists on-chain via treasury ${escrowTreasury}.`,
+        );
+      }
+
+      // Step 3: Transition project to FUNDING status
+      console.log(`[DeployToken] Step 3: Transitioning project to FUNDING status...`);
       await prisma.project.update({
         where: { id: req.params.projectId },
         data: {
-          tokenContractId: deployed.contractId,
+          tokenContractId,
           status: "FUNDING",
         },
       });
 
+      console.log(`[DeployToken] Project ${project.id} is now in FUNDING state. ✅`);
+
       res.json({
         success: true,
-        message: "Token contract deployed and escrow created",
+        message: isResuming
+          ? "Funding setup finalized — project is now live for investors"
+          : needsFundingRepair
+            ? "Token authority repaired and funding setup refreshed"
+          : "Token contract deployed and funding setup ready",
         data: {
-          contractId: deployed.contractId,
-          deploymentTxHash: deployed.deploymentTxHash,
+          contractId: tokenContractId,
+          deploymentTxHash,
           tokenSymbol: project.tokenSymbol,
+          fundingModel: project.fundingModel,
         },
       });
     } catch (error) {
@@ -404,75 +724,69 @@ router.post(
         throw createApiError("Unauthorized", 401);
       }
 
-      // Get user's wallet
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { stellarPubKey: true, stellarSecretEncrypted: true },
+      const wallet = await ensureUserWallet(userId, {
+        fundOnTestnet: true,
+        ensureUsdcTrustline: true,
       });
 
-      if (!user?.stellarPubKey) {
-        throw createApiError("Wallet not found", 400);
+      if (!wallet.funded) {
+        throw createApiError(
+          "Wallet is not active on Stellar testnet yet. Please fund it with XLM first.",
+          400,
+        );
       }
 
-      const amount = req.body.amount || "100"; // Default to 100 USDC for reliability on low-liquidity DEX
+      if (!wallet.encryptedSecret) {
+        throw createApiError(
+          "Wallet secret is missing. Cannot prepare test USDC trustline.",
+          400,
+        );
+      }
+
+      const amount = String(req.body.amount || "10000");
 
       console.log(
-        `💰 Funding ${user.stellarPubKey} with ${amount} Circle Testnet USDC via DEX Swap...`,
+        `💰 Funding ${wallet.publicKey} with ${amount} official testnet USDC via DEX swap...`,
       );
 
       // 1. Get Relayer keypair
       const relayerKeypair = await getOrCreateRelayerAccount();
-      const relayerPub = relayerKeypair.publicKey();
 
-      const usdcAsset = USDC_ASSET_TESTNET;
-
-      // 2. Ensure User Trustline (if custodial)
-      if (user.stellarSecretEncrypted) {
-        const userSecret = walletService.decryptSecret(
-          user.stellarSecretEncrypted,
-        );
-        const userKeypair = Keypair.fromSecret(userSecret);
-
-        const hasTrust = await trustlineService.hasTrustline(
-          user.stellarPubKey,
-        );
-        if (!hasTrust) {
-          console.log(`📝 Creating trustline for ${user.stellarPubKey}...`);
-          await trustlineService.createTrustline(userKeypair);
-        }
-      }
-
-      // 3. Swap XLM for USDC via Path Payment
-      const relayerAccount =
-        await stellarClient.horizon.loadAccount(relayerPub);
       const { TransactionBuilder, Operation, BASE_FEE, Asset } =
         await import("@stellar/stellar-sdk");
+      const officialUsdcAsset = getUSDCAsset();
+      const relayerAccount =
+        await stellarClient.horizon.loadAccount(relayerKeypair.publicKey());
+      const sendMax = Math.max(Math.ceil(Number(amount) * 3), Number(amount) + 1000);
 
-      const swapTx = new TransactionBuilder(relayerAccount, {
+      const paymentTx = new TransactionBuilder(relayerAccount, {
         fee: BASE_FEE,
         networkPassphrase: stellarClient.getNetworkPassphrase(),
       })
         .addOperation(
           Operation.pathPaymentStrictReceive({
             sendAsset: Asset.native(),
-            sendMax: "5000", // Max 5000 XLM for the swap
-            destination: user.stellarPubKey,
-            destAsset: usdcAsset,
+            sendMax: String(sendMax),
+            destination: wallet.publicKey,
+            destAsset: officialUsdcAsset,
             destAmount: amount,
             path: [],
           }),
         )
-        .setTimeout(30)
+        .setTimeout(60)
         .build();
 
-      swapTx.sign(relayerKeypair);
-      const result = await stellarClient.horizon.submitTransaction(swapTx);
+      paymentTx.sign(relayerKeypair);
+      const result = await stellarClient.horizon.submitTransaction(paymentTx);
 
       res.json({
         success: true,
-        message: `Funded with ${amount} Circle USDC via internal DEX swap`,
+        message: `Funded with ${amount} official test USDC`,
         txHash: result.hash,
-        issuer: usdcAsset.issuer,
+        issuer: officialUsdcAsset.getIssuer(),
+        data: {
+          publicKey: wallet.publicKey,
+        },
       });
     } catch (error) {
       next(error);

@@ -18,6 +18,51 @@ const router = Router();
 router.use(authenticate);
 router.use(requireRole("ADMIN"));
 
+const adminProjectInclude = {
+  installer: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      company: true,
+      country: true,
+      stellarPubKey: true,
+    },
+  },
+  milestones: {
+    select: {
+      id: true,
+      name: true,
+      order: true,
+      status: true,
+      releasePercentage: true,
+      verificationMethod: true,
+      submittedAt: true,
+      verifiedAt: true,
+      releasedAt: true,
+    },
+    orderBy: { order: "asc" as const },
+  },
+  iotDevices: {
+    select: {
+      id: true,
+      publicKey: true,
+      status: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" as const },
+    take: 3,
+  },
+  _count: {
+    select: {
+      investments: true,
+      iotDevices: true,
+      milestones: true,
+      productionData: true,
+    },
+  },
+};
+
 // ============================================
 // Dashboard Stats
 // ============================================
@@ -35,6 +80,10 @@ router.get("/dashboard", async (req, res, next) => {
       fundedProjects,
       completedProjects,
       pendingKYC,
+      approvedAwaitingDeployment,
+      activePendingDataProjects,
+      recentProjects,
+      recentKycSubmissions,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: "INVESTOR" } }),
@@ -46,6 +95,40 @@ router.get("/dashboard", async (req, res, next) => {
       prisma.project.count({ where: { status: "FUNDED" } }),
       prisma.project.count({ where: { status: "COMPLETED" } }),
       prisma.user.count({ where: { kycStatus: "IN_REVIEW" } }),
+      prisma.project.count({ where: { status: "APPROVED" } }),
+      prisma.project.count({ where: { status: "ACTIVE_PENDING_DATA" } }),
+      prisma.project.findMany({
+        take: 6,
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        include: {
+          installer: {
+            select: {
+              id: true,
+              name: true,
+              company: true,
+              email: true,
+            },
+          },
+          _count: {
+            select: {
+              investments: true,
+              iotDevices: true,
+            },
+          },
+        },
+      }),
+      prisma.user.findMany({
+        where: { kycStatus: "IN_REVIEW" },
+        take: 5,
+        orderBy: { kycSubmittedAt: "asc" },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          kycSubmittedAt: true,
+        },
+      }),
     ]);
 
     // Calculate total funding stats
@@ -70,7 +153,9 @@ router.get("/dashboard", async (req, res, next) => {
         projects: {
           total: totalProjects,
           pending: pendingProjects,
+          approved: approvedAwaitingDeployment,
           active: activeProjects,
+          activePendingData: activePendingDataProjects,
           funding: fundingProjects,
           funded: fundedProjects,
           completed: completedProjects,
@@ -82,6 +167,15 @@ router.get("/dashboard", async (req, res, next) => {
           totalRaised: Number(fundingStats._sum.fundingRaised || 0),
           totalTarget: Number(fundingStats._sum.fundingTarget || 0),
         },
+        queues: {
+          underReview: pendingProjects,
+          approvedAwaitingDeployment,
+          fundingLive: fundingProjects,
+          readyToActivate: fundedProjects,
+          activeOperations: activeProjects + activePendingDataProjects,
+        },
+        recentProjects,
+        recentKycSubmissions,
       },
     });
   } catch (error) {
@@ -93,15 +187,52 @@ router.get("/dashboard", async (req, res, next) => {
 // Pending Projects for Approval
 // ============================================
 
+router.get("/projects/all", async (req, res, next) => {
+  try {
+    const status = (req.query.status as string | undefined)?.toUpperCase();
+
+    const projects = await prisma.project.findMany({
+      where:
+        status && status !== "ALL"
+          ? { status: status as any }
+          : undefined,
+      include: adminProjectInclude,
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    res.json({ success: true, data: projects });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/projects/:id", async (req, res, next) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: req.params.id },
+      include: adminProjectInclude,
+    });
+
+    if (!project) {
+      throw createApiError("Project not found", 404);
+    }
+
+    res.json({ success: true, data: project });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/projects/pending", async (req, res, next) => {
   try {
     const projects = await prisma.project.findMany({
-      where: { status: "PENDING_APPROVAL" },
-      include: {
-        installer: {
-          select: { id: true, name: true, email: true, company: true },
-        },
+      where: {
+        OR: [
+          { status: "PENDING_APPROVAL" },
+          { status: "APPROVED" },
+        ],
       },
+      include: adminProjectInclude,
       orderBy: { createdAt: "asc" },
     });
 
@@ -119,14 +250,7 @@ router.get("/projects/funded", async (req, res, next) => {
   try {
     const projects = await prisma.project.findMany({
       where: { status: "FUNDED" },
-      include: {
-        installer: {
-          select: { id: true, name: true, email: true, company: true },
-        },
-        _count: {
-          select: { iotDevices: true },
-        },
-      },
+      include: adminProjectInclude,
       orderBy: { fundingRaised: "desc" },
     });
 
@@ -144,14 +268,7 @@ router.get("/projects/active", async (req, res, next) => {
   try {
     const projects = await prisma.project.findMany({
       where: { status: { in: ["ACTIVE", "ACTIVE_PENDING_DATA", "COMPLETED"] } },
-      include: {
-        installer: {
-          select: { id: true, name: true, email: true, company: true },
-        },
-        _count: {
-          select: { investments: true, iotDevices: true },
-        },
-      },
+      include: adminProjectInclude,
       orderBy: { startDate: "desc" },
     });
 
@@ -295,6 +412,9 @@ router.post(
         where: { id: req.params.id },
         include: {
           iotDevices: true,
+          milestones: {
+            orderBy: { order: "asc" },
+          },
         },
       });
 
@@ -314,8 +434,6 @@ router.post(
         );
       }
 
-      // 1. Trigger on-chain capital release
-      // ... (rest of function)
       const { contractService, getContractAddresses, walletService } =
         await import("@aethera/stellar");
       const { Keypair } = await import("@stellar/stellar-sdk");
@@ -324,25 +442,42 @@ router.post(
       const encryptedSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
 
       if (contracts.treasury && encryptedSecret) {
-        console.log(
-          `[Admin] Activating project ${project.id}. Releasing capital from Treasury...`,
-        );
         const adminSecret = walletService.decryptSecret(encryptedSecret);
         const adminKeypair = Keypair.fromSecret(adminSecret);
 
-        const releaseResult = await contractService.releaseCapital(
-          contracts.treasury,
-          adminKeypair,
-          project.id,
-        );
-
-        if (!releaseResult.success) {
-          throw createApiError(
-            `On-chain release failed: ${releaseResult.error}`,
-            500,
+        if (project.fundingModel === "MILESTONE_BASED") {
+          // For milestone-based projects, do NOT release all capital upfront.
+          // Capital stays in escrow and is released milestone-by-milestone
+          // when admin verifies each milestone via the milestones route.
+          console.log(
+            `[Admin] Activating MILESTONE_BASED project ${project.id}. ` +
+            `Capital stays in escrow — ${project.milestones.length} milestones configured.`,
           );
+        } else {
+          // FULL_UPFRONT: release all capital to the installer immediately on activation
+          console.log(
+            `[Admin] Activating FULL_UPFRONT project ${project.id}. Releasing all capital from Treasury...`,
+          );
+
+          const releaseResult = await contractService.releaseCapital(
+            contracts.treasury,
+            adminKeypair,
+            project.id,
+          );
+
+          if (!releaseResult.success) {
+            throw createApiError(
+              `On-chain capital release failed: ${releaseResult.error}`,
+              500,
+            );
+          }
+          console.log(`[Admin] Capital fully released. Tx: ${releaseResult.txHash}`);
         }
-        console.log(`[Admin] Capital released. Tx: ${releaseResult.txHash}`);
+      } else {
+        console.warn(
+          `[Admin] Skipping on-chain release for project ${project.id}: ` +
+          `treasury contract or admin key not configured.`,
+        );
       }
 
       // 2. Transition project to ACTIVE_PENDING_DATA in DB
@@ -354,18 +489,27 @@ router.post(
         },
       });
 
-      // Log the state transition
       await AuditLogger.logProjectTransition(
         req.params.id,
         "FUNDED",
         "ACTIVE_PENDING_DATA",
         req.auth?.userId!,
-        { adminAction: "activate", activatedAt: new Date(), onChain: true },
+        {
+          adminAction: "activate",
+          activatedAt: new Date(),
+          fundingModel: project.fundingModel,
+          onChain: !!(contracts.treasury && encryptedSecret),
+        },
       );
+
+      const message =
+        project.fundingModel === "MILESTONE_BASED"
+          ? "Project activated. Capital stays in escrow — release funds per milestone as they are verified."
+          : "Project activated and all capital released to installer.";
 
       res.json({
         success: true,
-        message: "Project activated and capital released",
+        message,
         data: updated,
       });
     } catch (error) {

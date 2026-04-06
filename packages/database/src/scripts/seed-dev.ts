@@ -13,6 +13,17 @@ async function main() {
   try {
     // 1. Create Users
     const admin = await prisma.user.upsert({
+      where: { email: "ownyourblogs@gmail.com" },
+      update: { role: "ADMIN" },
+      create: {
+        id: "user_owner_admin",
+        email: "ownyourblogs@gmail.com",
+        name: "Owner Admin",
+        role: "ADMIN",
+      },
+    });
+
+    await prisma.user.upsert({
       where: { email: "adityamoharana80@gmail.com" },
       update: { role: "ADMIN" },
       create: {
@@ -37,11 +48,11 @@ async function main() {
     });
 
     const investor = await prisma.user.upsert({
-      where: { email: "ownyourblogs@gmail.com" },
+      where: { email: "test-investor@aethera.id" },
       update: { role: "INVESTOR" },
       create: {
         id: "user_test_investor",
-        email: "ownyourblogs@gmail.com",
+        email: "test-investor@aethera.id",
         name: "Test Investor",
         role: "INVESTOR",
         country: "USA",

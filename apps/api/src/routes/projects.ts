@@ -47,7 +47,6 @@ router.get("/marketplace", async (req, res, next) => {
       where = {
         status: {
           in: [
-            ProjectStatus.APPROVED,
             ProjectStatus.FUNDING,
             ProjectStatus.FUNDED,
             ProjectStatus.ACTIVE_PENDING_DATA,
@@ -58,8 +57,7 @@ router.get("/marketplace", async (req, res, next) => {
       };
     } else if (statusStr === "FUNDING") {
       where = {
-        status: { in: [ProjectStatus.APPROVED, ProjectStatus.FUNDING] },
-        // Double check it's not actually full due to a missing state transition
+        status: ProjectStatus.FUNDING,
         tokensRemaining: { gt: 0 },
       };
     } else if (statusStr === "FUNDED") {

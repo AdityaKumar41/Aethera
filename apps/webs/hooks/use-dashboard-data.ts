@@ -3,7 +3,15 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { userApi, projectApi, investmentApi, yieldApi, kycApi, adminApi } from '@/lib/api';
+import {
+  userApi,
+  projectApi,
+  investmentApi,
+  yieldApi,
+  kycApi,
+  adminApi,
+  type AdminDashboardStats,
+} from '@/lib/api';
 import type { 
   UserProfile, 
   PortfolioData, 
@@ -319,7 +327,7 @@ export function useInstallerProjects() {
 // ==========================
 
 export function useAdminStats() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -348,6 +356,7 @@ export function useAdminStats() {
 
 export function useInvestmentSettlement() {
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const settle = useCallback(async (projectId: string, amount: number) => {
@@ -360,7 +369,9 @@ export function useInvestmentSettlement() {
         // Return success with txHash if available (mocking txHash if not provided by API)
         return { 
           success: true, 
-          txHash: (response.data as any).txHash || `sim_${Math.random().toString(36).substring(7)}` 
+          investmentId: response.data.id,
+          txHash: response.data.txHash || null,
+          status: response.data.status,
         };
       } else {
         setError(response.error || 'Failed to settle investment');
@@ -374,7 +385,46 @@ export function useInvestmentSettlement() {
     }
   }, []);
 
-  return { settle, loading, error };
+  const waitForConfirmation = useCallback(async (investmentId: string) => {
+    setConfirming(true);
+    try {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const response = await investmentApi.getInvestmentStatus(investmentId);
+
+        if (response.success && response.data) {
+          const status = response.data.status;
+
+          if (status === "CONFIRMED") {
+            return {
+              success: true,
+              status,
+              txHash: response.data.txHash || null,
+            };
+          }
+
+          if (status === "FAILED" || status === "CANCELLED") {
+            return {
+              success: false,
+              status,
+              error: "Investment transaction failed before confirmation.",
+              txHash: response.data.txHash || null,
+            };
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+
+      return {
+        success: true,
+        status: "PENDING_ONCHAIN" as const,
+      };
+    } finally {
+      setConfirming(false);
+    }
+  }, []);
+
+  return { settle, waitForConfirmation, loading, confirming, error };
 }
 
 // ==========================
@@ -401,7 +451,7 @@ export function useClaimTokens() {
         return { success: true };
       }
 
-      const claimResponse = await yieldApi.claimBatch(claimIds);
+      const claimResponse = await userApi.claimWalletBalances(claimIds);
       setLoading(false);
       return claimResponse;
     } catch (err) {

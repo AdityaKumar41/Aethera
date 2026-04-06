@@ -31,6 +31,7 @@ import {
   useKyc,
 } from "@/hooks/use-dashboard-data";
 import { SumsubWidget } from "@/components/kyc/sumsub-widget";
+import { ViewportPortal } from "@/components/ui/viewport-portal";
 import { userApi, walletApi } from "@/lib/api";
 import { useOnboardingStatus } from "@/hooks/use-onboarding";
 
@@ -341,14 +342,78 @@ function WalletTab({
   const [sending, setSending] = useState(false);
   const [fundingXLM, setFundingXLM] = useState(false);
   const [fundingUSDC, setFundingUSDC] = useState(false);
+  const walletAddress = balances?.publicKey || "";
+  const walletFunded = Boolean(balances?.funded);
+  const visibleBalances =
+    balances?.balances?.filter(
+      (balance) => parseFloat(balance.balance || "0") > 0,
+    ) || [];
+  const xlmBalance =
+    balances?.balances?.find(
+      (balance) => (balance.asset || "XLM").toUpperCase() === "XLM",
+    )?.balance || "0";
+  const usdcBalance =
+    balances?.balances?.find(
+      (balance) => (balance.asset || "XLM").toUpperCase() === "USDC",
+    )?.balance || "0";
+
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  const formatAssetBalance = (balance: string, asset: string) => {
+    const value = Number.parseFloat(balance || "0");
+    const decimals = asset === "USDC" ? 2 : value >= 1000 ? 2 : 4;
+
+    return new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    }).format(value);
+  };
+
+  const formatSignedAmount = (tx: Transaction) => {
+    if (!tx.amount) return null;
+
+    const amount = Number.parseFloat(tx.amount);
+    const asset = tx.asset || "XLM";
+    const prefix =
+      tx.direction === "out" ? "-" : tx.direction === "in" ? "+" : "";
+
+    return `${prefix}${formatAssetBalance(String(amount), asset)} ${asset}`;
+  };
+
+  const truncateMiddle = (value: string, start = 8, end = 6) => {
+    if (!value) return "";
+    if (value.length <= start + end + 3) return value;
+    return `${value.slice(0, start)}...${value.slice(-end)}`;
+  };
+
+  const fetchTransactions = async () => {
+    if (!walletAddress) {
+      setTransactions([]);
+      setTxLoading(false);
+      return;
+    }
+
+    setTxLoading(true);
+    const res = await userApi.getWalletTransactions();
+    if (res.success && res.data) {
+      setTransactions(res.data);
+    }
+    setTxLoading(false);
+  };
+
+  const refreshWalletView = async () => {
+    await Promise.all([refetch(), fetchTransactions()]);
+  };
 
   const handleFundWithFriendbot = async () => {
     setFundingXLM(true);
     try {
       const response = await walletApi.fundTestnet();
       if (response.success) {
-        toast.success("Successfully funded with XLM from Friendbot!");
-        setTimeout(() => refetch(), 2000);
+        toast.success(response.message || "Wallet activated on Stellar testnet");
+        await sleep(1500);
+        await refreshWalletView();
       } else {
         toast.error("Failed to fund from Friendbot: " + response.error);
       }
@@ -359,33 +424,29 @@ function WalletTab({
   };
 
   const handleFundWithTestUSDC = async () => {
+    if (!walletFunded) {
+      toast.info("Activate the wallet with testnet XLM first.");
+      return;
+    }
+
     setFundingUSDC(true);
     try {
       const response = await walletApi.fundTestUsdc("10000");
       if (response.success) {
-        toast.success("Successfully funded with 10,000 test USDC!");
-        setTimeout(() => refetch(), 2000);
+        toast.success("Successfully funded with 10,000 official test USDC!");
+        await sleep(1500);
+        await refreshWalletView();
       } else {
-        toast.error("Failed to fund with test USDC: " + response.error);
+        toast.error("Failed to fund with official test USDC: " + response.error);
       }
     } catch {
-      toast.error("Error funding with test USDC");
+      toast.error("Error funding with official test USDC");
     }
     setFundingUSDC(false);
   };
 
-  const walletAddress = balances?.publicKey || "";
-
   useEffect(() => {
-    const fetchTransactions = async () => {
-      setTxLoading(true);
-      const res = await userApi.getWalletTransactions();
-      if (res.success && res.data) {
-        setTransactions(res.data);
-      }
-      setTxLoading(false);
-    };
-    if (walletAddress) fetchTransactions();
+    fetchTransactions();
   }, [walletAddress]);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -406,274 +467,349 @@ function WalletTab({
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Connected wallet - Glassmorphism with Solar Theme */}
-      <div className="relative overflow-hidden group">
-        <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 via-orange-500/10 to-emerald-500/20 blur-3xl opacity-50 group-hover:opacity-70 transition-opacity" />
-        <div className="relative bg-white/40 backdrop-blur-xl border border-white/40 rounded-3xl p-8 shadow-xl shadow-orange-500/5">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold bg-clip-text text-transparent bg-linear-to-r from-orange-600 to-amber-500">
-              Connected Wallet
-            </h3>
-            <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-semibold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Testnet Active
+    <div className="space-y-6">
+      <div className="bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+        {walletAddress ? (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
+                  Custodial Wallet
+                </p>
+                <h3 className="mt-2 text-2xl font-bold text-zinc-950">
+                  Stellar Testnet Wallet
+                </h3>
+                <p className="mt-2 max-w-2xl text-sm text-zinc-500">
+                  Activate the account with XLM, mint test USDC on demand, and
+                  watch the exact ledger activity from one place.
+                </p>
+              </div>
+              <div
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold",
+                  walletFunded
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-amber-200 bg-amber-50 text-amber-700",
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-2 w-2 rounded-full",
+                    walletFunded ? "bg-emerald-500" : "bg-amber-500",
+                  )}
+                />
+                {walletFunded ? "Testnet Active" : "Awaiting Funding"}
+              </div>
             </div>
-          </div>
 
-          {walletAddress ? (
-            <>
-              <div className="p-6 rounded-2xl bg-white/60 border border-white/60 mb-8 shadow-inner group/address">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
-                    Stellar Address
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold border border-amber-200">
-                    ED25519
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <code className="flex-1 text-sm font-mono truncate text-zinc-800 font-medium">
-                    {walletAddress}
-                  </code>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => {
-                        onCopy(walletAddress);
-                        toast.success("Address copied to clipboard");
-                      }}
-                      className="p-2 rounded-xl bg-white/80 hover:bg-white text-zinc-600 shadow-sm border border-zinc-100 transition-all hover:scale-110 active:scale-95"
-                    >
-                      {copied ? (
-                        <Check className="w-4 h-4 text-emerald-600" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                    <a
-                      href={`https://stellar.expert/explorer/testnet/account/${walletAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 rounded-xl bg-white/80 hover:bg-white text-zinc-600 shadow-sm border border-zinc-100 transition-all hover:scale-110"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                      XLM Balance
+                    </p>
+                    <p className="mt-3 text-3xl font-bold text-zinc-950">
+                      {formatAssetBalance(xlmBalance, "XLM")}
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      {xlmBalance} on ledger
+                    </p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-sm font-black text-white shadow-lg shadow-amber-500/20">
+                    XLM
                   </div>
                 </div>
               </div>
 
-              {/* Testnet Friendbot Section */}
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
-                <div className="flex items-center gap-2 mb-3">
-                  <Zap className="w-4 h-4 text-blue-600" />
-                  <h4 className="text-sm font-black text-blue-900 uppercase tracking-widest">
-                    Testnet Funding
-                  </h4>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                      USDC Balance
+                    </p>
+                    <p className="mt-3 text-3xl font-bold text-zinc-950">
+                      {formatAssetBalance(usdcBalance, "USDC")}
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      {usdcBalance} on ledger
+                    </p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-600/20">
+                    USD
+                  </div>
                 </div>
-                <p className="text-xs text-blue-700 mb-4">
-                  Get free testnet tokens for testing. XLM is needed for gas
-                  fees, USDC for investments.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3">
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                    Stellar Address
+                  </p>
+                  <code className="mt-2 block truncate text-sm font-medium text-zinc-900">
+                    {walletAddress}
+                  </code>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      onCopy(walletAddress);
+                      toast.success("Address copied to clipboard");
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-emerald-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    Copy
+                  </button>
+                  <a
+                    href={
+                      walletFunded
+                        ? `https://stellar.expert/explorer/testnet/account/${walletAddress}`
+                        : undefined
+                    }
+                    target={walletFunded ? "_blank" : undefined}
+                    rel={walletFunded ? "noopener noreferrer" : undefined}
+                    aria-disabled={!walletFunded}
+                    onClick={(event) => {
+                      if (!walletFunded) {
+                        event.preventDefault();
+                        toast.info(
+                          "The account will open in Stellar Expert after the first XLM funding transaction confirms.",
+                        );
+                      }
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
+                      walletFunded
+                        ? "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"
+                        : "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400",
+                    )}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Explorer
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl bg-zinc-950 p-5 text-white sm:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                    Testnet Funding
+                  </p>
+                  <h4 className="mt-2 text-xl font-bold">
+                    Fund XLM first, then load official test USDC
+                  </h4>
+                  <p className="mt-2 text-sm text-zinc-300">
+                    XLM activates the Stellar account and covers network fees.
+                    Official testnet USDC is then swapped into the wallet so
+                    the balance matches what the treasury contract can spend.
+                  </p>
+                  {!walletFunded && (
+                    <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-amber-200">
+                      Stellar Expert will show “account does not exist” until
+                      the first Friendbot transaction lands on-chain.
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid w-full gap-3 lg:max-w-md">
                   <button
                     onClick={handleFundWithFriendbot}
                     disabled={fundingXLM}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {fundingXLM ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <>
-                        <Zap className="w-4 h-4" />
-                        Get 10,000 XLM
-                      </>
+                      <Zap className="h-4 w-4" />
                     )}
+                    {walletFunded ? "Check XLM Funding" : "Activate with XLM"}
                   </button>
                   <button
                     onClick={handleFundWithTestUSDC}
-                    disabled={fundingUSDC}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                    disabled={fundingUSDC || !walletFunded}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {fundingUSDC ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <>
-                        <DollarSign className="w-4 h-4" />
-                        Get 10,000 USDC
-                      </>
+                      <DollarSign className="h-4 w-4" />
                     )}
+                    Get 10,000 Official Test USDC
                   </button>
                 </div>
               </div>
+            </div>
 
-              <div className="flex flex-wrap gap-4">
-                <button
-                  onClick={() => setShowReceive(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-zinc-900 text-white rounded-2xl text-sm font-bold hover:bg-black transition-all hover:shadow-lg active:scale-[0.98]"
-                >
-                  <Plus className="w-4 h-4" />
-                  Receive
-                </button>
-                <button
-                  onClick={() => setShowSend(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-zinc-900 border border-zinc-200 rounded-2xl text-sm font-bold hover:bg-zinc-50 transition-all hover:shadow-lg active:scale-[0.98]"
-                >
-                  <ArrowRight className="w-4 h-4" />
-                  Send
-                </button>
-                <button
-                  className="px-6 py-3.5 bg-red-50 text-red-600 border border-red-100 rounded-2xl text-sm font-bold hover:bg-red-100 transition-colors"
-                  onClick={() =>
-                    toast.info(
-                      "This is a custodial wallet managed by Aethera. It cannot be disconnected.",
-                    )
-                  }
-                >
-                  Disconnect
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-amber-100">
-                <Wallet className="w-10 h-10 text-amber-500" />
-              </div>
-              <p className="text-zinc-500 mb-8 font-medium">
-                No wallet connected
-              </p>
+            <div className="flex flex-wrap items-center gap-3">
               <button
-                className="px-10 py-4 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-black transition-all hover:shadow-xl active:scale-95"
-                onClick={() =>
-                  toast.info(
-                    "Your wallet will be created automatically. Please refresh the page or complete onboarding again.",
-                  )
-                }
+                onClick={() => setShowReceive(true)}
+                className="inline-flex items-center gap-2 rounded-2xl bg-zinc-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-black"
               >
-                Connect Wallet
+                <Plus className="h-4 w-4" />
+                Receive
               </button>
+              <button
+                onClick={() => setShowSend(true)}
+                className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-50"
+              >
+                <ArrowRight className="h-4 w-4" />
+                Send
+              </button>
+              <p className="text-sm text-zinc-500">
+                Custodial wallet managed by Aethera. Disconnect is disabled.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-amber-100 bg-amber-50 shadow-inner">
+              <Wallet className="h-10 w-10 text-amber-500" />
+            </div>
+            <p className="mb-2 text-lg font-semibold text-zinc-900">
+              Wallet not ready yet
+            </p>
+            <p className="mx-auto mb-8 max-w-md text-sm text-zinc-500">
+              Your custodial wallet is created automatically during onboarding.
+              Refresh once onboarding has completed.
+            </p>
+            <button
+              className="rounded-2xl bg-zinc-900 px-8 py-4 text-sm font-semibold text-white transition-colors hover:bg-black"
+              onClick={() =>
+                toast.info(
+                  "Your wallet will be created automatically. Please refresh the page or complete onboarding again.",
+                )
+              }
+            >
+              Refresh Wallet Setup
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <div className="bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-500" />
+              Asset Holdings
+            </h3>
+            <span className="text-xs font-medium text-zinc-500">
+              Live Horizon balances
+            </span>
+          </div>
+          {visibleBalances.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {visibleBalances.map((balance, index) => {
+                const asset = (balance.asset || "XLM").toUpperCase();
+                const accent =
+                  asset === "XLM"
+                    ? "border-amber-200 bg-amber-50"
+                    : asset === "USDC"
+                      ? "border-emerald-200 bg-emerald-50"
+                      : "border-zinc-200 bg-zinc-50";
+
+                return (
+                  <div
+                    key={`${balance.asset}-${index}`}
+                    className={cn("rounded-2xl border p-5", accent)}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                          {asset}
+                        </p>
+                        <p className="mt-3 text-2xl font-bold text-zinc-950">
+                          {formatAssetBalance(balance.balance, asset)}
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-500">
+                          {balance.balance} available
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-white/80 px-3 py-2 text-xs font-semibold text-zinc-700">
+                        {asset === "XLM"
+                          ? "Gas"
+                          : asset === "USDC"
+                            ? "Stablecoin"
+                            : "Asset"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-6 py-12 text-center">
+              <p className="text-sm font-medium text-zinc-600">
+                No on-chain balances yet
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">
+                Fund XLM first, then mint test USDC to populate this wallet.
+              </p>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Asset Holdings - Vibrant Grid */}
-      <div className="bg-white border border-zinc-200 rounded-3xl p-8">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold flex items-center gap-2">
-            <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
-            Asset Holdings
-          </h3>
-          <span className="text-xs font-medium text-zinc-500">
-            Stellar Testnet Assets
-          </span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {balances?.balances && balances.balances.length > 0 ? (
-            balances.balances
-              .filter((balance) => {
-                // Only show XLM and USDC with positive balances
-                const asset = (balance.asset || "XLM").toUpperCase();
-                const hasBalance = parseFloat(balance.balance) > 0;
-                return hasBalance && (asset === "XLM" || asset === "USDC");
-              })
-              .map((balance, index) => (
-                <div
-                  key={index}
-                  className="group relative overflow-hidden p-5 rounded-2xl bg-zinc-50 border border-zinc-100 hover:border-amber-200 transition-all hover:bg-white hover:shadow-md"
-                >
-                  <div className="absolute inset-0 bg-linear-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={cn(
-                          "w-12 h-12 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-lg",
-                          balance.asset === "XLM"
-                            ? "bg-amber-500 shadow-amber-500/20"
-                            : "bg-blue-500 shadow-blue-500/20",
-                        )}
-                      >
-                        {balance.asset === "XLM" ? "XLM" : "USD"}
-                      </div>
-                      <div>
-                        <p className="font-bold text-zinc-900">
-                          {balance.asset || "Unknown"}
-                        </p>
-                        <p className="text-[10px] text-zinc-500 uppercase font-black tracking-tighter">
-                          {balance.asset === "XLM"
-                            ? "Gas Fees"
-                            : "Investment Currency"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-black text-zinc-900">
-                        {balance.balance}
-                      </p>
-                      <p className="text-xs font-bold text-emerald-600">
-                        Available
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
-          ) : (
-            <>
-              <div className="p-5 rounded-2xl bg-zinc-50 border border-zinc-100 hover:bg-white hover:border-amber-200 transition-all group overflow-hidden relative">
-                <div className="absolute inset-0 bg-linear-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center text-white text-xs font-black shadow-lg shadow-amber-500/20">
-                      XLM
-                    </div>
-                    <div>
-                      <p className="font-bold text-zinc-900">XLM</p>
-                      <p className="text-[10px] text-zinc-500 uppercase font-black tracking-tighter">
-                        Gas Fees
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-lg font-black text-zinc-400">0.00</p>
-                </div>
-              </div>
-              <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100 hover:bg-white hover:border-blue-200 transition-all group relative overflow-hidden">
-                <div className="absolute inset-0 bg-linear-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center text-white text-xs font-black shadow-lg shadow-blue-500/20">
-                      USD
-                    </div>
-                    <div>
-                      <p className="font-bold text-zinc-900">USDC</p>
-                      <p className="text-[10px] text-zinc-500 uppercase font-black tracking-tighter">
-                        Investment Currency
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-lg font-black text-zinc-400">0.00</p>
-                </div>
-              </div>
-            </>
-          )}
+        <div className="bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-zinc-950">Wallet Summary</h3>
+            <span className="text-xs font-medium text-zinc-500">
+              Real-time state
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-2xl bg-zinc-50 px-4 py-3">
+              <span className="text-sm text-zinc-500">On-chain account</span>
+              <span
+                className={cn(
+                  "text-sm font-semibold",
+                  walletFunded ? "text-emerald-600" : "text-amber-600",
+                )}
+              >
+                {walletFunded ? "Active" : "Pending"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-2xl bg-zinc-50 px-4 py-3">
+              <span className="text-sm text-zinc-500">Visible assets</span>
+              <span className="text-sm font-semibold text-zinc-900">
+                {visibleBalances.length}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-2xl bg-zinc-50 px-4 py-3">
+              <span className="text-sm text-zinc-500">Pending claims</span>
+              <span className="text-sm font-semibold text-zinc-900">
+                {balances?.claimableBalances?.length || 0}
+              </span>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                Address preview
+              </p>
+              <p className="mt-2 font-mono text-sm text-zinc-900">
+                {truncateMiddle(walletAddress || "Not available", 10, 8)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Transaction History - Added Section */}
-      <div className="bg-white border border-zinc-200 rounded-3xl p-8">
+      <div className="bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <Clock className="w-5 h-5 text-zinc-500" />
             Recent Activity
           </h3>
           <button
-            onClick={() => {
-              const fetchTransactions = async () => {
-                setTxLoading(true);
-                const res = await userApi.getWalletTransactions();
-                if (res.success && res.data) setTransactions(res.data);
-                setTxLoading(false);
-              };
-              fetchTransactions();
-            }}
+            onClick={fetchTransactions}
             className="text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
           >
             Refresh History
@@ -690,36 +826,47 @@ function WalletTab({
             transactions.map((tx) => (
               <div
                 key={tx.id}
-                className="flex items-center justify-between p-4 rounded-2xl bg-zinc-50 border border-zinc-100 hover:bg-white hover:border-amber-100 transition-all group"
+                className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 transition-colors hover:bg-white sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                   <div
                     className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center border",
-                      tx.successful
-                        ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-600"
-                        : "bg-red-500/5 border-red-500/20 text-red-600",
+                      "flex h-10 w-10 items-center justify-center rounded-xl border",
+                      tx.direction === "in"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                        : tx.direction === "out"
+                          ? "border-blue-200 bg-blue-50 text-blue-600"
+                          : "border-zinc-200 bg-white text-zinc-500",
                     )}
                   >
                     <ArrowUpRight
-                      className={cn("w-5 h-5", !tx.successful && "rotate-90")}
+                      className={cn(
+                        "h-5 w-5",
+                        tx.direction === "in" && "rotate-180",
+                        !tx.successful && "rotate-90",
+                      )}
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-bold text-zinc-900 truncate max-w-[120px]">
-                        {tx.hash.slice(0, 8)}...{tx.hash.slice(-4)}
+                      <p className="text-sm font-semibold text-zinc-950">
+                        {tx.summary || "Ledger update"}
                       </p>
                       <a
                         href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="text-zinc-400 transition-colors hover:text-amber-600"
                       >
                         <ExternalLink className="w-3 h-3 text-zinc-500 hover:text-amber-600" />
                       </a>
                     </div>
-                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-tighter">
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {tx.counterparty
+                        ? `${tx.direction === "out" ? "To" : "From"} ${truncateMiddle(tx.counterparty, 8, 6)}`
+                        : truncateMiddle(tx.hash, 8, 6)}
+                    </p>
+                    <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-400">
                       {new Date(tx.created_at).toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
@@ -729,16 +876,21 @@ function WalletTab({
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
+                  {formatSignedAmount(tx) && (
+                    <p className="text-sm font-semibold text-zinc-950">
+                      {formatSignedAmount(tx)}
+                    </p>
+                  )}
                   <p
                     className={cn(
-                      "text-xs font-black",
+                      "text-xs font-black mt-1",
                       tx.successful ? "text-emerald-600" : "text-red-600",
                     )}
                   >
                     {tx.successful ? "SUCCESS" : "FAILED"}
                   </p>
-                  <p className="text-[10px] text-zinc-500 font-mono">
+                  <p className="text-[10px] text-zinc-500 font-mono mt-1">
                     {tx.fee_charged} XLM Fee
                   </p>
                 </div>
@@ -750,9 +902,9 @@ function WalletTab({
               <p className="text-sm text-zinc-500 font-medium">
                 No ledger activity yet
               </p>
-              <p className="text-[10px] text-zinc-400 mt-1 max-w-[200px]">
-                Transactions on the Stellar network will appear here
-                automatically.
+              <p className="text-[10px] text-zinc-400 mt-1 max-w-[220px]">
+                XLM funding, trustline setup, and test USDC minting will appear
+                here automatically.
               </p>
             </div>
           )}
@@ -761,72 +913,75 @@ function WalletTab({
 
       {/* Modals - Animated Overlays */}
       {showReceive && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300"
-            onClick={() => setShowReceive(false)}
-          />
-          <div className="relative bg-white border border-zinc-200 rounded-[32px] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-zinc-900 flex items-center justify-center mx-auto mb-6 rotate-3 shadow-xl">
-                <Plus className="w-8 h-8 text-white" />
+        <ViewportPortal>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300"
+              onClick={() => setShowReceive(false)}
+            />
+            <div className="relative bg-white border border-zinc-200 rounded-[32px] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl bg-zinc-900 flex items-center justify-center mx-auto mb-6 rotate-3 shadow-xl">
+                  <Plus className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-2xl font-black mb-2">Receive Assets</h3>
+                <p className="text-sm text-zinc-500 mb-10">
+                  Scan the QR code or share your address to get funded on Aethera.
+                </p>
               </div>
-              <h3 className="text-2xl font-black mb-2">Receive Assets</h3>
-              <p className="text-sm text-zinc-500 mb-10">
-                Scan the QR code or share your address to get funded on Aethera.
-              </p>
-            </div>
 
-            <div className="bg-linear-to-b from-zinc-50 to-white rounded-[24px] p-8 flex flex-col items-center gap-8 mb-8 border border-zinc-100 shadow-inner">
-              <div className="w-56 h-56 p-4 bg-white rounded-3xl overflow-hidden shadow-2xl border border-zinc-100 group">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${walletAddress}`}
-                  alt="Wallet QR Code"
-                  className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500"
-                />
-              </div>
-              <div className="w-full">
-                <label className="block text-[10px] font-black text-zinc-500 mb-3 uppercase tracking-[0.2em] text-center">
-                  Your Public Identity
-                </label>
-                <div className="flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm group/input">
-                  <code className="flex-1 text-xs font-mono truncate text-zinc-900 font-bold">
-                    {walletAddress}
-                  </code>
-                  <button
-                    onClick={() => {
-                      onCopy(walletAddress);
-                      toast.success("Address copied to clipboard");
-                    }}
-                    className="p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-zinc-600 transition-all hover:scale-110"
-                  >
-                    {copied ? (
-                      <Check className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
+              <div className="bg-linear-to-b from-zinc-50 to-white rounded-[24px] p-8 flex flex-col items-center gap-8 mb-8 border border-zinc-100 shadow-inner">
+                <div className="w-56 h-56 p-4 bg-white rounded-3xl overflow-hidden shadow-2xl border border-zinc-100 group">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${walletAddress}`}
+                    alt="Wallet QR Code"
+                    className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500"
+                  />
+                </div>
+                <div className="w-full">
+                  <label className="block text-[10px] font-black text-zinc-500 mb-3 uppercase tracking-[0.2em] text-center">
+                    Your Public Identity
+                  </label>
+                  <div className="flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-2xl shadow-sm group/input">
+                    <code className="flex-1 text-xs font-mono truncate text-zinc-900 font-bold">
+                      {walletAddress}
+                    </code>
+                    <button
+                      onClick={() => {
+                        onCopy(walletAddress);
+                        toast.success("Address copied to clipboard");
+                      }}
+                      className="p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-zinc-600 transition-all hover:scale-110"
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => setShowReceive(false)}
-              className="w-full py-4.5 bg-zinc-900 text-white rounded-[20px] font-black text-sm uppercase tracking-wider hover:bg-black transition-all hover:shadow-xl active:scale-[0.98]"
-            >
-              Close Window
-            </button>
+              <button
+                onClick={() => setShowReceive(false)}
+                className="w-full py-4.5 bg-zinc-900 text-white rounded-[20px] font-black text-sm uppercase tracking-wider hover:bg-black transition-all hover:shadow-xl active:scale-[0.98]"
+              >
+                Close Window
+              </button>
+            </div>
           </div>
-        </div>
+        </ViewportPortal>
       )}
 
       {showSend && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300"
-            onClick={() => setShowSend(false)}
-          />
-          <div className="relative bg-white border border-zinc-200 rounded-[32px] w-full max-w-lg p-10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+        <ViewportPortal>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300"
+              onClick={() => setShowSend(false)}
+            />
+            <div className="relative bg-white border border-zinc-200 rounded-[32px] w-full max-w-lg p-10 shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-2xl font-black">Send Assets</h3>
@@ -950,7 +1105,8 @@ function WalletTab({
               </div>
             </form>
           </div>
-        </div>
+          </div>
+        </ViewportPortal>
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import {
   MilestoneStatus,
   VerificationMethod,
 } from "@aethera/database";
-import { contractService, getContractAddresses } from "@aethera/stellar";
+import { contractService, getContractAddresses, walletService } from "@aethera/stellar";
 import { Keypair } from "@stellar/stellar-sdk";
 import { notificationService } from "./notificationService.js";
 
@@ -167,24 +167,32 @@ export class MilestoneService {
 
     let txHash: string | null = null;
 
-    // Attempt real on-chain milestone fund release
-    const relayerSecret = process.env.STAT_RELAYER_SECRET;
+    // Attempt real on-chain milestone fund release using the admin relayer key
+    const encryptedAdminSecret = process.env.ADMIN_RELAYER_SECRET_ENCRYPTED;
     const contracts = getContractAddresses();
 
     if (
-      relayerSecret &&
+      encryptedAdminSecret &&
       contracts.treasury &&
       project.installer?.stellarPubKey
     ) {
       try {
-        const relayerKeypair = Keypair.fromSecret(relayerSecret);
+        const adminSecret = walletService.decryptSecret(encryptedAdminSecret);
+        const adminKeypair = Keypair.fromSecret(adminSecret);
         const milestoneIndex = Math.max(0, milestone.order - 1);
+        // Scale to 6 decimal places (USDC standard: 1 USDC = 1_000_000 stroops)
         const amountScaled = BigInt(
-          Math.round(Number(milestone.releaseAmount) * 10_000_000),
+          Math.round(Number(milestone.releaseAmount) * 1_000_000),
         );
+
+        console.log(
+          `[MilestoneService] 🔗 Releasing milestone funds on-chain: ` +
+          `milestone=${milestone.name} index=${milestoneIndex} amount=${amountScaled} (scaled)`,
+        );
+
         const result = await contractService.releaseMilestoneFunds(
           contracts.treasury,
-          relayerKeypair,
+          adminKeypair,
           project.id,
           milestoneIndex,
           amountScaled,
@@ -192,21 +200,23 @@ export class MilestoneService {
 
         if (result.success) {
           txHash = result.txHash || null;
+          console.log(`[MilestoneService] ✅ On-chain release successful. Tx: ${txHash}`);
         } else {
           console.warn(
-            `On-chain milestone release returned non-success for milestone ${milestoneId}:`,
+            `[MilestoneService] On-chain milestone release returned non-success for milestone ${milestoneId}:`,
             result.error,
           );
         }
       } catch (error) {
         console.warn(
-          `On-chain milestone release failed for milestone ${milestoneId}, proceeding with DB update only:`,
+          `[MilestoneService] On-chain milestone release failed, proceeding with DB update only:`,
           error,
         );
       }
     } else {
       console.warn(
-        `Skipping on-chain milestone release: missing relayer secret, treasury contract, or installer public key`,
+        `[MilestoneService] Skipping on-chain milestone release: ` +
+        `missing ADMIN_RELAYER_SECRET_ENCRYPTED, treasury contract, or installer Stellar pubkey.`,
       );
     }
 

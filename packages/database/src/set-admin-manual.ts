@@ -1,33 +1,50 @@
-import { config } from "dotenv";
-import path from "path";
-config({ path: path.resolve(__dirname, "../../../.env") });
-config({ path: path.resolve(__dirname, "../../../.env.local") });
+import { existsSync } from "fs";
+import { join } from "path";
+import dotenv from "dotenv";
 
-import prisma from "./index.js";
+const envCandidates = [
+  join(process.cwd(), "apps/api/.env"),
+  join(process.cwd(), "../../apps/api/.env"),
+  join(process.cwd(), ".env"),
+  join(process.cwd(), ".env.local"),
+];
+
+for (const envPath of envCandidates) {
+  if (existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
+}
 
 async function main() {
-  const email = "adityamoharana80@gmail.com";
-  const role = "ADMIN";
+  const email = process.argv[2] || process.env.ADMIN_EMAIL || "ownyourblogs@gmail.com";
+  const role = (process.argv[3] || process.env.ADMIN_ROLE || "ADMIN").toUpperCase();
+
+  if (!["ADMIN", "INVESTOR", "INSTALLER", "UNSET"].includes(role)) {
+    throw new Error(`Unsupported role: ${role}`);
+  }
+
+  const { prisma } = await import("./index.js");
 
   console.log(`Setting role ${role} for ${email}...`);
 
-  const user = await prisma.user.findFirst({
-    where: { email: email },
+  const user = await prisma.user.findUnique({
+    where: { email },
   });
 
   if (!user) {
-    console.error(`\n❌ User with email "${email}" not found.\n`);
-    process.exit(1);
+    throw new Error(`User with email "${email}" not found.`);
   }
 
-  const updated = await prisma.user.update({
+  await prisma.user.update({
     where: { id: user.id },
-    data: { role: role },
+    data: { role: role as any },
   });
 
-  console.log(`\n✅ User role updated successfully!`);
+  console.log("Role updated successfully.");
+  await prisma.$disconnect();
 }
 
-main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

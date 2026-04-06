@@ -16,6 +16,104 @@ export interface CustodialWallet {
   encryptedSecret: string;
 }
 
+function titleCaseOperation(type: string): string {
+  return type
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getAssetLabel(assetType?: string, assetCode?: string): string {
+  return assetType === "native" ? "XLM" : assetCode || "ASSET";
+}
+
+function summarizeOperation(publicKey: string, operation: any) {
+  switch (operation.type) {
+    case "create_account": {
+      const account = operation.account || operation.destination;
+      const funder = operation.funder || operation.source_account;
+      const incoming = account === publicKey;
+      return {
+        amount: operation.starting_balance || undefined,
+        asset: "XLM",
+        direction: incoming ? "in" : "out",
+        counterparty: incoming ? funder : account,
+        summary: incoming ? "Account activated" : "Account created",
+      };
+    }
+
+    case "payment": {
+      const incoming =
+        operation.to === publicKey || operation.destination === publicKey;
+      return {
+        amount: operation.amount || undefined,
+        asset: getAssetLabel(operation.asset_type, operation.asset_code),
+        direction: incoming ? "in" : "out",
+        counterparty: incoming
+          ? operation.from || operation.source_account
+          : operation.to || operation.destination,
+        summary: incoming ? "Payment received" : "Payment sent",
+      };
+    }
+
+    case "path_payment_strict_receive":
+    case "path_payment_strict_send": {
+      const incoming = operation.destination === publicKey;
+      return {
+        amount:
+          operation.dest_amount ||
+          operation.amount ||
+          operation.source_amount ||
+          operation.destination_min ||
+          undefined,
+        asset: incoming
+          ? getAssetLabel(
+              operation.dest_asset_type || operation.destination_asset_type,
+              operation.dest_asset_code || operation.destination_asset_code,
+            )
+          : getAssetLabel(
+              operation.source_asset_type,
+              operation.source_asset_code,
+            ),
+        direction: incoming ? "in" : "out",
+        counterparty: incoming
+          ? operation.source_account
+          : operation.destination,
+        summary: incoming ? "Swap received" : "Swap sent",
+      };
+    }
+
+    case "change_trust": {
+      const asset = operation.asset_code || "ASSET";
+      return {
+        amount: undefined,
+        asset,
+        direction: "neutral",
+        counterparty: operation.source_account,
+        summary: `${asset} trustline enabled`,
+      };
+    }
+
+    case "claim_claimable_balance":
+      return {
+        amount: undefined,
+        asset: undefined,
+        direction: "in",
+        counterparty: operation.source_account,
+        summary: "Claimed balance",
+      };
+
+    default:
+      return {
+        amount: undefined,
+        asset: undefined,
+        direction: "neutral",
+        counterparty: operation.source_account,
+        summary: titleCaseOperation(operation.type || "transaction"),
+      };
+  }
+}
+
 export class WalletService {
   private encryptionKey: string;
 
@@ -104,14 +202,57 @@ export class WalletService {
    */
   async getTransactions(publicKey: string, limit = 10): Promise<any[]> {
     try {
-      const txs = await stellarClient.horizon
-        .transactions()
-        .forAccount(publicKey)
-        .order("desc")
-        .limit(limit)
-        .call();
+      const [txs, operations] = await Promise.all([
+        stellarClient.horizon
+          .transactions()
+          .forAccount(publicKey)
+          .order("desc")
+          .limit(limit * 3)
+          .call(),
+        stellarClient.horizon
+          .operations()
+          .forAccount(publicKey)
+          .order("desc")
+          .limit(limit * 5)
+          .call(),
+      ]);
 
-      return txs.records.map((r: any) => ({
+      const txMap = new Map(
+        txs.records.map((record: any) => [record.hash, record]),
+      );
+
+      const operationHistory = operations.records
+        .map((operation: any) => {
+          const tx =
+            txMap.get(operation.transaction_hash) ||
+            txs.records.find((record: any) => record.id === operation.transaction_id);
+          const details = summarizeOperation(publicKey, operation);
+
+          return {
+            id: operation.id,
+            hash: operation.transaction_hash || tx?.hash || operation.id,
+            created_at: operation.created_at || tx?.created_at,
+            source_account: operation.source_account || tx?.source_account,
+            fee_charged: tx?.fee_charged || "0",
+            memo: tx?.memo || "",
+            successful:
+              tx?.successful ?? operation.transaction_successful ?? true,
+            operation_type: operation.type,
+            summary: details.summary,
+            amount: details.amount,
+            asset: details.asset,
+            direction: details.direction,
+            counterparty: details.counterparty,
+          };
+        })
+        .filter((record: any) => record.created_at)
+        .slice(0, limit);
+
+      if (operationHistory.length > 0) {
+        return operationHistory;
+      }
+
+      return txs.records.slice(0, limit).map((r: any) => ({
         id: r.id,
         hash: r.hash,
         created_at: r.created_at,
@@ -119,6 +260,12 @@ export class WalletService {
         fee_charged: r.fee_charged,
         memo: r.memo,
         successful: r.successful,
+        operation_type: "transaction",
+        summary: "Transaction submitted",
+        amount: undefined,
+        asset: undefined,
+        direction: "neutral",
+        counterparty: r.source_account,
       }));
     } catch (error: any) {
       if (error.response?.status === 404) {

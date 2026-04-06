@@ -83,36 +83,25 @@ export class TrustlineService {
   }
 
   /**
-   * Get USDC balance for an account
-   * In testnet, accepts USDC from ANY issuer to support test USDC
-   * In mainnet, only accepts official Circle USDC
+   * Get supported USDC balance for an account.
+   * We intentionally use the configured canonical issuer on both networks so
+   * wallet display and contract spendability stay aligned.
    */
   async getUSDCBalance(publicKey: string): Promise<string> {
     try {
       const account = await this.server.loadAccount(publicKey);
       const usdcAsset = getUSDCAsset();
-      const isTestnet = this.network === Networks.TESTNET;
-
-      // Find all USDC balances
       const usdcBalances = account.balances.filter(
         (balance: Horizon.HorizonApi.BalanceLine) => {
           if (balance.asset_type === "native") return false;
           const stellarBalance = balance as Horizon.HorizonApi.BalanceLineAsset;
-
-          // In testnet: accept USDC from any issuer
-          // In mainnet: only accept from official issuer
-          if (isTestnet) {
-            return stellarBalance.asset_code === "USDC";
-          } else {
-            return (
-              stellarBalance.asset_code === usdcAsset.code &&
-              stellarBalance.asset_issuer === usdcAsset.issuer
-            );
-          }
+          return (
+            stellarBalance.asset_code === usdcAsset.code &&
+            stellarBalance.asset_issuer === usdcAsset.issuer
+          );
         },
       ) as Horizon.HorizonApi.BalanceLineAsset[];
 
-      // Sum all USDC balances (in testnet there might be multiple from different issuers)
       const totalBalance = usdcBalances.reduce((sum, balance) => {
         return sum + parseFloat(balance.balance);
       }, 0);

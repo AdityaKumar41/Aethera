@@ -8,6 +8,7 @@ import { walletService } from '@aethera/stellar';
 import { createApiError } from '../middleware/error.js';
 import { syncKycStatus } from './kyc.js';
 import { authenticate, type AuthenticatedRequest } from '../middleware/auth.js';
+import { ensureUserWallet } from '../services/userWalletService.js';
 
 const router = Router();
 
@@ -70,6 +71,16 @@ router.post('/sync', authenticate, async (req: AuthenticatedRequest, res, next) 
       });
     }
 
+    await ensureUserWallet(userId, { fundOnTestnet: true });
+
+    user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw createApiError('User record not found after sync', 500, 'USER_SYNC_FAILED');
+    }
+
     res.status(user ? 200 : 201).json({
       success: true,
       data: user,
@@ -84,6 +95,8 @@ router.post('/sync', authenticate, async (req: AuthenticatedRequest, res, next) 
  */
 router.get('/me', authenticate, async (req: AuthenticatedRequest, res, next) => {
   try {
+    await ensureUserWallet(req.auth!.userId);
+
     // Sync KYC status in background or inline - inline is safer for frontend consistency
     let kycSyncResult = null;
     try {

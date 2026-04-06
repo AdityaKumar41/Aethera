@@ -237,7 +237,15 @@ export class ContractService {
     );
 
     if (result.success && result.result) {
-      const scVal = result.result as StellarSdk.xdr.ScVal;
+      const scVal =
+        result.result instanceof StellarSdk.xdr.ScVal
+          ? result.result
+          : (result.result as { retval?: StellarSdk.xdr.ScVal }).retval;
+
+      if (!scVal) {
+        return null;
+      }
+
       return { balance: StellarSdk.scValToNative(scVal) };
     }
 
@@ -259,7 +267,16 @@ export class ContractService {
     );
 
     if (result.success && result.result) {
-      return StellarSdk.scValToNative(result.result as StellarSdk.xdr.ScVal);
+      const scVal =
+        result.result instanceof StellarSdk.xdr.ScVal
+          ? result.result
+          : (result.result as { retval?: StellarSdk.xdr.ScVal }).retval;
+
+      if (!scVal) {
+        return null;
+      }
+
+      return StellarSdk.scValToNative(scVal);
     }
 
     return null;

@@ -23,6 +23,7 @@ const pathToSection: Record<string, string> = {
   "/dashboard/admin-stats": "admin-stats",
   "/dashboard/admin-projects": "admin-projects",
   "/dashboard/admin-kyc": "admin-kyc",
+  "/dashboard/admin-relayer": "admin-relayer",
   "/dashboard/governance": "governance",
 };
 
@@ -30,6 +31,8 @@ const pathToSection: Record<string, string> = {
 function getActiveSection(pathname: string): string | undefined {
   if (pathToSection[pathname]) return pathToSection[pathname];
   if (pathname.startsWith("/dashboard/my-projects/")) return "my-projects";
+  if (pathname.startsWith("/dashboard/marketplace/")) return "marketplace";
+  if (pathname.startsWith("/dashboard/admin-projects/")) return "admin-projects";
   return undefined;
 }
 
@@ -170,7 +173,7 @@ export default function DashboardLayout({
           walletAddress={walletAddress}
         />
         <main className="flex-1 p-6 overflow-auto bg-zinc-50/50">
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-[1600px] mx-auto">
+          <div className="animate-in fade-in duration-500 max-w-[1600px] mx-auto">
             {children}
           </div>
         </main>
